@@ -17,12 +17,12 @@ class LimitBreakAgent(BaseAgent):
         challenge: Challenge,
         ctx: AgentContext,
     ) -> AgentNote:
+        progress = challenge.get_limit_progress()
         limits_detail = []
         for name in limit_names:
             for limit in challenge.limits:
                 if limit.name == name:
-                    matching = challenge.get_matching_statuses(limit.name)
-                    current = max((s.current_tier for s in matching), default=0)
+                    current = progress[limit.name]
                     limits_detail.append(f"  {limit.name}: {current}/{limit.max_tier} (极限突破!)")
                     break
 

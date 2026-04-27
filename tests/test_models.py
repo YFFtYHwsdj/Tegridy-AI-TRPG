@@ -126,6 +126,24 @@ class TestChallenge(unittest.TestCase):
         self.assertEqual(len(triggered), 1)
         self.assertEqual(triggered[0].name, "说服或威胁")
 
+    def test_get_limit_progress_empty(self):
+        self.assertEqual(
+            self.challenge.get_limit_progress(),
+            {"说服或威胁": 0, "伤害或制服": 0},
+        )
+
+    def test_get_limit_progress_with_statuses(self):
+        self.challenge.statuses["被说服"] = Status(
+            name="被说服", current_tier=2, ticked_boxes={2}, limit_category="说服或威胁"
+        )
+        self.challenge.statuses["受伤"] = Status(
+            name="受伤", current_tier=1, ticked_boxes={1}, limit_category="伤害或制服"
+        )
+        self.assertEqual(
+            self.challenge.get_limit_progress(),
+            {"说服或威胁": 2, "伤害或制服": 1},
+        )
+
     def test_get_matching_statuses_no_limit_category(self):
         s = Status(name="受伤", current_tier=2, ticked_boxes={2})
         self.challenge.statuses["受伤"] = s

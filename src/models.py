@@ -59,6 +59,15 @@ class Challenge:
                 results.append(status)
         return results
 
+    def get_limit_progress(self) -> dict[str, int]:
+        return {
+            limit.name: max(
+                (s.current_tier for s in self.get_matching_statuses(limit.name)),
+                default=0,
+            )
+            for limit in self.limits
+        }
+
     def check_limits(self) -> list[Limit]:
         triggered = []
         for limit in self.limits:

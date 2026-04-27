@@ -1,0 +1,96 @@
+from __future__ import annotations
+
+from src.formatter import format_statuses, format_story_tags, format_limit_progress
+from src.pipeline._tag_utils import extract_tag_names, extract_status_names
+
+
+class ConsoleDisplay:
+    @staticmethod
+    def print_tag_and_roll(tag_note, roll):
+        matched_power = tag_note.structured.get("matched_power_tags", [])
+        matched_weakness = tag_note.structured.get("matched_weakness_tags", [])
+        power_tag_names = extract_tag_names(matched_power)
+        weakness_tag_names = extract_tag_names(matched_weakness)
+
+        helping_statuses = tag_note.structured.get("helping_statuses", [])
+        hindering_statuses = tag_note.structured.get("hindering_statuses", [])
+        help_names = extract_status_names(helping_statuses)
+        hinder_names = extract_status_names(hindering_statuses)
+
+        print(f"  匹配标签: {power_tag_names} | 弱点: {weakness_tag_names}")
+        if help_names or hinder_names:
+            status_parts = []
+            if help_names:
+                status_parts.append(f"帮助状态: {help_names}")
+            if hinder_names:
+                status_parts.append(f"阻碍状态: {hinder_names}")
+            print(f"  状态影响: {' | '.join(status_parts)}")
+        print(f"  力量: {roll.power} | 掷骰: {roll.dice[0]}+{roll.dice[1]} = {roll.total} → {roll.outcome}")
+
+    @staticmethod
+    def print_effects(effect_note):
+        if effect_note is None:
+            return
+        effects = effect_note.structured.get("effects", [])
+        if effects:
+            eff_summary = ", ".join(f"{e.get('label','?')} ({e.get('effect_type','?')} {e.get('tier','?')})" for e in effects)
+            print(f"  实际效果: {eff_summary}")
+        else:
+            print(f"  实际效果: 无")
+
+    @staticmethod
+    def print_effects_or_quick_note(effect_note, quick=False):
+        if quick:
+            print(f"  实际效果: 无（快速结算不花费力量）")
+        elif effect_note is not None:
+            ConsoleDisplay.print_effects(effect_note)
+
+    @staticmethod
+    def print_strategy(narrator_note):
+        strategy = narrator_note.structured.get("scene_update") or narrator_note.reasoning[:60]
+        if strategy:
+            print(f"  叙事策略: {strategy}")
+
+    @staticmethod
+    def print_consequences(consequence_note):
+        if not consequence_note:
+            return
+        cons_list = consequence_note.structured.get("consequences", [])
+        if not cons_list:
+            return
+        cons_summary = ", ".join(
+            c.get("threat_manifested") or c.get("description", "?") for c in cons_list
+        )
+        print(f"  后果: {cons_summary}")
+
+    @staticmethod
+    def print_status(state):
+        if state.character is None or state.challenge is None:
+            return
+        print(f"\n  [角色: {state.character.name}]")
+        print(f"  状态: {format_statuses(state.character.statuses)}")
+        print(f"  故事标签: {format_story_tags(state.character.story_tags)}")
+
+        print(f"\n  [挑战: {state.challenge.name}]")
+        progress = state.challenge.get_limit_progress()
+        for limit in state.challenge.limits:
+            current = progress[limit.name]
+            print(f"  {format_limit_progress(limit, current)}")
+        print(f"  故事标签: {format_story_tags(state.challenge.story_tags)}")
+        print(f"  状态: {format_statuses(state.challenge.statuses)}")
+
+    @staticmethod
+    def print_split_action_header(count: int):
+        print(f"  ⚡ 行动拆分为 {count} 个子行动")
+
+    @staticmethod
+    def print_split_sub_header(index: int, total: int, summary: str):
+        print(f"\n  --- 子行动 {index}/{total}: {summary} ---")
+
+    @staticmethod
+    def print_split_blocked(action_summary: str, reason: str):
+        print(f"\n  ⛔ 子行动 [{action_summary}] 无法继续: {reason}")
+
+    @staticmethod
+    def print_incapacitated_break():
+        print(f"\n  💀 角色已丧失行动能力，剩余子行动中断")

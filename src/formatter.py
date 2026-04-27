@@ -48,9 +48,9 @@ def format_challenge_state(challenge) -> str:
     if challenge.notes:
         lines.append(f"便签: {challenge.notes}")
     lines.append("极限:")
+    progress = challenge.get_limit_progress()
     for limit in challenge.limits:
-        matching = challenge.get_matching_statuses(limit.name)
-        current = max((s.current_tier for s in matching), default=0)
+        current = progress[limit.name]
         lines.append(f"  - {format_limit_progress(limit, current)}")
     if challenge.base_tags:
         lines.append(f"基础标签: {', '.join(t.name for t in challenge.base_tags)}")
@@ -61,11 +61,12 @@ def format_challenge_state(challenge) -> str:
 
 def format_limit_gap(challenge) -> str:
     lines = []
+    progress = challenge.get_limit_progress()
     for limit in challenge.limits:
-        matching = challenge.get_matching_statuses(limit.name)
-        current = max((s.current_tier for s in matching), default=0)
+        current = progress[limit.name]
         gap = limit.max_tier - current
         if current > 0:
+            matching = challenge.get_matching_statuses(limit.name)
             status_names = [s.name for s in matching if s.current_tier > 0]
             lines.append(
                 f"  {limit.name}: 当前{current}/{limit.max_tier} "
