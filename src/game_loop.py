@@ -8,8 +8,9 @@ from src.context import AgentContext
 from src.agents import (
     RhythmAgent, MoveGatekeeperAgent, IntentAgent,
     TagMatcherAgent, EffectActualizationAgent, ConsequenceAgent,
-    NarratorAgent, LiteNarratorAgent, LimitBreakAgent,
-    ContinuationCheckAgent,
+    QuickConsequenceAgent, NarratorAgent, LiteNarratorAgent,
+    QuickNarratorAgent, LimitBreakAgent,
+    ContinuationCheckAgent, ResolutionModeAgent,
 )
 from src.logger import log_roll, log_status_update, log_system
 
@@ -38,10 +39,13 @@ class GameLoop:
         self.tag_agent = TagMatcherAgent(llm)
         self.effect_agent = EffectActualizationAgent(llm)
         self.consequence_agent = ConsequenceAgent(llm)
+        self.quick_consequence_agent = QuickConsequenceAgent(llm)
         self.narrator = NarratorAgent(llm)
         self.lite_narrator = LiteNarratorAgent(llm)
+        self.quick_narrator = QuickNarratorAgent(llm)
         self.limit_break_agent = LimitBreakAgent(llm)
         self.continuation_check = ContinuationCheckAgent(llm)
+        self.resolution_agent = ResolutionModeAgent(llm)
 
         self.character: Optional[Character] = None
         self.challenge: Optional[Challenge] = None
@@ -169,6 +173,45 @@ class GameLoop:
 
         return tag_note, roll, effect_note, consequence_note, narrator_note
 
+    def _run_quick_pipeline(self, intent_note, ctx):
+        tag_note = self.tag_agent.execute(intent_note, ctx)
+
+        matched_power = tag_note.structured.get("matched_power_tags", [])
+        matched_weakness = tag_note.structured.get("matched_weakness_tags", [])
+        power_tag_names = [t["name"] if isinstance(t, dict) else t for t in matched_power]
+        weakness_tag_names = [t["name"] if isinstance(t, dict) else t for t in matched_weakness]
+
+        helping_statuses = tag_note.structured.get("helping_statuses", [])
+        hindering_statuses = tag_note.structured.get("hindering_statuses", [])
+        best_status_tier = max(
+            (s["tier"] for s in helping_statuses if isinstance(s, dict) and s.get("tier")), default=0
+        )
+        worst_status_tier = max(
+            (s["tier"] for s in hindering_statuses if isinstance(s, dict) and s.get("tier")), default=0
+        )
+
+        power = calculate_power(
+            power_tag_names, weakness_tag_names,
+            best_status_tier=best_status_tier,
+            worst_status_tier=worst_status_tier,
+        )
+        roll = roll_dice(power)
+
+        log_roll(power, roll.dice, roll.total, roll.outcome, power_tag_names, weakness_tag_names)
+
+        consequence_note = None
+        if roll.outcome in ("partial_success", "failure"):
+            consequence_note = self.quick_consequence_agent.execute(
+                intent_note, roll, ctx
+            )
+
+        narrator_note = self.quick_narrator.execute(
+            intent_note, roll, ctx,
+            consequence_note=consequence_note,
+        )
+
+        return tag_note, roll, consequence_note, narrator_note
+
     def process_action(self, player_input: str) -> str:
         if player_input.strip().lower() in ("quit", "exit", "q"):
             return "QUIT"
@@ -208,46 +251,24 @@ class GameLoop:
         if is_split and isinstance(split_actions, list) and len(split_actions) >= 2:
             return self._process_split_actions(intent_note, split_actions)
 
+        resolution_note = self.resolution_agent.execute(intent_note, ctx)
+        resolution_mode = resolution_note.structured.get("resolution_mode", "detailed")
+        resolution_reason = resolution_note.structured.get("reason", "")
+        print(f"  结算模式: {resolution_mode} ({resolution_reason})")
+
+        if resolution_mode == "quick":
+            return self._process_quick_outcome(intent_note, ctx)
+
         tag_note, roll, effect_note, consequence_note, narrator_note = self._run_single_move_pipeline(
             intent_note, ctx
         )
 
-        matched_power = tag_note.structured.get("matched_power_tags", [])
-        matched_weakness = tag_note.structured.get("matched_weakness_tags", [])
-        power_tag_names = [t["name"] if isinstance(t, dict) else t for t in matched_power]
-        weakness_tag_names = [t["name"] if isinstance(t, dict) else t for t in matched_weakness]
-
-        helping_statuses = tag_note.structured.get("helping_statuses", [])
-        hindering_statuses = tag_note.structured.get("hindering_statuses", [])
-        help_names = [s["name"] for s in helping_statuses if isinstance(s, dict) and s.get("name")]
-        hinder_names = [s["name"] for s in hindering_statuses if isinstance(s, dict) and s.get("name")]
-
-        print(f"  匹配标签: {power_tag_names} | 弱点: {weakness_tag_names}")
-        if help_names or hinder_names:
-            status_parts = []
-            if help_names:
-                status_parts.append(f"帮助状态: {help_names}")
-            if hinder_names:
-                status_parts.append(f"阻碍状态: {hinder_names}")
-            print(f"  状态影响: {' | '.join(status_parts)}")
-        print(f"  力量: {roll.power} | 掷骰: {roll.dice[0]}+{roll.dice[1]} = {roll.total} → {roll.outcome}")
-
-        effects = effect_note.structured.get("effects", [])
-        if effects:
-            eff_summary = ", ".join(f"{e.get('label','?')} ({e.get('effect_type','?')} {e.get('tier','?')})" for e in effects)
-            print(f"  实际效果: {eff_summary}")
-        else:
-            print(f"  实际效果: 无")
-
-        if consequence_note:
-            cons_list = consequence_note.structured.get("consequences", [])
-            if cons_list:
-                cons_summary = ", ".join(c.get("threat_manifested", "?") for c in cons_list)
-                print(f"  后果: {cons_summary}")
-
-        strat = narrator_note.structured.get("scene_update") or narrator_note.reasoning[:60]
-        if strat:
-            print(f"  叙事策略: {strat}")
+        self._print_tag_and_roll(tag_note, roll)
+        self._print_effects(effect_note)
+        self._print_consequences(consequence_note, detailed=True)
+        strategy = narrator_note.structured.get("scene_update") or narrator_note.reasoning[:60]
+        if strategy:
+            print(f"  叙事策略: {strategy}")
 
         self._apply_results(effect_note, consequence_note, roll.outcome)
 
@@ -269,6 +290,82 @@ class GameLoop:
                 self._handle_limit_break(triggered_limits)
 
         return narrative
+
+    def _process_quick_outcome(self, intent_note, ctx) -> str:
+        tag_note, roll, consequence_note, narrator_note = self._run_quick_pipeline(
+            intent_note, ctx
+        )
+
+        self._print_tag_and_roll(tag_note, roll)
+        print(f"  实际效果: 无（快速结算不花费力量）")
+        self._print_consequences(consequence_note, detailed=False)
+        strategy = narrator_note.structured.get("scene_update") or narrator_note.reasoning[:60]
+        if strategy:
+            print(f"  叙事策略: {strategy}")
+
+        self._apply_results(None, consequence_note, roll.outcome)
+
+        if self.character and self.challenge:
+            log_status_update(self.character.name, self.character.statuses)
+            log_status_update(self.challenge.name, self.challenge.statuses)
+
+        print("─" * 50)
+
+        narrative = narrator_note.structured.get("narrative", "")
+        print(f"\n{narrative}")
+        self._append_narrative(narrative)
+
+        self._print_status()
+
+        if self.challenge is not None:
+            triggered_limits = check_limits(self.challenge)
+            if triggered_limits:
+                self._handle_limit_break(triggered_limits)
+
+        return narrative
+
+    def _print_tag_and_roll(self, tag_note, roll):
+        matched_power = tag_note.structured.get("matched_power_tags", [])
+        matched_weakness = tag_note.structured.get("matched_weakness_tags", [])
+        power_tag_names = [t["name"] if isinstance(t, dict) else t for t in matched_power]
+        weakness_tag_names = [t["name"] if isinstance(t, dict) else t for t in matched_weakness]
+
+        helping_statuses = tag_note.structured.get("helping_statuses", [])
+        hindering_statuses = tag_note.structured.get("hindering_statuses", [])
+        help_names = [s["name"] for s in helping_statuses if isinstance(s, dict) and s.get("name")]
+        hinder_names = [s["name"] for s in hindering_statuses if isinstance(s, dict) and s.get("name")]
+
+        print(f"  匹配标签: {power_tag_names} | 弱点: {weakness_tag_names}")
+        if help_names or hinder_names:
+            status_parts = []
+            if help_names:
+                status_parts.append(f"帮助状态: {help_names}")
+            if hinder_names:
+                status_parts.append(f"阻碍状态: {hinder_names}")
+            print(f"  状态影响: {' | '.join(status_parts)}")
+        print(f"  力量: {roll.power} | 掷骰: {roll.dice[0]}+{roll.dice[1]} = {roll.total} → {roll.outcome}")
+
+    def _print_effects(self, effect_note):
+        if effect_note is None:
+            return
+        effects = effect_note.structured.get("effects", [])
+        if effects:
+            eff_summary = ", ".join(f"{e.get('label','?')} ({e.get('effect_type','?')} {e.get('tier','?')})" for e in effects)
+            print(f"  实际效果: {eff_summary}")
+        else:
+            print(f"  实际效果: 无")
+
+    def _print_consequences(self, consequence_note, detailed=True):
+        if not consequence_note:
+            return
+        cons_list = consequence_note.structured.get("consequences", [])
+        if not cons_list:
+            return
+        if detailed:
+            cons_summary = ", ".join(c.get("threat_manifested", "?") for c in cons_list)
+        else:
+            cons_summary = ", ".join(c.get("description", "?") for c in cons_list)
+        print(f"  后果: {cons_summary}")
 
     def _process_split_actions(self, intent_note, split_actions) -> str:
         print(f"  ⚡ 行动拆分为 {len(split_actions)} 个子行动")
@@ -490,7 +587,7 @@ class GameLoop:
                     eff_type = eff.get("effect_type", "?")
                     log_system(f"[效果应用错误] {eff_type} ({operation}): {e}")
 
-        effects = effect_note.structured.get("effects", [])
+        effects = effect_note.structured.get("effects", []) if effect_note is not None else []
         _apply_effect_list(effects)
 
         if consequence_note:
