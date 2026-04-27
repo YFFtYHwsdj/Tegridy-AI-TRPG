@@ -65,6 +65,10 @@ class GameLoop:
             f"挑战: {self.challenge.name} - {self.challenge.description}",
             f"  极限进度: {limits}",
         ]
+        if self.challenge.broken_limits:
+            lines.append(f"  已突破极限: {', '.join(self.challenge.broken_limits)}")
+        if self.challenge.transformation:
+            lines.append(f"  挑战转变: {self.challenge.transformation}")
         return "\n".join(lines)
 
     def _build_narrative_block(self) -> str:
@@ -216,6 +220,30 @@ class GameLoop:
             if triggered_limits:
                 limit_names = [l.name for l in triggered_limits]
                 print(f"\n  ⚡ 极限突破: {', '.join(limit_names)}!")
+
+                fresh_context = self._build_context_block()
+                fresh_narrative = self._build_narrative_block()
+
+                limit_break_note = self.runner.run_limit_break_agent(
+                    limit_names, self.challenge,
+                    fresh_context, fresh_narrative,
+                )
+                break_narrative = limit_break_note.structured.get("narrative", "")
+                if break_narrative:
+                    print("\n" + "─" * 50)
+                    print(f"\n{break_narrative}")
+                    self._append_narrative(break_narrative)
+
+                transformation = limit_break_note.structured.get("challenge_transformation", "")
+                if transformation:
+                    self.challenge.transformation = transformation
+                    print(f"\n  [场景转变] {transformation}")
+
+                scene_direction = limit_break_note.structured.get("scene_direction", "")
+                if scene_direction:
+                    print(f"  [走向] {scene_direction}")
+
+                self.challenge.mark_limits_broken(limit_names)
 
         return narrative
 

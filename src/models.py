@@ -41,6 +41,8 @@ class Challenge:
     base_tags: list[Tag] = field(default_factory=list)
     statuses: dict[str, Status] = field(default_factory=dict)
     notes: str = ""
+    broken_limits: set[str] = field(default_factory=set)
+    transformation: str = ""
 
     def get_matching_statuses(self, limit_name: str) -> list[Status]:
         results = []
@@ -52,12 +54,18 @@ class Challenge:
     def check_limits(self) -> list[Limit]:
         triggered = []
         for limit in self.limits:
+            if limit.name in self.broken_limits:
+                continue
             matching = self.get_matching_statuses(limit.name)
             for s in matching:
                 if s.current_tier >= limit.max_tier:
                     triggered.append(limit)
                     break
         return triggered
+
+    def mark_limits_broken(self, limit_names: list[str]):
+        for name in limit_names:
+            self.broken_limits.add(name)
 
 
 @dataclass

@@ -7,13 +7,13 @@ from src.models import Character, Challenge, Status, Limit, RollResult, Tag
 class TestCalculatePower(unittest.TestCase):
 
     def test_no_tags_no_status(self):
-        self.assertEqual(calculate_power([], []), 0)
+        self.assertEqual(calculate_power([], []), 1)
 
     def test_power_tags_only(self):
         self.assertEqual(calculate_power(["前公司安保", "快速拔枪"], []), 2)
 
     def test_weakness_tags_only(self):
-        self.assertEqual(calculate_power([], ["信用破产"]), -1)
+        self.assertEqual(calculate_power([], ["信用破产"]), 1)
 
     def test_mixed_tags(self):
         self.assertEqual(
@@ -25,7 +25,7 @@ class TestCalculatePower(unittest.TestCase):
         self.assertEqual(calculate_power([], [], best_status_tier=2), 2)
 
     def test_status_hindering(self):
-        self.assertEqual(calculate_power([], [], worst_status_tier=1), -1)
+        self.assertEqual(calculate_power([], [], worst_status_tier=1), 1)
 
     def test_status_both(self):
         self.assertEqual(calculate_power([], [], best_status_tier=3, worst_status_tier=2), 1)
@@ -39,8 +39,8 @@ class TestCalculatePower(unittest.TestCase):
         )
         self.assertEqual(result, 2)
 
-    def test_negative_power(self):
-        self.assertEqual(calculate_power([], ["信用破产", "另一个弱点"], worst_status_tier=2), -4)
+    def test_power_minimum_one(self):
+        self.assertEqual(calculate_power([], ["信用破产", "另一个弱点"], worst_status_tier=2), 1)
 
 
 class TestRollDice(unittest.TestCase):

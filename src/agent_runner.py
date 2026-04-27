@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from src.llm_client import LLMClient
-from src.models import AgentNote
+from src.models import AgentNote, Challenge
 from src.logger import log_call, log_system
 
 
@@ -439,3 +439,33 @@ class AgentRunner:
 
 请将以上结构化的游戏结果翻译为沉浸式的叙事文本。"""
         return self.run_agent(AGENT_4_NARRATOR, user_msg, "叙述者Agent")
+
+    def run_limit_break_agent(
+        self,
+        limit_names: list[str],
+        challenge: Challenge,
+        context_block: str, narrative_block: str,
+    ) -> AgentNote:
+        from src.agent_prompts import AGENT_5_LIMIT_BREAK
+
+        limits_detail = []
+        for name in limit_names:
+            for limit in challenge.limits:
+                if limit.name == name:
+                    matching = challenge.get_matching_statuses(limit.name)
+                    current = max((s.current_tier for s in matching), default=0)
+                    limits_detail.append(f"  {limit.name}: {current}/{limit.max_tier} (极限突破!)")
+                    break
+
+        user_msg = f"""{context_block}
+
+叙事历史:
+{narrative_block}
+
+{format_challenge_state(challenge)}
+
+---
+突破的极限:
+{chr(10).join(limits_detail)}
+
+请生成这个转折时刻的叙事。描述发生了什么——挑战方的某个防御被粉碎了。"""

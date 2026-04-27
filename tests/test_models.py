@@ -110,6 +110,27 @@ class TestChallenge(unittest.TestCase):
         self.challenge.statuses["受伤"] = s
         self.assertEqual(self.challenge.get_matching_statuses("伤害或制服"), [])
 
+    def test_broken_limits_default_empty(self):
+        self.assertEqual(self.challenge.broken_limits, set())
+
+    def test_mark_limits_broken(self):
+        s = Status(name="被说服", current_tier=3, ticked_boxes={3}, limit_category="说服或威胁")
+        self.challenge.statuses["被说服"] = s
+        triggered = self.challenge.check_limits()
+        self.assertEqual(len(triggered), 1)
+        self.challenge.mark_limits_broken([triggered[0].name])
+        self.assertIn("说服或威胁", self.challenge.broken_limits)
+        self.assertEqual(self.challenge.check_limits(), [])
+
+    def test_already_broken_limit_not_triggered(self):
+        s = Status(name="被说服", current_tier=3, ticked_boxes={3}, limit_category="说服或威胁")
+        self.challenge.statuses["被说服"] = s
+        self.challenge.mark_limits_broken(["说服或威胁"])
+        self.assertEqual(self.challenge.check_limits(), [])
+
+    def test_transformation_default_empty(self):
+        self.assertEqual(self.challenge.transformation, "")
+
 
 class TestCharacter(unittest.TestCase):
 
