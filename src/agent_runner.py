@@ -284,46 +284,10 @@ class AgentRunner:
 请判断哪些标签帮助/阻碍本次行动，以及角色当前状态中哪些帮助哪些阻碍。"""
         return self.run_agent(AGENT_1B_TAGS, user_msg, "标签匹配Agent")
 
-    def run_effect_suggestion_agent(
-        self,
-        intent_note: AgentNote,
-        tag_note: AgentNote,
-        roll_result,
-        context_block: str, narrative_block: str,
-        challenge,
-    ) -> AgentNote:
-        from src.agent_prompts import AGENT_1C_EFFECT_SUGGESTION
-
-        available_power = max(roll_result.power, 0)
-        roll_info = f"power={roll_result.power}, dice={roll_result.dice}, total={roll_result.total}, outcome={roll_result.outcome}"
-
-        user_msg = f"""{context_block}
-
-叙事历史:
-{narrative_block}
-
-意图解析:
-  action_type: {intent_note.structured.get('action_type', 'unknown')}
-  action_summary: {intent_note.structured.get('action_summary', '')}
-
-标签匹配:
-  matched_power_tags: {json.dumps(tag_note.structured.get('matched_power_tags', []), ensure_ascii=False)}
-  matched_weakness_tags: {json.dumps(tag_note.structured.get('matched_weakness_tags', []), ensure_ascii=False)}
-
-挑战极限: {json.dumps([{'name': l.name, 'max_tier': l.max_tier} for l in challenge.limits], ensure_ascii=False)}
-
----
-掷骰结果: {roll_info}
-可用力量: {available_power} (每1级状态=1力量，建议的效果等级之和≤{available_power})
-
-请建议本次行动适合使用的效果类型。如果掷骰结果是failure，则建议为空。"""
-        return self.run_agent(AGENT_1C_EFFECT_SUGGESTION, user_msg, "效果建议Agent")
-
     def run_effect_actualization_agent(
         self,
         intent_note: AgentNote,
         tag_note: AgentNote,
-        suggestion_note: AgentNote,
         roll_result,
         context_block: str, narrative_block: str,
         character, challenge,
@@ -358,18 +322,13 @@ class AgentRunner:
   matched_power_tags: {json.dumps(tag_note.structured.get('matched_power_tags', []), ensure_ascii=False)}
   matched_weakness_tags: {json.dumps(tag_note.structured.get('matched_weakness_tags', []), ensure_ascii=False)}
 
-效果建议:
-  reasoning: {suggestion_note.reasoning}
-  suggested_types: {json.dumps(suggestion_note.structured.get('suggested_effect_types', []), ensure_ascii=False)}
-  primary_effect: {json.dumps(suggestion_note.structured.get('primary_effect', {}), ensure_ascii=False)}
-
 挑战: {format_challenge_state(challenge)}
 
 ---
 掷骰结果: {roll_info}
 可用力量: {available_power} (你生成所有效果的tier之和 必须 ≤ {available_power}。每1级状态=1力量，每1标签=2力量)
 
-请推演此行动在故事中实际产生什么效果。在可用力量预算内选择效果等级。"""
+请推演此行动在故事中实际产生什么效果。首先选择合适的效果类型，然后在可用力量预算内确定效果等级。"""
         return self.run_agent(AGENT_2_EFFECT_ACTUALIZATION, user_msg, "效果推演Agent")
 
     def run_consequence_agent(

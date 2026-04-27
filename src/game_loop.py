@@ -161,16 +161,8 @@ class GameLoop:
         print(f"  匹配标签: {power_tag_names} | 弱点: {weakness_tag_names}")
         print(f"  力量: {power} | 掷骰: {roll.dice[0]}+{roll.dice[1]} = {roll.total} → {roll.outcome}")
 
-        suggestion_note = self.runner.run_effect_suggestion_agent(
-            intent_note, tag_note, roll, context_block, narrative_block,
-            self.challenge
-        )
-        suggested = suggestion_note.structured.get("suggested_effect_types", [])
-        if suggested:
-            print(f"  建议效果: {', '.join(suggested)}")
-
         effect_note = self.runner.run_effect_actualization_agent(
-            intent_note, tag_note, suggestion_note, roll,
+            intent_note, tag_note, roll,
             context_block, narrative_block,
             self.character, self.challenge
         )
