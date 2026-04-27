@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import json
 from datetime import datetime
@@ -21,7 +23,7 @@ def init_log(project_root: str):
     return _session_log_file
 
 
-def log_call(agent_name: str, system_prompt: str, user_message: str, response: str):
+def log_call(agent_name: str, system_prompt: str, user_message: str, response: str, usage_info: dict | None = None):
     global _session_log_file, _call_index
     if _session_log_file is None:
         return
@@ -32,6 +34,18 @@ def log_call(agent_name: str, system_prompt: str, user_message: str, response: s
         f.write(f"{'─' * 70}\n")
         f.write(f"调用 #{_call_index} | Agent: {agent_name}\n")
         f.write(f"时间: {datetime.now().strftime('%H:%M:%S.%f')[:-3]}\n")
+
+        if usage_info:
+            prompt = usage_info.get("prompt_tokens", 0)
+            completion = usage_info.get("completion_tokens", 0)
+            total = usage_info.get("total_tokens", 0)
+            cached = usage_info.get("cached_tokens")
+            if cached is not None:
+                uncached = prompt - cached
+                f.write(f"Token: 提示 {prompt} (缓存 {cached} + 未缓存 {uncached}) | 生成 {completion} | 合计 {total}\n")
+            else:
+                f.write(f"Token: 提示 {prompt} (无缓存命中) | 生成 {completion} | 合计 {total}\n")
+
         f.write(f"{'─' * 70}\n\n")
 
         f.write(f"┌─── SYSTEM PROMPT ───────────────────────────────────────\n")

@@ -19,7 +19,7 @@ class LLMClient:
         self.model = model
         self.max_retries = max_retries
 
-    def chat(self, system_prompt: str, user_message: str, temperature: float = 0.3) -> str:
+    def chat(self, system_prompt: str, user_message: str, temperature: float = 0.3) -> tuple[str, dict]:
         for attempt in range(self.max_retries):
             try:
                 response = self.client.chat.completions.create(
@@ -33,7 +33,19 @@ class LLMClient:
                 content = response.choices[0].message.content
                 if content is None:
                     raise LLMError("API 返回了空内容")
-                return content
+
+                usage = response.usage
+                usage_info = {
+                    "prompt_tokens": usage.prompt_tokens if usage else 0,
+                    "completion_tokens": usage.completion_tokens if usage else 0,
+                    "total_tokens": usage.total_tokens if usage else 0,
+                }
+                if usage and hasattr(usage, "prompt_tokens_details") and usage.prompt_tokens_details:
+                    cached = getattr(usage.prompt_tokens_details, "cached_tokens", None)
+                    if cached is not None:
+                        usage_info["cached_tokens"] = cached
+
+                return content, usage_info
             except (RateLimitError, APIConnectionError, APITimeoutError, InternalServerError, APIError) as e:
                 if attempt < self.max_retries - 1:
                     time.sleep(2 ** attempt)

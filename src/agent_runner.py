@@ -217,8 +217,8 @@ class AgentRunner:
 
     def run_agent(self, system_prompt: str, user_message: str, agent_name: str) -> AgentNote:
         print(f"\n  [{agent_name}] 调用中...", end=" ", flush=True)
-        raw = self.llm.chat(system_prompt, user_message)
-        log_call(agent_name, system_prompt, user_message, raw)
+        raw, usage_info = self.llm.chat(system_prompt, user_message)
+        log_call(agent_name, system_prompt, user_message, raw, usage_info)
         print("完成")
         return parse_agent_output(raw)
 
