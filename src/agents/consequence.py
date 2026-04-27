@@ -1,0 +1,39 @@
+from __future__ import annotations
+
+import json
+from src.agents.base import BaseAgent
+from src.agents.prompts import CONSEQUENCE_PROMPT
+from src.context import AgentContext
+from src.formatter import format_challenge_state
+from src.models import AgentNote, RollResult
+
+
+class ConsequenceAgent(BaseAgent):
+    system_prompt = CONSEQUENCE_PROMPT
+    agent_name = "后果Agent"
+
+    def execute(
+        self,
+        intent_note: AgentNote,
+        effect_note: AgentNote,
+        roll_result: RollResult,
+        ctx: AgentContext,
+    ) -> AgentNote:
+        roll_info = f"power={roll_result.power}, dice={roll_result.dice}, total={roll_result.total}, outcome={roll_result.outcome}"
+
+        user_msg = f"""{ctx.context_block}
+
+叙事历史:
+{ctx.narrative_block}
+
+{format_challenge_state(ctx.challenge) if ctx.challenge else '(无挑战)'}
+
+效果推演推理: {effect_note.reasoning}
+已产生的效果: {json.dumps(effect_note.structured.get('effects', []), ensure_ascii=False)}
+
+---
+行动摘要: {intent_note.structured.get('action_summary', '')}
+掷骰结果: {roll_info}
+
+请从挑战的威胁列表中选择并兑现后果。{'(部分成功)' if roll_result.outcome == 'partial_success' else '(失败)'}"""
+        return self._call_llm(user_msg)

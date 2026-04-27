@@ -3,7 +3,14 @@ from typing import Optional
 from src.llm_client import LLMClient
 from src.models import Character, Challenge, EffectEntry, ConsequenceEntry
 from src.engine import calculate_power, roll_dice, apply_status, check_limits, reduce_status, add_story_tag, remove_story_tag, nudge_status
-from src.agent_runner import AgentRunner, format_challenge_state, format_statuses, format_story_tags, format_limit_progress
+from src.formatter import format_challenge_state, format_statuses, format_story_tags, format_limit_progress
+from src.context import AgentContext
+from src.agents import (
+    RhythmAgent, MoveGatekeeperAgent, IntentAgent,
+    TagMatcherAgent, EffectActualizationAgent, ConsequenceAgent,
+    NarratorAgent, LiteNarratorAgent, LimitBreakAgent,
+    ContinuationCheckAgent,
+)
 from src.logger import log_roll, log_status_update, log_system
 
 MAX_HISTORY_ENTRIES = 6
@@ -25,11 +32,30 @@ def _summarize_last_sub(roll, effects, cons) -> str:
 class GameLoop:
     def __init__(self, llm: LLMClient):
         self.llm = llm
-        self.runner = AgentRunner(llm)
+        self.rhythm_agent = RhythmAgent(llm)
+        self.gatekeeper = MoveGatekeeperAgent(llm)
+        self.intent_agent = IntentAgent(llm)
+        self.tag_agent = TagMatcherAgent(llm)
+        self.effect_agent = EffectActualizationAgent(llm)
+        self.consequence_agent = ConsequenceAgent(llm)
+        self.narrator = NarratorAgent(llm)
+        self.lite_narrator = LiteNarratorAgent(llm)
+        self.limit_break_agent = LimitBreakAgent(llm)
+        self.continuation_check = ContinuationCheckAgent(llm)
+
         self.character: Optional[Character] = None
         self.challenge: Optional[Challenge] = None
         self.scene_context: str = ""
         self.narrative_history: list[str] = []
+
+    def _make_context(self, player_input: str = "") -> AgentContext:
+        return AgentContext(
+            context_block=self._build_context_block(),
+            narrative_block=self._build_narrative_block(),
+            character=self.character,
+            challenge=self.challenge,
+            player_input=player_input,
+        )
 
     def setup(self, character: Character, challenge: Challenge, scene_desc: str):
         self.character = character
@@ -41,7 +67,7 @@ class GameLoop:
         print("       :OTHERSCAPE · AI 主持 · 单场景 Demo")
         print("═" * 50)
 
-        rhythm = self.runner.run_rhythm_agent(scene_desc)
+        rhythm = self.rhythm_agent.execute(scene_desc)
         narrative = rhythm.structured.get("scene_establishment", "")
         print(f"\n{narrative}")
         self.narrative_history.append(narrative)
@@ -100,12 +126,8 @@ class GameLoop:
         if len(self.narrative_history) > MAX_HISTORY_ENTRIES + 2:
             self.narrative_history = self.narrative_history[-(MAX_HISTORY_ENTRIES + 2):]
 
-    def _run_single_move_pipeline(self, intent_note, context_block, narrative_block,
-                                   sub_action=None, player_input=""):
-        tag_note = self.runner.run_tag_agent(
-            intent_note, context_block, narrative_block,
-            self.character, self.challenge, sub_action=sub_action
-        )
+    def _run_single_move_pipeline(self, intent_note, ctx, sub_action=None):
+        tag_note = self.tag_agent.execute(intent_note, ctx, sub_action=sub_action)
 
         matched_power = tag_note.structured.get("matched_power_tags", [])
         matched_weakness = tag_note.structured.get("matched_weakness_tags", [])
@@ -130,23 +152,19 @@ class GameLoop:
 
         log_roll(power, roll.dice, roll.total, roll.outcome, power_tag_names, weakness_tag_names)
 
-        effect_note = self.runner.run_effect_actualization_agent(
-            intent_note, tag_note, roll,
-            context_block, narrative_block,
-            self.character, self.challenge, sub_action=sub_action
+        effect_note = self.effect_agent.execute(
+            intent_note, tag_note, roll, ctx, sub_action=sub_action
         )
 
         consequence_note = None
         if roll.outcome in ("partial_success", "failure"):
-            consequence_note = self.runner.run_consequence_agent(
-                intent_note, effect_note, roll, context_block, narrative_block,
-                self.challenge
+            consequence_note = self.consequence_agent.execute(
+                intent_note, effect_note, roll, ctx
             )
 
-        narrator_note = self.runner.run_narrator_agent(
-            intent_note, effect_note, consequence_note, roll,
-            context_block, narrative_block,
-            self.character, self.challenge, player_input,
+        narrator_note = self.narrator.execute(
+            intent_note, effect_note, roll, ctx,
+            consequence_note=consequence_note,
         )
 
         return tag_note, roll, effect_note, consequence_note, narrator_note
@@ -157,23 +175,17 @@ class GameLoop:
 
         print("\n" + "─" * 50)
 
-        narrative_block = self._build_narrative_block()
-        context_block = self._build_context_block()
+        ctx = self._make_context(player_input)
 
-        gatekeeper_note = self.runner.run_move_gatekeeper(
-            player_input, context_block, narrative_block,
-            self.character, self.challenge
-        )
+        gatekeeper_note = self.gatekeeper.execute(player_input, ctx)
         is_move = gatekeeper_note.structured.get("is_move", True)
 
         if not is_move:
             rationale = gatekeeper_note.structured.get("rationale", "")
             print(f"  [叙事模式] {rationale}")
 
-            narrator_note = self.runner.run_lite_narrator(
-                player_input, context_block, narrative_block,
-                self.character, self.challenge,
-                gatekeeper_note.reasoning
+            narrator_note = self.lite_narrator.execute(
+                player_input, ctx, gatekeeper_note.reasoning
             )
             print("─" * 50)
             narrative = narrator_note.structured.get("narrative", "")
@@ -185,9 +197,7 @@ class GameLoop:
 
         print("  [管道开始 · 掷骰模式]")
 
-        intent_note = self.runner.run_intent_agent(
-            player_input, context_block, narrative_block
-        )
+        intent_note = self.intent_agent.execute(player_input, ctx)
         is_split = intent_note.structured.get("is_split_action", False)
         split_actions = intent_note.structured.get("split_actions", [])
         action_type = intent_note.structured.get("action_type", "unknown")
@@ -199,7 +209,7 @@ class GameLoop:
             return self._process_split_actions(intent_note, split_actions)
 
         tag_note, roll, effect_note, consequence_note, narrator_note = self._run_single_move_pipeline(
-            intent_note, context_block, narrative_block, player_input=player_input
+            intent_note, ctx
         )
 
         matched_power = tag_note.structured.get("matched_power_tags", [])
@@ -271,10 +281,9 @@ class GameLoop:
             sub["_index"] = i
 
             if i > 0:
-                sub_context = self._build_context_block()
-                sub_narrative = self._build_narrative_block()
-                check_note = self.runner.run_continuation_check(
-                    sub, sub_context, sub_narrative,
+                ctx = self._make_context()
+                check_note = self.continuation_check.execute(
+                    sub, ctx,
                     _summarize_last_sub(prev_roll, prev_effects, prev_cons),
                 )
                 can_continue = check_note.structured.get("can_continue", True)
@@ -283,15 +292,12 @@ class GameLoop:
                     print(f"\n  ⛔ 子行动 [{sub.get('action_summary', '?')}] 无法继续: {reason}")
                     break
 
-            sub_context = self._build_context_block()
-            sub_narrative = self._build_narrative_block()
+            ctx = self._make_context(sub.get("fragment", ""))
 
             print(f"\n  --- 子行动 {i + 1}/{len(split_actions)}: {sub.get('action_summary', '?')} ---")
 
             tag_note, roll, effect_note, consequence_note, narrator_note = self._run_single_move_pipeline(
-                intent_note, sub_context, sub_narrative,
-                sub_action=sub,
-                player_input=sub.get("fragment", ""),
+                intent_note, ctx, sub_action=sub
             )
 
             matched_power = tag_note.structured.get("matched_power_tags", [])
@@ -364,12 +370,10 @@ class GameLoop:
         limit_names = [l.name for l in triggered_limits]
         print(f"\n  ⚡ 极限突破: {', '.join(limit_names)}!")
 
-        fresh_context = self._build_context_block()
-        fresh_narrative = self._build_narrative_block()
+        ctx = self._make_context()
 
-        limit_break_note = self.runner.run_limit_break_agent(
-            limit_names, challenge,
-            fresh_context, fresh_narrative,
+        limit_break_note = self.limit_break_agent.execute(
+            limit_names, challenge, ctx,
         )
         break_narrative = limit_break_note.structured.get("narrative", "")
         if break_narrative:
