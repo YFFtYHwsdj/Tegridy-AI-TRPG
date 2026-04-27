@@ -1,5 +1,5 @@
 import random
-from src.models import Character, Challenge, Status, RollResult
+from src.models import Character, Challenge, Status, StoryTag, RollResult
 
 
 def calculate_power(
@@ -82,3 +82,82 @@ def remove_status(
 
 def check_limits(challenge: Challenge) -> list:
     return challenge.check_limits()
+
+
+def reduce_status(
+    entity: Character | Challenge,
+    status_name: str,
+    reduce_by: int,
+) -> Status | None:
+    if not isinstance(entity, (Character, Challenge)):
+        raise TypeError(f"entity must be Character or Challenge, got {type(entity).__name__}")
+    if reduce_by < 1:
+        return None
+
+    for _ in range(reduce_by):
+        if status_name not in entity.statuses:
+            return None
+        status = entity.statuses[status_name]
+        max_tier = max(status.ticked_boxes) if status.ticked_boxes else 0
+        if max_tier == 0:
+            break
+        for box in range(max_tier, 0, -1):
+            if box in status.ticked_boxes:
+                status.ticked_boxes.discard(box)
+                break
+        status.current_tier = max(status.ticked_boxes) if status.ticked_boxes else 0
+        if status.current_tier == 0:
+            del entity.statuses[status_name]
+            return None
+
+    if status_name in entity.statuses:
+        return entity.statuses[status_name]
+    return None
+
+
+def add_story_tag(
+    entity: Character | Challenge,
+    name: str,
+    description: str = "",
+    is_single_use: bool = False,
+) -> StoryTag:
+    if not isinstance(entity, (Character, Challenge)):
+        raise TypeError(f"entity must be Character or Challenge, got {type(entity).__name__}")
+    tag = StoryTag(name=name, description=description, is_single_use=is_single_use)
+    entity.story_tags[name] = tag
+    return tag
+
+
+def remove_story_tag(
+    entity: Character | Challenge,
+    name: str,
+) -> StoryTag | None:
+    if not isinstance(entity, (Character, Challenge)):
+        raise TypeError(f"entity must be Character or Challenge, got {type(entity).__name__}")
+    return entity.story_tags.pop(name, None)
+
+
+def nudge_status(
+    entity: Character | Challenge,
+    status_name: str,
+) -> Status:
+    if not isinstance(entity, (Character, Challenge)):
+        raise TypeError(f"entity must be Character or Challenge, got {type(entity).__name__}")
+
+    if status_name not in entity.statuses:
+        entity.statuses[status_name] = Status(name=status_name, current_tier=1, ticked_boxes={1})
+        return entity.statuses[status_name]
+
+    status = entity.statuses[status_name]
+    if status.current_tier >= 6:
+        return status
+
+    target_box = status.current_tier + 1
+    while target_box <= 6 and target_box in status.ticked_boxes:
+        target_box += 1
+
+    if target_box <= 6:
+        status.ticked_boxes.add(target_box)
+
+    status.current_tier = max(status.ticked_boxes) if status.ticked_boxes else 0
+    return status

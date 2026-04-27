@@ -2,8 +2,8 @@ import json
 from typing import Optional
 from src.llm_client import LLMClient
 from src.models import Character, Challenge, EffectEntry, ConsequenceEntry
-from src.engine import calculate_power, roll_dice, apply_status, check_limits
-from src.agent_runner import AgentRunner, format_challenge_state, format_statuses, format_limit_progress
+from src.engine import calculate_power, roll_dice, apply_status, check_limits, reduce_status, add_story_tag, remove_story_tag, nudge_status
+from src.agent_runner import AgentRunner, format_challenge_state, format_statuses, format_story_tags, format_limit_progress
 from src.logger import log_roll, log_status_update, log_system
 
 MAX_HISTORY_ENTRIES = 6
@@ -48,6 +48,7 @@ class GameLoop:
         char_tags = ", ".join(t.name for t in self.character.power_tags)
         char_weak = ", ".join(t.name for t in self.character.weakness_tags)
         char_status = format_statuses(self.character.statuses)
+        char_story = format_story_tags(self.character.story_tags)
 
         limits = ""
         for limit in self.challenge.limits:
@@ -62,6 +63,7 @@ class GameLoop:
             f"  力量标签: {char_tags}",
             f"  弱点标签: {char_weak}",
             f"  状态: {char_status}",
+            f"  故事标签: {char_story}",
             f"挑战: {self.challenge.name} - {self.challenge.description}",
             f"  极限进度: {limits}",
         ]
@@ -266,15 +268,76 @@ class GameLoop:
 
         def _apply_effect_list(eff_list):
             for eff in eff_list:
-                label = eff.get("label", "")
-                tier = eff.get("tier", 0)
-                if not label or tier <= 0:
-                    continue
+                operation = eff.get("operation", "inflict_status")
                 target = self._resolve_target(eff.get("target", ""))
                 if target is None:
                     continue
-                limit_category = eff.get("limit_category", "")
-                apply_status(target, label, tier, limit_category)
+
+                try:
+                    if operation == "inflict_status":
+                        label = eff.get("label", "")
+                        tier = eff.get("tier", 0)
+                        if not label or tier <= 0:
+                            continue
+                        limit_category = eff.get("limit_category", "")
+                        apply_status(target, label, tier, limit_category)
+                        eff_type = eff.get("effect_type", "?")
+                        log_system(f"[效果应用] {eff_type}: {label}-{tier} → {target.name if hasattr(target, 'name') else target}")
+
+                    elif operation == "nudge_status":
+                        status_to_nudge = eff.get("status_to_nudge", eff.get("label", ""))
+                        if not status_to_nudge:
+                            continue
+                        result = nudge_status(target, status_to_nudge)
+                        eff_type = eff.get("effect_type", "?")
+                        log_system(f"[效果应用] {eff_type}: nudge {status_to_nudge} → 等级{result.current_tier}")
+
+                    elif operation == "reduce_status":
+                        status_to_reduce = eff.get("status_to_reduce", "")
+                        reduce_by = eff.get("reduce_by", 1)
+                        if not status_to_reduce or reduce_by <= 0:
+                            continue
+                        result = reduce_status(target, status_to_reduce, reduce_by)
+                        eff_type = eff.get("effect_type", "?")
+                        if result:
+                            log_system(f"[效果应用] {eff_type}: {status_to_reduce} 降低{reduce_by}级 → 剩余{result.current_tier}")
+                        else:
+                            log_system(f"[效果应用] {eff_type}: {status_to_reduce} 已完全移除")
+
+                    elif operation == "add_story_tag":
+                        name = eff.get("story_tag_name", "")
+                        description = eff.get("story_tag_description", "")
+                        if not name:
+                            continue
+                        is_single_use = eff.get("is_single_use", False)
+                        add_story_tag(target, name, description, is_single_use)
+                        eff_type = eff.get("effect_type", "?")
+                        log_system(f"[效果应用] {eff_type}: 添加故事标签 [{name}] → {target.name if hasattr(target, 'name') else target}")
+
+                    elif operation == "scratch_story_tag":
+                        name = eff.get("story_tag_to_scratch", "")
+                        if not name:
+                            continue
+                        result = remove_story_tag(target, name)
+                        eff_type = eff.get("effect_type", "?")
+                        if result:
+                            log_system(f"[效果应用] {eff_type}: 移除故事标签 [{name}]")
+                        else:
+                            log_system(f"[效果应用] {eff_type}: 故事标签 [{name}] 不存在，已忽略")
+
+                    elif operation == "discover":
+                        detail = eff.get("detail", "")
+                        if detail:
+                            log_system(f"[效果应用] discover: {detail}")
+
+                    elif operation == "extra_feat":
+                        description = eff.get("description", "")
+                        if description:
+                            log_system(f"[效果应用] extra_feat: {description}")
+
+                except Exception as e:
+                    eff_type = eff.get("effect_type", "?")
+                    log_system(f"[效果应用错误] {eff_type} ({operation}): {e}")
 
         effects = effect_note.structured.get("effects", [])
         _apply_effect_list(effects)
@@ -289,9 +352,12 @@ class GameLoop:
             return
         print(f"\n  [角色: {self.character.name}]")
         print(f"  状态: {format_statuses(self.character.statuses)}")
+        print(f"  故事标签: {format_story_tags(self.character.story_tags)}")
 
         print(f"\n  [挑战: {self.challenge.name}]")
         for limit in self.challenge.limits:
             matching = self.challenge.get_matching_statuses(limit.name)
             current = max((s.current_tier for s in matching), default=0)
             print(f"  {format_limit_progress(limit, current)}")
+        print(f"  故事标签: {format_story_tags(self.challenge.story_tags)}")
+        print(f"  状态: {format_statuses(self.challenge.statuses)}")

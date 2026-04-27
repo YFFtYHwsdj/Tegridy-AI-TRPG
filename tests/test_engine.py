@@ -1,7 +1,7 @@
 import unittest
 import random
-from src.engine import calculate_power, roll_dice, apply_status, remove_status, check_limits
-from src.models import Character, Challenge, Status, Limit, RollResult, Tag
+from src.engine import calculate_power, roll_dice, apply_status, remove_status, check_limits, reduce_status, add_story_tag, remove_story_tag, nudge_status
+from src.models import Character, Challenge, Status, StoryTag, Limit, RollResult, Tag
 
 
 class TestCalculatePower(unittest.TestCase):
@@ -215,6 +215,147 @@ class TestCheckLimits(unittest.TestCase):
         self.assertEqual(len(triggered), 2)
         triggered_names = {l.name for l in triggered}
         self.assertEqual(triggered_names, {"说服或威胁", "伤害或制服"})
+
+
+class TestReduceStatus(unittest.TestCase):
+
+    def setUp(self):
+        self.character = Character(name="Test", power_tags=[], weakness_tags=[])
+
+    def test_reduce_nonexistent_returns_none(self):
+        self.assertIsNone(reduce_status(self.character, "受伤", 1))
+
+    def test_reduce_one_level(self):
+        apply_status(self.character, "受伤", 2)
+        apply_status(self.character, "受伤", 4)
+        # ticked: {2, 4}, current_tier=4
+        s = reduce_status(self.character, "受伤", 1)
+        # 移除最高盒子4 → ticked: {2}, current_tier=2
+        self.assertIsNotNone(s)
+        self.assertEqual(s.current_tier, 2)
+        self.assertNotIn(4, s.ticked_boxes)
+        self.assertIn(2, s.ticked_boxes)
+
+    def test_reduce_to_zero_removes_status(self):
+        apply_status(self.character, "受伤", 3)
+        s = reduce_status(self.character, "受伤", 1)
+        # 只有盒子3，移除后状态归零删除
+        self.assertIsNone(s)
+        self.assertNotIn("受伤", self.character.statuses)
+
+    def test_reduce_multiple_levels(self):
+        apply_status(self.character, "受伤", 1)
+        apply_status(self.character, "受伤", 1)
+        apply_status(self.character, "受伤", 1)
+        # overflow: 1→2→3, ticked: {1,2,3}, current_tier=3
+        s = reduce_status(self.character, "受伤", 2)
+        # 移除3, 移除2 → ticked: {1}, current_tier=1
+        self.assertIsNotNone(s)
+        self.assertEqual(s.current_tier, 1)
+        self.assertIn(1, s.ticked_boxes)
+        self.assertNotIn(3, s.ticked_boxes)
+        self.assertNotIn(2, s.ticked_boxes)
+
+    def test_reduce_more_than_exists(self):
+        apply_status(self.character, "受伤", 2)
+        # ticked: {2}, current_tier=2
+        s = reduce_status(self.character, "受伤", 5)
+        # 移除2, 没有更多, 状态归零删除
+        self.assertIsNone(s)
+        self.assertNotIn("受伤", self.character.statuses)
+
+    def test_reduce_on_challenge(self):
+        challenge = Challenge(name="敌人", description="test", limits=[Limit(name="伤害", max_tier=4)])
+        apply_status(challenge, "受伤", 2)
+        apply_status(challenge, "受伤", 5)
+        # ticked: {2, 5}, current_tier=5
+        s = reduce_status(challenge, "受伤", 1)
+        # 移除5 → ticked: {2}, current_tier=2
+        self.assertIsNotNone(s)
+        self.assertEqual(s.current_tier, 2)
+
+
+class TestNudgeStatus(unittest.TestCase):
+
+    def setUp(self):
+        self.character = Character(name="Test", power_tags=[], weakness_tags=[])
+
+    def test_nudge_new_status_creates_at_tier_1(self):
+        s = nudge_status(self.character, "被说服")
+        self.assertEqual(s.current_tier, 1)
+        self.assertIn(1, s.ticked_boxes)
+
+    def test_nudge_advances_status_by_one(self):
+        apply_status(self.character, "被说服", 2)
+        # current_tier=2, ticked={2}
+        s = nudge_status(self.character, "被说服")
+        # 应该勾选盒子3
+        self.assertEqual(s.current_tier, 3)
+        self.assertIn(2, s.ticked_boxes)
+        self.assertIn(3, s.ticked_boxes)
+
+    def test_nudge_at_tier_6_is_noop(self):
+        apply_status(self.character, "受伤", 6)
+        s = nudge_status(self.character, "受伤")
+        self.assertEqual(s.current_tier, 6)
+        self.assertIn(6, s.ticked_boxes)
+        self.assertNotIn(7, s.ticked_boxes)
+
+    def test_nudge_on_challenge(self):
+        challenge = Challenge(name="敌人", description="test", limits=[Limit(name="说服或威胁", max_tier=3)])
+        apply_status(challenge, "愿意交易", 2, limit_category="说服")
+        # current_tier=2, ticked={2}
+        s = nudge_status(challenge, "愿意交易")
+        # 应该勾选盒子3 → 极限触发！
+        self.assertEqual(s.current_tier, 3)
+        self.assertIn(3, s.ticked_boxes)
+
+    def test_nudge_retains_limit_category(self):
+        apply_status(self.character, "被说服", 1, limit_category="说服")
+        s = nudge_status(self.character, "被说服")
+        self.assertEqual(s.limit_category, "说服")
+
+    def test_double_nudge(self):
+        apply_status(self.character, "受伤", 1)
+        nudge_status(self.character, "受伤")
+        s = nudge_status(self.character, "受伤")
+        self.assertEqual(s.current_tier, 3)
+        self.assertIn(1, s.ticked_boxes)
+        self.assertIn(2, s.ticked_boxes)
+        self.assertIn(3, s.ticked_boxes)
+
+
+class TestStoryTagEngine(unittest.TestCase):
+
+    def setUp(self):
+        self.character = Character(name="Test", power_tags=[], weakness_tags=[])
+        self.challenge = Challenge(name="敌人", description="test", limits=[])
+
+    def test_add_story_tag_to_character(self):
+        tag = add_story_tag(self.character, "临时掩体", "翻倒的桌子")
+        self.assertIn("临时掩体", self.character.story_tags)
+        self.assertEqual(tag.name, "临时掩体")
+        self.assertEqual(tag.description, "翻倒的桌子")
+        self.assertFalse(tag.is_single_use)
+
+    def test_add_story_tag_single_use(self):
+        tag = add_story_tag(self.character, "闪光弹", "一发闪光弹", is_single_use=True)
+        self.assertTrue(tag.is_single_use)
+
+    def test_add_story_tag_to_challenge(self):
+        tag = add_story_tag(self.challenge, "增援", "帮派成员到达")
+        self.assertIn("增援", self.challenge.story_tags)
+
+    def test_remove_story_tag(self):
+        add_story_tag(self.character, "临时掩体", "翻倒的桌子")
+        result = remove_story_tag(self.character, "临时掩体")
+        self.assertIsNotNone(result)
+        self.assertEqual(result.name, "临时掩体")
+        self.assertNotIn("临时掩体", self.character.story_tags)
+
+    def test_remove_nonexistent_story_tag(self):
+        result = remove_story_tag(self.character, "不存在")
+        self.assertIsNone(result)
 
 
 if __name__ == "__main__":

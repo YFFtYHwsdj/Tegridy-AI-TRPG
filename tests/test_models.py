@@ -1,5 +1,5 @@
 import unittest
-from src.models import Tag, Status, Limit, Challenge, Character, RollResult, EffectEntry, ConsequenceEntry, AgentNote
+from src.models import Tag, Status, StoryTag, Limit, Challenge, Character, RollResult, EffectEntry, ConsequenceEntry, AgentNote
 
 
 class TestTag(unittest.TestCase):
@@ -28,6 +28,28 @@ class TestStatus(unittest.TestCase):
         self.assertEqual(s.current_tier, 0)
         self.assertEqual(s.ticked_boxes, set())
         self.assertEqual(s.limit_category, "")
+
+
+class TestStoryTag(unittest.TestCase):
+
+    def test_defaults(self):
+        st = StoryTag(name="临时掩体")
+        self.assertEqual(st.name, "临时掩体")
+        self.assertEqual(st.description, "")
+        self.assertFalse(st.is_single_use)
+        self.assertFalse(st.is_consumable)
+
+    def test_with_description(self):
+        st = StoryTag(name="啤酒瓶", description="从桌上抓起的空瓶")
+        self.assertEqual(st.description, "从桌上抓起的空瓶")
+
+    def test_single_use(self):
+        st = StoryTag(name="闪光弹", is_single_use=True)
+        self.assertTrue(st.is_single_use)
+
+    def test_consumable(self):
+        st = StoryTag(name="急救包", is_consumable=True)
+        self.assertTrue(st.is_consumable)
 
 
 class TestLimit(unittest.TestCase):
@@ -73,7 +95,6 @@ class TestChallenge(unittest.TestCase):
                 Limit(name="说服或威胁", max_tier=3),
                 Limit(name="伤害或制服", max_tier=4),
             ],
-            threats=["挥手示意保镖上前", "拔出一把隐藏的袖枪"],
             notes="Miko 重视情报",
         )
 
@@ -131,6 +152,9 @@ class TestChallenge(unittest.TestCase):
     def test_transformation_default_empty(self):
         self.assertEqual(self.challenge.transformation, "")
 
+    def test_story_tags_default_empty(self):
+        self.assertEqual(self.challenge.story_tags, {})
+
 
 class TestCharacter(unittest.TestCase):
 
@@ -140,6 +164,7 @@ class TestCharacter(unittest.TestCase):
         self.assertEqual(c.power_tags, [])
         self.assertEqual(c.weakness_tags, [])
         self.assertEqual(c.statuses, {})
+        self.assertEqual(c.story_tags, {})
         self.assertEqual(c.burned_tags, set())
         self.assertEqual(c.description, "")
 

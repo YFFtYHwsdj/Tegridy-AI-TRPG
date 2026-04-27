@@ -22,6 +22,14 @@ class Status:
 
 
 @dataclass
+class StoryTag:
+    name: str
+    description: str = ""
+    is_single_use: bool = False
+    is_consumable: bool = False
+
+
+@dataclass
 class Limit:
     name: str
     max_tier: int
@@ -37,9 +45,9 @@ class Challenge:
     name: str
     description: str
     limits: list[Limit] = field(default_factory=list)
-    threats: list[str] = field(default_factory=list)
     base_tags: list[Tag] = field(default_factory=list)
     statuses: dict[str, Status] = field(default_factory=dict)
+    story_tags: dict[str, StoryTag] = field(default_factory=dict)
     notes: str = ""
     broken_limits: set[str] = field(default_factory=set)
     transformation: str = ""
@@ -74,6 +82,7 @@ class Character:
     power_tags: list[Tag] = field(default_factory=list)
     weakness_tags: list[Tag] = field(default_factory=list)
     statuses: dict[str, Status] = field(default_factory=dict)
+    story_tags: dict[str, StoryTag] = field(default_factory=dict)
     burned_tags: set[str] = field(default_factory=set)
     description: str = ""
 
