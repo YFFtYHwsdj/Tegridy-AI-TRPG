@@ -9,6 +9,19 @@ from src.logger import log_roll, log_status_update, log_system
 MAX_HISTORY_ENTRIES = 6
 
 
+def _summarize_last_sub(roll, effects, cons) -> str:
+    parts = [f"掷骰结果: {roll.outcome}"]
+    if effects:
+        parts.append("效果: " + ", ".join(
+            e.get("label", e.get("operation", "?")) for e in effects
+        ))
+    if cons:
+        parts.append("后果: " + ", ".join(
+            c.get("threat_manifested", "?") for c in cons
+        ))
+    return "; ".join(parts)
+
+
 class GameLoop:
     def __init__(self, llm: LLMClient):
         self.llm = llm
@@ -87,6 +100,57 @@ class GameLoop:
         if len(self.narrative_history) > MAX_HISTORY_ENTRIES + 2:
             self.narrative_history = self.narrative_history[-(MAX_HISTORY_ENTRIES + 2):]
 
+    def _run_single_move_pipeline(self, intent_note, context_block, narrative_block,
+                                   sub_action=None, player_input=""):
+        tag_note = self.runner.run_tag_agent(
+            intent_note, context_block, narrative_block,
+            self.character, self.challenge, sub_action=sub_action
+        )
+
+        matched_power = tag_note.structured.get("matched_power_tags", [])
+        matched_weakness = tag_note.structured.get("matched_weakness_tags", [])
+        power_tag_names = [t["name"] if isinstance(t, dict) else t for t in matched_power]
+        weakness_tag_names = [t["name"] if isinstance(t, dict) else t for t in matched_weakness]
+
+        helping_statuses = tag_note.structured.get("helping_statuses", [])
+        hindering_statuses = tag_note.structured.get("hindering_statuses", [])
+        best_status_tier = max(
+            (s["tier"] for s in helping_statuses if isinstance(s, dict) and s.get("tier")), default=0
+        )
+        worst_status_tier = max(
+            (s["tier"] for s in hindering_statuses if isinstance(s, dict) and s.get("tier")), default=0
+        )
+
+        power = calculate_power(
+            power_tag_names, weakness_tag_names,
+            best_status_tier=best_status_tier,
+            worst_status_tier=worst_status_tier,
+        )
+        roll = roll_dice(power)
+
+        log_roll(power, roll.dice, roll.total, roll.outcome, power_tag_names, weakness_tag_names)
+
+        effect_note = self.runner.run_effect_actualization_agent(
+            intent_note, tag_note, roll,
+            context_block, narrative_block,
+            self.character, self.challenge, sub_action=sub_action
+        )
+
+        consequence_note = None
+        if roll.outcome in ("partial_success", "failure"):
+            consequence_note = self.runner.run_consequence_agent(
+                intent_note, effect_note, roll, context_block, narrative_block,
+                self.challenge
+            )
+
+        narrator_note = self.runner.run_narrator_agent(
+            intent_note, effect_note, consequence_note, roll,
+            context_block, narrative_block,
+            self.character, self.challenge, player_input,
+        )
+
+        return tag_note, roll, effect_note, consequence_note, narrator_note
+
     def process_action(self, player_input: str) -> str:
         if player_input.strip().lower() in ("quit", "exit", "q"):
             return "QUIT"
@@ -125,16 +189,17 @@ class GameLoop:
             player_input, context_block, narrative_block
         )
         is_split = intent_note.structured.get("is_split_action", False)
+        split_actions = intent_note.structured.get("split_actions", [])
         action_type = intent_note.structured.get("action_type", "unknown")
         action_summary = intent_note.structured.get("action_summary", "")
 
         print(f"  行动类型: {action_type} | 行动: {action_summary}")
-        if is_split:
-            print(f"  ⚠ 检测到行动拆分，当前仅处理第一个子行动")
 
-        tag_note = self.runner.run_tag_agent(
-            intent_note, context_block, narrative_block,
-            self.character, self.challenge
+        if is_split and isinstance(split_actions, list) and len(split_actions) >= 2:
+            return self._process_split_actions(intent_note, split_actions)
+
+        tag_note, roll, effect_note, consequence_note, narrator_note = self._run_single_move_pipeline(
+            intent_note, context_block, narrative_block, player_input=player_input
         )
 
         matched_power = tag_note.structured.get("matched_power_tags", [])
@@ -144,30 +209,19 @@ class GameLoop:
 
         helping_statuses = tag_note.structured.get("helping_statuses", [])
         hindering_statuses = tag_note.structured.get("hindering_statuses", [])
-        best_status_tier = max(
-            (s["tier"] for s in helping_statuses if isinstance(s, dict) and s.get("tier")), default=0
-        )
-        worst_status_tier = max(
-            (s["tier"] for s in hindering_statuses if isinstance(s, dict) and s.get("tier")), default=0
-        )
-
-        power = calculate_power(
-            power_tag_names, weakness_tag_names,
-            best_status_tier=best_status_tier,
-            worst_status_tier=worst_status_tier,
-        )
-        roll = roll_dice(power)
-
-        log_roll(power, roll.dice, roll.total, roll.outcome, power_tag_names, weakness_tag_names)
+        help_names = [s["name"] for s in helping_statuses if isinstance(s, dict) and s.get("name")]
+        hinder_names = [s["name"] for s in hindering_statuses if isinstance(s, dict) and s.get("name")]
 
         print(f"  匹配标签: {power_tag_names} | 弱点: {weakness_tag_names}")
-        print(f"  力量: {power} | 掷骰: {roll.dice[0]}+{roll.dice[1]} = {roll.total} → {roll.outcome}")
+        if help_names or hinder_names:
+            status_parts = []
+            if help_names:
+                status_parts.append(f"帮助状态: {help_names}")
+            if hinder_names:
+                status_parts.append(f"阻碍状态: {hinder_names}")
+            print(f"  状态影响: {' | '.join(status_parts)}")
+        print(f"  力量: {roll.power} | 掷骰: {roll.dice[0]}+{roll.dice[1]} = {roll.total} → {roll.outcome}")
 
-        effect_note = self.runner.run_effect_actualization_agent(
-            intent_note, tag_note, roll,
-            context_block, narrative_block,
-            self.character, self.challenge
-        )
         effects = effect_note.structured.get("effects", [])
         if effects:
             eff_summary = ", ".join(f"{e.get('label','?')} ({e.get('effect_type','?')} {e.get('tier','?')})" for e in effects)
@@ -175,22 +229,12 @@ class GameLoop:
         else:
             print(f"  实际效果: 无")
 
-        consequence_note = None
-        if roll.outcome in ("partial_success", "failure"):
-            consequence_note = self.runner.run_consequence_agent(
-                intent_note, effect_note, roll, context_block, narrative_block,
-                self.challenge
-            )
+        if consequence_note:
             cons_list = consequence_note.structured.get("consequences", [])
             if cons_list:
                 cons_summary = ", ".join(c.get("threat_manifested", "?") for c in cons_list)
                 print(f"  后果: {cons_summary}")
 
-        narrator_note = self.runner.run_narrator_agent(
-            intent_note, effect_note, consequence_note, roll,
-            context_block, narrative_block,
-            self.character, self.challenge, player_input
-        )
         strat = narrator_note.structured.get("scene_update") or narrator_note.reasoning[:60]
         if strat:
             print(f"  叙事策略: {strat}")
@@ -212,34 +256,137 @@ class GameLoop:
         if self.challenge is not None:
             triggered_limits = check_limits(self.challenge)
             if triggered_limits:
-                limit_names = [l.name for l in triggered_limits]
-                print(f"\n  ⚡ 极限突破: {', '.join(limit_names)}!")
-
-                fresh_context = self._build_context_block()
-                fresh_narrative = self._build_narrative_block()
-
-                limit_break_note = self.runner.run_limit_break_agent(
-                    limit_names, self.challenge,
-                    fresh_context, fresh_narrative,
-                )
-                break_narrative = limit_break_note.structured.get("narrative", "")
-                if break_narrative:
-                    print("\n" + "─" * 50)
-                    print(f"\n{break_narrative}")
-                    self._append_narrative(break_narrative)
-
-                transformation = limit_break_note.structured.get("challenge_transformation", "")
-                if transformation:
-                    self.challenge.transformation = transformation
-                    print(f"\n  [场景转变] {transformation}")
-
-                scene_direction = limit_break_note.structured.get("scene_direction", "")
-                if scene_direction:
-                    print(f"  [走向] {scene_direction}")
-
-                self.challenge.mark_limits_broken(limit_names)
+                self._handle_limit_break(triggered_limits)
 
         return narrative
+
+    def _process_split_actions(self, intent_note, split_actions) -> str:
+        print(f"  ⚡ 行动拆分为 {len(split_actions)} 个子行动")
+
+        prev_roll = None
+        prev_effects = []
+        prev_cons = []
+
+        for i, sub in enumerate(split_actions):
+            sub["_index"] = i
+
+            if i > 0:
+                sub_context = self._build_context_block()
+                sub_narrative = self._build_narrative_block()
+                check_note = self.runner.run_continuation_check(
+                    sub, sub_context, sub_narrative,
+                    _summarize_last_sub(prev_roll, prev_effects, prev_cons),
+                )
+                can_continue = check_note.structured.get("can_continue", True)
+                if not can_continue:
+                    reason = check_note.structured.get("reason", "")
+                    print(f"\n  ⛔ 子行动 [{sub.get('action_summary', '?')}] 无法继续: {reason}")
+                    break
+
+            sub_context = self._build_context_block()
+            sub_narrative = self._build_narrative_block()
+
+            print(f"\n  --- 子行动 {i + 1}/{len(split_actions)}: {sub.get('action_summary', '?')} ---")
+
+            tag_note, roll, effect_note, consequence_note, narrator_note = self._run_single_move_pipeline(
+                intent_note, sub_context, sub_narrative,
+                sub_action=sub,
+                player_input=sub.get("fragment", ""),
+            )
+
+            matched_power = tag_note.structured.get("matched_power_tags", [])
+            matched_weakness = tag_note.structured.get("matched_weakness_tags", [])
+            power_tag_names = [t["name"] if isinstance(t, dict) else t for t in matched_power]
+            weakness_tag_names = [t["name"] if isinstance(t, dict) else t for t in matched_weakness]
+
+            helping_statuses = tag_note.structured.get("helping_statuses", [])
+            hindering_statuses = tag_note.structured.get("hindering_statuses", [])
+            help_names = [s["name"] for s in helping_statuses if isinstance(s, dict) and s.get("name")]
+            hinder_names = [s["name"] for s in hindering_statuses if isinstance(s, dict) and s.get("name")]
+
+            print(f"  匹配标签: {power_tag_names} | 弱点: {weakness_tag_names}")
+            if help_names or hinder_names:
+                status_parts = []
+                if help_names:
+                    status_parts.append(f"帮助状态: {help_names}")
+                if hinder_names:
+                    status_parts.append(f"阻碍状态: {hinder_names}")
+                print(f"  状态影响: {' | '.join(status_parts)}")
+            print(f"  力量: {roll.power} | 掷骰: {roll.dice[0]}+{roll.dice[1]} = {roll.total} → {roll.outcome}")
+
+            effects = effect_note.structured.get("effects", [])
+            if effects:
+                eff_summary = ", ".join(f"{e.get('label','?')} ({e.get('effect_type','?')} {e.get('tier','?')})" for e in effects)
+                print(f"  实际效果: {eff_summary}")
+            else:
+                print(f"  实际效果: 无")
+
+            if consequence_note:
+                cons_list = consequence_note.structured.get("consequences", [])
+                if cons_list:
+                    cons_summary = ", ".join(c.get("threat_manifested", "?") for c in cons_list)
+                    print(f"  后果: {cons_summary}")
+
+            strat = narrator_note.structured.get("scene_update") or narrator_note.reasoning[:60]
+            if strat:
+                print(f"  叙事策略: {strat}")
+
+            self._apply_results(effect_note, consequence_note, roll.outcome)
+
+            if self.character and self.challenge:
+                log_status_update(self.character.name, self.character.statuses)
+                log_status_update(self.challenge.name, self.challenge.statuses)
+
+            narrative = narrator_note.structured.get("narrative", "")
+            print(f"\n{narrative}")
+            self._append_narrative(narrative)
+
+            if self.character and self.character.is_incapacitated():
+                print(f"\n  💀 角色已丧失行动能力，剩余子行动中断")
+                break
+
+            prev_roll = roll
+            prev_effects = effects
+            prev_cons = consequence_note.structured.get("consequences", []) if consequence_note else []
+
+        self._print_status()
+
+        if self.challenge is not None:
+            triggered_limits = check_limits(self.challenge)
+            if triggered_limits:
+                self._handle_limit_break(triggered_limits)
+
+        return ""
+
+    def _handle_limit_break(self, triggered_limits):
+        challenge = self.challenge
+        assert challenge is not None
+        limit_names = [l.name for l in triggered_limits]
+        print(f"\n  ⚡ 极限突破: {', '.join(limit_names)}!")
+
+        fresh_context = self._build_context_block()
+        fresh_narrative = self._build_narrative_block()
+
+        limit_break_note = self.runner.run_limit_break_agent(
+            limit_names, challenge,
+            fresh_context, fresh_narrative,
+        )
+        break_narrative = limit_break_note.structured.get("narrative", "")
+        if break_narrative:
+            print("\n" + "─" * 50)
+            print(f"\n{break_narrative}")
+            self._append_narrative(break_narrative)
+
+        transformation = limit_break_note.structured.get("challenge_transformation", "")
+        if transformation:
+            challenge.transformation = transformation
+            print(f"\n  [场景转变] {transformation}")
+
+        scene_direction = limit_break_note.structured.get("scene_direction", "")
+        if scene_direction:
+            print(f"  [走向] {scene_direction}")
+
+        challenge.mark_limits_broken(limit_names)
 
     def _resolve_target(self, target_name: str):
         if not target_name or self.character is None or self.challenge is None:

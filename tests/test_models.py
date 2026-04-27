@@ -178,6 +178,25 @@ class TestCharacter(unittest.TestCase):
         self.assertEqual(len(c.power_tags), 1)
         self.assertEqual(len(c.weakness_tags), 1)
 
+    def test_is_incapacitated_tier_six(self):
+        c = Character(name="Test")
+        c.statuses["受伤"] = Status(name="受伤", current_tier=6, ticked_boxes={6})
+        self.assertTrue(c.is_incapacitated())
+
+    def test_is_incapacitated_explicit_status(self):
+        c = Character(name="Test")
+        c.statuses["被打晕"] = Status(name="被打晕", current_tier=2, ticked_boxes={1, 2})
+        self.assertTrue(c.is_incapacitated())
+
+    def test_not_incapacitated_low_tier(self):
+        c = Character(name="Test")
+        c.statuses["受伤"] = Status(name="受伤", current_tier=3, ticked_boxes={1, 2, 3})
+        self.assertFalse(c.is_incapacitated())
+
+    def test_not_incapacitated_no_statuses(self):
+        c = Character(name="Test")
+        self.assertFalse(c.is_incapacitated())
+
 
 class TestEffectEntry(unittest.TestCase):
 

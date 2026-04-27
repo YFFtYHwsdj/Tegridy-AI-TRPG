@@ -86,6 +86,16 @@ class Character:
     burned_tags: set[str] = field(default_factory=set)
     description: str = ""
 
+    INCAPACITATING_STATUSES = {"死亡", "失去行动能力", "被打晕", "被制服", "被束缚", "dead", "unconscious", "incapacitated"}
+
+    def is_incapacitated(self) -> bool:
+        for status in self.statuses.values():
+            if status.current_tier >= 6:
+                return True
+            if status.name in self.INCAPACITATING_STATUSES and status.current_tier >= 1:
+                return True
+        return False
+
 
 @dataclass
 class RollResult:

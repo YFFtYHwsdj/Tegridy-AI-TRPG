@@ -222,6 +222,30 @@ class AgentRunner:
         print("完成")
         return parse_agent_output(raw)
 
+    def run_continuation_check(
+        self,
+        next_sub_action: dict,
+        context_block: str, narrative_block: str,
+        last_sub_summary: str,
+    ) -> AgentNote:
+        from src.agent_prompts import AGENT_SPLIT_CONTINUATION_CHECK
+
+        user_msg = f"""{context_block}
+
+叙事历史:
+{narrative_block}
+
+---
+上一个子行动已完成。上一个子行动的结果摘要: {last_sub_summary}
+
+下一个待执行的子行动:
+  行动类型: {next_sub_action.get('action_type', 'unknown')}
+  行动摘要: {next_sub_action.get('action_summary', '')}
+  玩家原始输入片段: {next_sub_action.get('fragment', '')}
+
+请判断角色是否还能执行这个子行动。"""
+        return self.run_agent(AGENT_SPLIT_CONTINUATION_CHECK, user_msg, "可行性检查")
+
     def run_rhythm_agent(self, scene_description: str) -> AgentNote:
         from src.agent_prompts import AGENT_0_RHYTHM
         user_msg = f"""{scene_description}
@@ -287,12 +311,26 @@ class AgentRunner:
         intent_note: AgentNote,
         context_block: str, narrative_block: str,
         character, challenge,
+        sub_action: dict | None = None,
     ) -> AgentNote:
         from src.agent_prompts import AGENT_1B_TAGS
 
         power_tags_str = format_role_tags(character.power_tags)
         weakness_tags_str = format_role_tags(character.weakness_tags)
         status_str = format_statuses(character.statuses)
+
+        if sub_action:
+            action_type = sub_action.get("action_type", "unknown")
+            action_summary = sub_action.get("action_summary", "")
+            fragment = sub_action.get("fragment", "")
+            split_info = f"""注意：这是一个拆分行动中的第 {sub_action.get('_index', 0) + 1} 个子行动。
+玩家原始完整输入已被拆分为多个子行动，当前只处理以下片段：
+  "{fragment}"
+请只针对这个子行动匹配标签和状态。"""
+        else:
+            action_type = intent_note.structured.get("action_type", "unknown")
+            action_summary = intent_note.structured.get("action_summary", "")
+            split_info = ""
 
         user_msg = f"""{context_block}
 
@@ -310,9 +348,10 @@ class AgentRunner:
 
 ---
 意图解析:
-  行动类型: {intent_note.structured.get('action_type', 'unknown')}
-  行动摘要: {intent_note.structured.get('action_summary', '')}
+  行动类型: {action_type}
+  行动摘要: {action_summary}
   是否拆分: {intent_note.structured.get('is_split_action', False)}
+{split_info}
 
 请判断哪些标签帮助/阻碍本次行动，以及角色当前状态中哪些帮助哪些阻碍。"""
         return self.run_agent(AGENT_1B_TAGS, user_msg, "标签匹配Agent")
@@ -324,6 +363,7 @@ class AgentRunner:
         roll_result,
         context_block: str, narrative_block: str,
         character, challenge,
+        sub_action: dict | None = None,
     ) -> AgentNote:
         from src.agent_prompts import AGENT_2_EFFECT_ACTUALIZATION
 
@@ -339,6 +379,19 @@ class AgentRunner:
         char_story_tags_str = format_story_tags(character.story_tags)
         available_power = max(roll_result.power, 0)
         roll_info = f"power={roll_result.power}, dice={roll_result.dice}, total={roll_result.total}, outcome={roll_result.outcome}"
+
+        if sub_action:
+            action_type = sub_action.get("action_type", "unknown")
+            action_summary = sub_action.get("action_summary", "")
+            fragment = sub_action.get("fragment", "")
+            split_info = f"""注意：这是一个拆分行动中的第 {sub_action.get('_index', 0) + 1} 个子行动。
+玩家原始完整输入已被拆分为多个子行动，当前只处理以下片段：
+  "{fragment}"
+请只针对这个子行动推演效果。"""
+        else:
+            action_type = intent_note.structured.get("action_type", "unknown")
+            action_summary = intent_note.structured.get("action_summary", "")
+            split_info = ""
 
         user_msg = f"""{context_block}
 
@@ -359,8 +412,9 @@ class AgentRunner:
 
 意图解析:
   reasoning: {intent_note.reasoning}
-  action_type: {intent_note.structured.get('action_type', 'unknown')}
-  action_summary: {intent_note.structured.get('action_summary', '')}
+  action_type: {action_type}
+  action_summary: {action_summary}
+{split_info}
 
 标签匹配:
   reasoning: {tag_note.reasoning}
