@@ -18,6 +18,12 @@ env/
 *.swp
 *.swo
 
+# Kilo
+.kilo/
+
+# Logs
+logs/
+
 # OS
 .DS_Store
 Thumbs.db
