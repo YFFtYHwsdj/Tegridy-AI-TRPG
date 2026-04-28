@@ -9,6 +9,8 @@ from src.agents.limit_break import LimitBreakAgent
 from src.agents.continuation_check import ContinuationCheckAgent
 from src.agents.resolution_mode import ResolutionModeAgent
 
+from src.agents.validator import ValidatorAgent
+
 AGENT_REGISTRY = {
     "rhythm": RhythmAgent,
     "move_gatekeeper": MoveGatekeeperAgent,
@@ -20,6 +22,7 @@ AGENT_REGISTRY = {
     "narrator": NarratorAgent,
     "lite_narrator": LiteNarratorAgent,
     "quick_narrator": QuickNarratorAgent,
+    "validator": ValidatorAgent,
     "limit_break": LimitBreakAgent,
     "continuation_check": ContinuationCheckAgent,
     "resolution_mode": ResolutionModeAgent,
@@ -36,6 +39,7 @@ __all__ = [
     "NarratorAgent",
     "LiteNarratorAgent",
     "QuickNarratorAgent",
+    "ValidatorAgent",
     "LimitBreakAgent",
     "ContinuationCheckAgent",
     "ResolutionModeAgent",

@@ -4,14 +4,14 @@ from typing import Any
 from src.llm_client import LLMClient
 from src.state.game_state import GameState
 from src.engine import calculate_power, roll_dice
-from src.logger import log_roll
+from src.logger import log_roll, log_system
 from src.pipeline._tag_utils import extract_tag_names, extract_status_tiers
 from src.pipeline.pipeline_result import PipelineResult
 from src.display.console import ConsoleDisplay
 from src.agents import (
     TagMatcherAgent, EffectActualizationAgent, ConsequenceAgent,
     QuickConsequenceAgent, NarratorAgent, QuickNarratorAgent,
-    ContinuationCheckAgent,
+    ContinuationCheckAgent, ValidatorAgent,
 )
 
 
@@ -41,6 +41,7 @@ class MovePipeline:
         self.narrator = NarratorAgent(llm)
         self.quick_narrator = QuickNarratorAgent(llm)
         self.continuation_check = ContinuationCheckAgent(llm)
+        self.validator = ValidatorAgent(llm)
 
     def _run_tag_and_roll(self, intent_note, ctx, sub_action=None):
         tag_note = self.tag_agent.execute(intent_note, ctx, sub_action=sub_action)
@@ -81,6 +82,8 @@ class MovePipeline:
             consequence_note=consequence_note,
         )
 
+        self._run_validator_and_apply(narrator_note)
+
         return PipelineResult(
             tag_note=tag_note,
             roll=roll,
@@ -103,6 +106,8 @@ class MovePipeline:
             consequence_note=consequence_note,
         )
 
+        self._run_validator_and_apply(narrator_note)
+
         return PipelineResult(
             tag_note=tag_note,
             roll=roll,
@@ -110,6 +115,115 @@ class MovePipeline:
             consequence_note=consequence_note,
             narrator_note=narrator_note,
         )
+
+    def _run_validator_and_apply(self, narrator_note):
+        scene = self.state.scene
+        hidden_clues = scene.clues_hidden
+        hidden_items = {
+            iid: item
+            for npc in scene.npcs.values()
+            for iid, item in npc.items_hidden.items()
+        }
+        scene_hidden = scene.scene_items_hidden
+
+        valid_note = self.validator.execute(
+            narrator_note,
+            hidden_clues=hidden_clues,
+            hidden_items=hidden_items,
+            visible_clues=scene.clues_visible,
+            visible_items=self.state.character.items_visible if self.state.character else {},
+            scene_items_hidden=scene_hidden,
+            scene_items_visible=scene.scene_items_visible,
+            npcs=scene.npcs,
+        )
+
+        if valid_note.structured.get("verdict") == "reject":
+            return
+
+        self._apply_revelations(narrator_note)
+        self._apply_item_transfers(narrator_note)
+
+    def _apply_revelations(self, narrator_note):
+        scene = self.state.scene
+        decisions = narrator_note.structured.get("revelation_decisions", {})
+
+        for clue_id in decisions.get("reveal_clue_ids", []):
+            if clue_id in scene.clues_hidden:
+                clue = scene.clues_hidden.pop(clue_id)
+                scene.clues_visible[clue_id] = clue
+
+        for item_id in decisions.get("reveal_item_ids", []):
+            found = False
+            if item_id in scene.scene_items_hidden:
+                item = scene.scene_items_hidden.pop(item_id)
+                scene.scene_items_visible[item_id] = item
+                found = True
+            else:
+                for npc in scene.npcs.values():
+                    if item_id in npc.items_hidden:
+                        item = npc.items_hidden.pop(item_id)
+                        npc.items_visible[item_id] = item
+                        found = True
+                        break
+            if not found:
+                log_system(f"[揭示执行] 未找到物品 '{item_id}'")
+
+    def _apply_item_transfers(self, narrator_note):
+        scene = self.state.scene
+        transfers = narrator_note.structured.get("item_transfers", [])
+        location_updates = narrator_note.structured.get("location_text_updates", [])
+        loc_map = {u["item_id"]: u["new_location"] for u in location_updates}
+
+        for t in transfers:
+            item_id = t.get("item_id", "")
+            from_loc = t.get("from", "")
+            to_loc = t.get("to", "")
+            if not item_id or not from_loc or not to_loc:
+                continue
+
+            item = self._pop_item(item_id, from_loc)
+            if item is None:
+                log_system(f"[物品转移] 未找到 '{item_id}' (from={from_loc})")
+                continue
+
+            if item_id in loc_map:
+                item.location = loc_map[item_id]
+
+            self._insert_item(item_id, item, to_loc)
+
+    def _pop_item(self, item_id: str, location: str):
+        scene = self.state.scene
+        if location == "scene":
+            for d in (scene.scene_items_visible, scene.scene_items_hidden):
+                if item_id in d:
+                    return d.pop(item_id)
+        elif location == "character":
+            char = self.state.character
+            if char:
+                for d in (char.items_visible, char.items_hidden):
+                    if item_id in d:
+                        return d.pop(item_id)
+        elif location.startswith("npc."):
+            npc_id = location[4:]
+            npc = scene.npcs.get(npc_id)
+            if npc:
+                for d in (npc.items_visible, npc.items_hidden):
+                    if item_id in d:
+                        return d.pop(item_id)
+        return None
+
+    def _insert_item(self, item_id: str, item, location: str):
+        scene = self.state.scene
+        if location == "scene":
+            scene.scene_items_visible[item_id] = item
+        elif location == "character":
+            if self.state.character:
+                self.state.character.items_visible[item_id] = item
+        elif location.startswith("npc."):
+            npc_id = location[4:]
+            npc = scene.npcs.get(npc_id)
+            if npc:
+                npc.items_visible[item_id] = item
 
     def process_split_actions(self, intent_note, split_actions) -> list:
         self.display.print_split_action_header(len(split_actions))

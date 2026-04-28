@@ -49,6 +49,7 @@ class SceneState:
             character=character,
             challenge=challenge,
             player_input=player_input,
+            extra={"scene_state": self},
         )
 
     def _build_context_block(self, character: Optional[Character], challenge: Optional[Challenge]) -> str:

@@ -9,6 +9,8 @@ from src.agents.prompts.limit_break import LIMIT_BREAK_PROMPT
 from src.agents.prompts.continuation_check import CONTINUATION_CHECK_PROMPT
 from src.agents.prompts.resolution_mode import RESOLUTION_MODE_PROMPT
 
+from src.agents.prompts.validator import VALIDATOR_PROMPT
+
 __all__ = [
     "RHYTHM_SYSTEM_PROMPT",
     "MOVE_GATEKEEPER_PROMPT",
@@ -20,6 +22,7 @@ __all__ = [
     "NARRATOR_PROMPT",
     "LITE_NARRATOR_PROMPT",
     "QUICK_NARRATOR_PROMPT",
+    "VALIDATOR_PROMPT",
     "LIMIT_BREAK_PROMPT",
     "CONTINUATION_CHECK_PROMPT",
     "RESOLUTION_MODE_PROMPT",
