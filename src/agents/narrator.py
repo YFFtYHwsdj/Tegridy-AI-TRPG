@@ -7,49 +7,9 @@ from src.agents.prompts import LITE_NARRATOR_PROMPT, NARRATOR_PROMPT, QUICK_NARR
 from src.context import AgentContext
 from src.models import AgentNote, RollResult
 
-
-def _build_hidden_context(ctx: AgentContext) -> str:
-    scene = ctx.extra.get("scene_state")
-    if scene is None:
-        return ""
-    parts = []
-    hidden_clues = getattr(scene, "clues_hidden", {})
-    hidden_items = getattr(scene, "scene_items_hidden", {})
-    if hidden_clues:
-        clue_list = ", ".join(f"{cid}({c.name})" for cid, c in hidden_clues.items())
-        parts.append(f"隐藏线索: {clue_list}")
-    if hidden_items:
-        item_list = ", ".join(f"{iid}({i.name})" for iid, i in hidden_items.items())
-        parts.append(f"隐藏物品: {item_list}")
-    npcs = getattr(scene, "npcs", {})
-    for npc in npcs.values():
-        if npc.items_hidden:
-            item_list = ", ".join(f"{iid}({i.name})" for iid, i in npc.items_hidden.items())
-            parts.append(f"{npc.name}身上隐藏的物品: {item_list}")
-    return "\n".join(parts) if parts else ""
-
-
-def _build_revealed_context(ctx: AgentContext) -> str:
-    scene = ctx.extra.get("scene_state")
-    if scene is None:
-        return ""
-    parts = []
-    discovered = getattr(scene, "clues_visible", {})
-    found_items = getattr(scene, "scene_items_visible", {})
-    char = ctx.character
-    char_items = {}
-    if char:
-        char_items = getattr(char, "items_visible", {})
-    if discovered:
-        clue_list = ", ".join(f"{cid}({c.name})" for cid, c in discovered.items())
-        parts.append(f"已发现线索: {clue_list}")
-    if found_items:
-        item_list = ", ".join(f"{iid}({i.name})" for iid, i in found_items.items())
-        parts.append(f"场景中已找到物品: {item_list}")
-    if char_items:
-        item_list = ", ".join(f"{iid}({i.name})" for iid, i in char_items.items())
-        parts.append(f"角色身上物品: {item_list}")
-    return "\n".join(parts) if parts else ""
+_HIDDEN_NOTICE = """注意：标记为(隐藏)的线索、物品及其详情尚未被玩家角色发现。
+叙事中不要直接提及这些信息。如果玩家的行动在逻辑上自然应该触达它们，
+通过 revelation_decisions 标记揭示。"""
 
 
 class NarratorAgent(BaseAgent):
@@ -72,17 +32,13 @@ class NarratorAgent(BaseAgent):
             cons_reasoning = consequence_note.reasoning
             cons_structured = consequence_note.structured
 
-        hidden_block = _build_hidden_context(ctx)
-        revealed_block = _build_revealed_context(ctx)
-
-        user_msg = f"""{ctx.context_block}
+        user_msg = f"""{ctx.assets_block}
+{ctx.context_block}
 
 叙事历史:
 {ctx.narrative_block}
 
-{hidden_block}
-
-{revealed_block}
+{_HIDDEN_NOTICE}
 
 效果推演推理: {effect_note.reasoning}
 效果: {json.dumps(effect_note.structured.get("effects", []), ensure_ascii=False)}
@@ -111,17 +67,13 @@ class LiteNarratorAgent(BaseAgent):
         ctx: AgentContext,
         gatekeeper_reasoning: str,
     ) -> AgentNote:
-        hidden_block = _build_hidden_context(ctx)
-        revealed_block = _build_revealed_context(ctx)
-
-        user_msg = f"""{ctx.context_block}
+        user_msg = f"""{ctx.assets_block}
+{ctx.context_block}
 
 叙事历史:
 {ctx.narrative_block}
 
-{hidden_block}
-
-{revealed_block}
+{_HIDDEN_NOTICE}
 
 守门人判断: {gatekeeper_reasoning}
 
@@ -151,17 +103,13 @@ class QuickNarratorAgent(BaseAgent):
             cons_reasoning = consequence_note.reasoning
             cons_structured = consequence_note.structured
 
-        hidden_block = _build_hidden_context(ctx)
-        revealed_block = _build_revealed_context(ctx)
-
-        user_msg = f"""{ctx.context_block}
+        user_msg = f"""{ctx.assets_block}
+{ctx.context_block}
 
 叙事历史:
 {ctx.narrative_block}
 
-{hidden_block}
-
-{revealed_block}
+{_HIDDEN_NOTICE}
 
 意图: {intent_note.structured.get("action_summary", "")}
 

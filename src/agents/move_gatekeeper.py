@@ -11,7 +11,8 @@ class MoveGatekeeperAgent(BaseAgent):
     agent_name = "Move守门人"
 
     def execute(self, player_input: str, ctx: AgentContext) -> AgentNote:
-        user_msg = f"""{ctx.context_block}
+        user_msg = f"""{ctx.assets_block}
+{ctx.context_block}
 
 叙事历史:
 {ctx.narrative_block}

@@ -16,7 +16,8 @@ class ContinuationCheckAgent(BaseAgent):
         ctx: AgentContext,
         last_sub_summary: str,
     ) -> AgentNote:
-        user_msg = f"""{ctx.context_block}
+        user_msg = f"""{ctx.assets_block}
+{ctx.context_block}
 
 叙事历史:
 {ctx.narrative_block}

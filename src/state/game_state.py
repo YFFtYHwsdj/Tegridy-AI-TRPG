@@ -46,8 +46,7 @@ class GameState:
     def append_narrative(self, entry: str):
         """向当前场景追加叙事条目。
 
-        委托给 SceneState.append_narrative()，
-        场景内部管理叙事历史的长度限制。
+        委托给 SceneState.append_narrative()。
 
         Args:
             entry: 叙事文本

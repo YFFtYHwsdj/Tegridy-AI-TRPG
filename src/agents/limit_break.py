@@ -26,7 +26,8 @@ class LimitBreakAgent(BaseAgent):
                     limits_detail.append(f"  {limit.name}: {current}/{limit.max_tier} (极限突破!)")
                     break
 
-        user_msg = f"""{ctx.context_block}
+        user_msg = f"""{ctx.assets_block}
+{ctx.context_block}
 
 叙事历史:
 {ctx.narrative_block}

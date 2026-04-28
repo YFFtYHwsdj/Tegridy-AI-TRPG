@@ -3,7 +3,7 @@ import unittest
 from src.context import AgentContext
 from src.models import Challenge, Character, Limit, Tag
 from src.state.game_state import GameState
-from src.state.scene_state import HISTORY_BUFFER, MAX_HISTORY_ENTRIES, SceneState
+from src.state.scene_state import SceneState
 
 
 class TestGameState(unittest.TestCase):
@@ -77,27 +77,10 @@ class TestGameState(unittest.TestCase):
         self.assertEqual(len(self.state.scene.narrative_history), 1)
         self.assertEqual(self.state.scene.narrative_history[0], "你走进酒吧")
 
-    def test_append_within_limit(self):
-        for i in range(MAX_HISTORY_ENTRIES):
+    def test_append_no_truncation(self):
+        for i in range(100):
             self.state.append_narrative(f"事件{i}")
-        self.assertEqual(len(self.state.scene.narrative_history), MAX_HISTORY_ENTRIES)
-
-    def test_append_within_buffer(self):
-        total = MAX_HISTORY_ENTRIES + HISTORY_BUFFER
-        for i in range(total):
-            self.state.append_narrative(f"事件{i}")
-        self.assertEqual(len(self.state.scene.narrative_history), total)
-
-    def test_append_overflow_trims_oldest(self):
-        total = MAX_HISTORY_ENTRIES + HISTORY_BUFFER + 3
-        for i in range(total):
-            self.state.append_narrative(f"事件{i}")
-        self.assertEqual(
-            len(self.state.scene.narrative_history),
-            MAX_HISTORY_ENTRIES + HISTORY_BUFFER,
-        )
-        expected = f"事件{total - (MAX_HISTORY_ENTRIES + HISTORY_BUFFER)}"
-        self.assertEqual(self.state.scene.narrative_history[0], expected)
+        self.assertEqual(len(self.state.scene.narrative_history), 100)
 
     def test_make_context_has_player_input(self):
         scene = self._make_scene("酒吧场景")
@@ -107,12 +90,14 @@ class TestGameState(unittest.TestCase):
         self.assertEqual(ctx.player_input, "我要拔枪")
         self.assertIs(ctx.character, self.character)
         self.assertIs(ctx.challenge, self.challenge)
+        self.assertIsNotNone(ctx.assets_block)
 
     def test_make_context_no_player_input(self):
         scene = self._make_scene("酒吧场景")
         self.state.setup(self.character, scene)
         ctx = self.state.make_context()
         self.assertEqual(ctx.player_input, "")
+        self.assertIsNotNone(ctx.assets_block)
 
     def test_build_context_block_with_broken_limits(self):
         scene = self._make_scene("酒吧场景")
@@ -151,15 +136,14 @@ class TestGameState(unittest.TestCase):
         self.assertIn("[1] 事件A", block)
         self.assertIn("[2] 事件B", block)
 
-    def test_build_narrative_block_truncates_to_max(self):
-        total = MAX_HISTORY_ENTRIES + HISTORY_BUFFER + 5
-        for i in range(total):
+    def test_build_narrative_block_full_history(self):
+        for i in range(10):
             self.state.append_narrative(f"事件{i}")
         block = self.state.scene._build_narrative_block()
         lines = block.split("\n")
-        self.assertEqual(len(lines), MAX_HISTORY_ENTRIES)
-        self.assertIn("[1]", lines[0])
-        self.assertIn(f"[{MAX_HISTORY_ENTRIES}]", lines[-1])
+        self.assertEqual(len(lines), 10)
+        self.assertIn("[1] 事件0", lines[0])
+        self.assertIn("[10] 事件9", lines[-1])
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 import unittest
 
 from src.models import NPC, Challenge, Clue, GameItem, Limit
-from src.state.scene_state import HISTORY_BUFFER, MAX_HISTORY_ENTRIES, SceneState
+from src.state.scene_state import SceneState
 
 
 class TestSceneState(unittest.TestCase):
@@ -26,21 +26,11 @@ class TestSceneState(unittest.TestCase):
         self.assertEqual(len(scene.narrative_history), 1)
         self.assertEqual(scene.narrative_history[0], "你走进了酒吧")
 
-    def test_append_within_limit(self):
+    def test_append_no_truncation(self):
         scene = SceneState()
-        for i in range(MAX_HISTORY_ENTRIES):
+        for i in range(100):
             scene.append_narrative(f"事件{i}")
-        self.assertEqual(len(scene.narrative_history), MAX_HISTORY_ENTRIES)
-
-    def test_append_overflow_trims(self):
-        scene = SceneState()
-        total = MAX_HISTORY_ENTRIES + HISTORY_BUFFER + 5
-        for i in range(total):
-            scene.append_narrative(f"事件{i}")
-        self.assertEqual(len(scene.narrative_history), MAX_HISTORY_ENTRIES + HISTORY_BUFFER)
-        self.assertEqual(
-            scene.narrative_history[0], f"事件{total - (MAX_HISTORY_ENTRIES + HISTORY_BUFFER)}"
-        )
+        self.assertEqual(len(scene.narrative_history), 100)
 
     def test_add_and_get_challenge(self):
         scene = SceneState()
@@ -89,6 +79,61 @@ class TestSceneState(unittest.TestCase):
         scene = SceneState(npcs={"miko": npc})
         self.assertIn("miko", scene.npcs)
         self.assertEqual(scene.npcs["miko"].name, "Miko")
+
+    def test_build_assets_block_empty(self):
+        scene = SceneState()
+        block = scene._build_assets_block(None)
+        self.assertIn("=== 场景资产 ===", block)
+        self.assertIn("场景人物: （无）", block)
+        self.assertIn("线索: （无）", block)
+        self.assertIn("场景物品: （无）", block)
+        self.assertIn("角色的随身物品: （无）", block)
+
+    def test_build_assets_block_with_data(self):
+        npc = NPC(
+            npc_id="miko",
+            name="Miko",
+            description="帮派中间人",
+            items_visible={"chip": GameItem(item_id="chip", name="芯片", description="数据芯片")},
+            items_hidden={"key": GameItem(item_id="key", name="钥匙", description="暗门钥匙")},
+        )
+        clue_vis = Clue(clue_id="log", name="通讯记录", description="保镖的短讯")
+        clue_hid = Clue(clue_id="motive", name="真正动机", description="Miko想背叛")
+        item_vis = GameItem(
+            item_id="pad", name="数据板", description="Miko的数据板", location="吧台"
+        )
+        item_hid = GameItem(
+            item_id="medkit", name="急救包", description="军规急救包", location="暗格"
+        )
+
+        scene = SceneState(
+            npcs={"miko": npc},
+            clues_visible={"log": clue_vis},
+            clues_hidden={"motive": clue_hid},
+            scene_items_visible={"pad": item_vis},
+            scene_items_hidden={"medkit": item_hid},
+        )
+
+        block = scene._build_assets_block(None)
+        self.assertIn("Miko: 帮派中间人", block)
+        self.assertIn("芯片(可见)", block)
+        self.assertIn("钥匙(隐藏)", block)
+        self.assertIn("通讯记录(可见)", block)
+        self.assertIn("真正动机(隐藏)", block)
+        self.assertIn("数据板 [吧台]", block)
+        self.assertIn("军规急救包 (隐藏)", block)
+
+    def test_build_narrative_block_order(self):
+        scene = SceneState()
+        scene.append_narrative("事件A")
+        scene.append_narrative("事件B")
+        scene.append_narrative("事件C")
+        block = scene._build_narrative_block()
+        lines = block.split("\n")
+        self.assertEqual(len(lines), 3)
+        self.assertIn("[1] 事件A", lines[0])
+        self.assertIn("[2] 事件B", lines[1])
+        self.assertIn("[3] 事件C", lines[2])
 
 
 if __name__ == "__main__":

@@ -24,7 +24,8 @@ class TagMatcherAgent(BaseAgent):
 
         action_type, action_summary, split_info = resolve_sub_action_info(intent_note, sub_action)
 
-        user_msg = f"""{ctx.context_block}
+        user_msg = f"""{ctx.assets_block}
+{ctx.context_block}
 
 叙事历史:
 {ctx.narrative_block}

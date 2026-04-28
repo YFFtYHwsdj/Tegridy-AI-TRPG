@@ -154,7 +154,7 @@ class MovePipeline:
             consequence_note=consequence_note,
         )
 
-        self.validate_and_apply(narrator_note)
+        self.validate_and_apply(narrator_note, ctx)
 
         return PipelineResult(
             tag_note=tag_note,
@@ -190,7 +190,7 @@ class MovePipeline:
             consequence_note=consequence_note,
         )
 
-        self.validate_and_apply(narrator_note)
+        self.validate_and_apply(narrator_note, ctx)
 
         return PipelineResult(
             tag_note=tag_note,
@@ -200,7 +200,7 @@ class MovePipeline:
             narrator_note=narrator_note,
         )
 
-    def validate_and_apply(self, narrator_note):
+    def validate_and_apply(self, narrator_note, ctx=None):
         """校验叙事输出并应用状态变更。
 
         将叙述者 Agent 产出的叙事文本交给校验器 Agent 审查，
@@ -209,6 +209,7 @@ class MovePipeline:
 
         Args:
             narrator_note: 叙述者 Agent 的分析便签
+            ctx: 当前场景上下文（用于 emergent 物品创建）
         """
         scene = self.state.scene
 
@@ -235,7 +236,7 @@ class MovePipeline:
             return
 
         self._apply_revelations(narrator_note)
-        self._apply_item_transfers(narrator_note)
+        self._apply_item_transfers(narrator_note, ctx)
 
     def _apply_revelations(self, narrator_note):
         """执行叙事中揭示的线索和物品。
@@ -272,7 +273,7 @@ class MovePipeline:
             if not found:
                 log_system(f"[揭示执行] 未找到物品 '{item_id}'")
 
-    def _apply_item_transfers(self, narrator_note):
+    def _apply_item_transfers(self, narrator_note, ctx=None):
         """执行叙事中的物品转移。
 
         处理物品在不同位置之间的移动（场景 ↔ 角色 ↔ NPC），
@@ -280,6 +281,7 @@ class MovePipeline:
 
         Args:
             narrator_note: 叙述者 Agent 的分析便签
+            ctx: 当前场景上下文（用于 emergent 物品创建）
         """
         _scene = self.state.scene
         transfers = narrator_note.structured.get("item_transfers", [])
@@ -301,7 +303,7 @@ class MovePipeline:
             item = self._pop_item(item_id, from_loc)
             if item is None:
                 # 物品不存在 → 尝试自动创建 emergent 物品
-                created = self._create_emergent_item(item_id, narrator_note)
+                created = self._create_emergent_item(item_id, ctx)
                 if not created:
                     log_system(f"[物品转移] 未找到且无法创建 '{item_id}' (from={from_loc})")
                     continue
@@ -315,15 +317,15 @@ class MovePipeline:
             # 插入到目标位置
             self._insert_item(item_id, item, to_loc)
 
-    def _create_emergent_item(self, item_name: str, narrator_note):
+    def _create_emergent_item(self, item_name: str, ctx=None):
         """创建 emergent 物品 —— 叙述者即兴引入的新物品。
 
         LLM 叙述者可能在叙事中引入原数据中不存在的物品。
-        此时调用 ItemCreator Agent 根据叙事上下文自动生成物品数据。
+        此时调用 ItemCreator Agent 根据上下文自动生成物品数据。
 
         Args:
             item_name: 物品名称
-            narrator_note: 叙述者 Agent 的分析便签
+            ctx: 当前场景上下文（用于 ItemCreatorAgent）
 
         Returns:
             新创建的 GameItem 对象，创建失败返回 None
@@ -333,8 +335,7 @@ class MovePipeline:
         if not hasattr(self, "item_creator"):
             self.item_creator = ItemCreatorAgent(self.llm)
 
-        narrative = narrator_note.structured.get("narrative", "")
-        creator_note = self.item_creator.execute(item_name, narrative)
+        creator_note = self.item_creator.execute(item_name, ctx)
         item_data = creator_note.structured
         if not item_data:
             return None

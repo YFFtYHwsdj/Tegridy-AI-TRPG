@@ -18,7 +18,8 @@ class ResolutionModeAgent(BaseAgent):
         action_type = intent_note.structured.get("action_type", "unknown")
         action_summary = intent_note.structured.get("action_summary", "")
 
-        user_msg = f"""{ctx.context_block}
+        user_msg = f"""{ctx.assets_block}
+{ctx.context_block}
 
 叙事历史:
 {ctx.narrative_block}

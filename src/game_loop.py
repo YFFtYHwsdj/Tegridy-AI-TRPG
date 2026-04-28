@@ -210,7 +210,7 @@ class GameLoop:
         narrator_note = self.lite_narrator.execute(player_input, ctx, gatekeeper_note.reasoning)
         print("─" * 50)
 
-        self.pipeline.validate_and_apply(narrator_note)
+        self.pipeline.validate_and_apply(narrator_note, ctx)
 
         narrative = narrator_note.structured.get("narrative", "")
         print(f"\n{narrative}")

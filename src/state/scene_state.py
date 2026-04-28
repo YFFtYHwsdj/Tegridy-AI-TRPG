@@ -3,11 +3,10 @@
 本模块定义了 SceneState 数据类，管理一个场景内的所有数据：
     - 场景描述与活跃挑战
     - NPC、线索、物品（可见/隐藏）
-    - 叙事历史（带滚动窗口限制）
-    - Agent 上下文构建（拼接角色、挑战、叙事历史为上下文块）
+    - 叙事历史（场景内完整保留）
+    - Agent 上下文构建（拼接场景资产、角色、挑战、叙事历史为上下文块）
 
-场景作为上下文单元，叙事历史保留最近 MAX_HISTORY_ENTRIES 条，
-超出时自动丢弃最旧的条目，避免 Agent 上下文无限膨胀。
+场景作为上下文单元，叙事历史在场景内完整保留。
 """
 
 from __future__ import annotations
@@ -17,11 +16,6 @@ from dataclasses import dataclass, field
 from src.context import AgentContext
 from src.formatter import format_limit_progress, format_statuses, format_story_tags
 from src.models import NPC, Challenge, Character, Clue, GameItem
-
-# 叙事历史保留条数：Agent 上下文只取最近 6 条
-MAX_HISTORY_ENTRIES = 6
-# 额外缓冲：在丢弃之前多保留 2 条，减少频繁截断
-HISTORY_BUFFER = 2
 
 
 @dataclass
@@ -36,7 +30,7 @@ class SceneState:
         clues_hidden: 未揭示的线索
         npcs: 场景中的 NPC
         active_challenges: 活跃的挑战（通常一个场景只有一个主挑战）
-        narrative_history: 叙事历史列表（最新在后，自动截断）
+        narrative_history: 叙事历史列表（最新在后，场景内完整保留）
     """
 
     scene_description: str = ""
@@ -82,26 +76,20 @@ class SceneState:
         self.active_challenges[challenge.name] = challenge
 
     def append_narrative(self, entry: str):
-        """追加叙事条目，自动维护滚动窗口。
-
-        叙事历史保持在 MAX_HISTORY_ENTRIES + HISTORY_BUFFER 条以内。
-        超出时截断保留最近的部分，避免 Agent 上下文无限膨胀。
+        """追加叙事条目。
 
         Args:
             entry: 叙事文本
         """
         self.narrative_history.append(entry)
-        if len(self.narrative_history) > MAX_HISTORY_ENTRIES + HISTORY_BUFFER:
-            self.narrative_history = self.narrative_history[
-                -(MAX_HISTORY_ENTRIES + HISTORY_BUFFER) :
-            ]
 
     def make_context(self, character: Character | None, player_input: str = "") -> AgentContext:
         """构建 Agent 上下文对象。
 
-        将场景信息、角色信息、叙事历史拼接为两个文本块：
+        将场景资产、状态快照、叙事历史拼接为三个文本块：
+            - assets_block: 场景资产（NPC、线索、物品）
             - context_block: 当前状态快照（场景、角色、挑战、极限进度）
-            - narrative_block: 最近叙事历史
+            - narrative_block: 叙事历史
 
         Args:
             character: 玩家角色
@@ -112,6 +100,7 @@ class SceneState:
         """
         challenge = self.primary_challenge()
         return AgentContext(
+            assets_block=self._build_assets_block(character),
             context_block=self._build_context_block(character, challenge),
             narrative_block=self._build_narrative_block(),
             character=character,
@@ -167,15 +156,79 @@ class SceneState:
     def _build_narrative_block(self) -> str:
         """构建叙事历史文本块。
 
-        取最近 MAX_HISTORY_ENTRIES 条叙事记录，编号排列。
+        取场景内全部叙事记录，按时间顺序排列（最早在前）。
 
         Returns:
             格式化的叙事历史文本
         """
         if not self.narrative_history:
             return "（无历史）"
-        recent = self.narrative_history[-MAX_HISTORY_ENTRIES:]
         lines = []
-        for i, entry in enumerate(recent, 1):
+        for i, entry in enumerate(self.narrative_history, 1):
             lines.append(f"[{i}] {entry}")
+        return "\n".join(lines)
+
+    def _build_assets_block(self, character: Character | None) -> str:
+        """构建场景资产文本块。
+
+        包含 NPC、线索、场景物品、角色随身物品等场景资产信息，
+        供所有 Agent 了解场景中的实体分布。线索和物品标注可见/隐藏状态。
+
+        Args:
+            character: 玩家角色
+
+        Returns:
+            格式化的场景资产文本块
+        """
+        lines = ["=== 场景资产 ==="]
+
+        # NPC
+        if self.npcs:
+            lines.append("\n场景人物:")
+            for npc in self.npcs.values():
+                parts = [f"  - {npc.name}: {npc.description}"]
+                vis_items = [f"{i.name}(可见)" for i in npc.items_visible.values()]
+                hid_items = [f"{i.name}(隐藏)" for i in npc.items_hidden.values()]
+                all_items = vis_items + hid_items
+                if all_items:
+                    parts.append(f" [携带: {', '.join(all_items)}]")
+                lines.append("".join(parts))
+        else:
+            lines.append("\n场景人物: （无）")
+
+        # 线索
+        all_clues: list[tuple[str, Clue, str]] = []
+        for cid, clue in self.clues_visible.items():
+            all_clues.append((cid, clue, "可见"))
+        for cid, clue in self.clues_hidden.items():
+            all_clues.append((cid, clue, "隐藏"))
+        if all_clues:
+            lines.append("\n线索:")
+            for _cid, clue, vis in all_clues:
+                lines.append(f"  - {clue.name}({vis}): {clue.description}")
+        else:
+            lines.append("\n线索: （无）")
+
+        # 场景物品
+        all_items: list[tuple[str, GameItem, str]] = []
+        for iid, item in self.scene_items_visible.items():
+            all_items.append((iid, item, "可见"))
+        for iid, item in self.scene_items_hidden.items():
+            all_items.append((iid, item, "隐藏"))
+        if all_items:
+            lines.append("\n场景物品:")
+            for _iid, item, vis in all_items:
+                loc = f" [{item.location}]" if item.location else ""
+                lines.append(f"  - {item.name}{loc}: {item.description} ({vis})")
+        else:
+            lines.append("\n场景物品: （无）")
+
+        # 角色随身物品
+        if character and character.items_visible:
+            lines.append(f"\n{character.name}的随身物品:")
+            for item in character.items_visible.values():
+                lines.append(f"  - {item.name}: {item.description}")
+        else:
+            lines.append(f"\n{character.name if character else '角色'}的随身物品: （无）")
+
         return "\n".join(lines)
