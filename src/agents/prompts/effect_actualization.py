@@ -71,9 +71,9 @@ target 字段指南：
 第二步·因果推演：这个角色、这个能力、这个行动、这个场景 → 实际发生什么 → 什么操作和等级
 
 =====STRUCTURED=====
-{{{{
+{{
   "effects": [
-    {{{{
+    {{
        "operation": "inflict_status",
        "effect_type": "influence",
        "tier": 2,
@@ -81,51 +81,51 @@ target 字段指南：
        "label": "具体的状态名称",
        "limit_category": "说服",
        "reasoning": "简短的理由"
-    }}}},
-    {{{{
+    }},
+    {{
        "operation": "nudge_status",
        "effect_type": "influence",
        "target": "挑战",
        "status_to_nudge": "愿意交易",
        "limit_category": "说服",
        "reasoning": "在已有2级基础上提升1级至3级，触发极限"
-    }}}},
-    {{{{
+    }},
+    {{
        "operation": "reduce_status",
       "effect_type": "restore",
       "target": "自身",
       "status_to_reduce": "受伤",
       "reduce_by": 1,
       "reasoning": "简短的理由"
-    }}}},
-    {{{{
+    }},
+    {{
       "operation": "add_story_tag",
       "effect_type": "create",
       "target": "自身",
       "story_tag_name": "临时掩体",
       "story_tag_description": "用翻倒的桌子搭起的掩体",
       "reasoning": "简短的理由"
-    }}}},
-    {{{{
+    }},
+    {{
       "operation": "scratch_story_tag",
       "effect_type": "weaken",
       "target": "挑战",
       "story_tag_to_scratch": "防火墙",
       "reasoning": "简短的理由"
-    }}}},
-    {{{{
+    }},
+    {{
       "operation": "discover",
       "effect_type": "discover",
       "detail": "发现的细节描述",
       "reasoning": "简短的理由"
-    }}}},
-    {{{{
+    }},
+    {{
       "operation": "extra_feat",
       "effect_type": "extra_feat",
       "description": "额外壮举的描述",
       "reasoning": "简短的理由"
-    }}}}
+    }}
   ],
   "total_power_spent": 3,
   "narrative_hints": "给叙述者Agent的渲染提示"
-}}}}"""
+}}"""
