@@ -172,9 +172,11 @@ class MovePipeline:
         scene = self.state.scene
         transfers = narrator_note.structured.get("item_transfers", [])
         location_updates = narrator_note.structured.get("location_text_updates", [])
-        loc_map = {u["item_id"]: u["new_location"] for u in location_updates}
+        loc_map = {u["item_id"]: u["new_location"] for u in location_updates if isinstance(u, dict)}
 
         for t in transfers:
+            if not isinstance(t, dict):
+                continue
             item_id = t.get("item_id", "")
             from_loc = t.get("from", "")
             to_loc = t.get("to", "")
