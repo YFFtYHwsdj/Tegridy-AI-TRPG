@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional
-from src.models import Character, Challenge
+from src.models import Character
 from src.context import AgentContext
 from src.state.scene_state import SceneState, MAX_HISTORY_ENTRIES, HISTORY_BUFFER
 
@@ -12,12 +12,11 @@ class GameState:
         self.scene: SceneState = SceneState()
         self.scene_history: list[SceneState] = []
 
-    def setup(self, character: Character, challenge: Challenge, scene_desc: str):
+    def setup(self, character: Character, scene: SceneState):
         self.character = character
         if self.scene.scene_description or self.scene.active_challenges:
             self.scene_history.append(self.scene)
-        self.scene = SceneState(scene_description=scene_desc)
-        self.scene.add_challenge(challenge)
+        self.scene = scene
 
     def append_narrative(self, entry: str):
         self.scene.append_narrative(entry)

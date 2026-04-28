@@ -7,9 +7,8 @@ from src.llm_client import LLMClient
 from src.game_loop import GameLoop
 from src.logger import init_log
 from src.preset_data import (
-    DEMO_SCENE_DESCRIPTION,
     DEMO_CHARACTER,
-    DEMO_CHALLENGE,
+    build_demo_scene,
 )
 
 load_dotenv()
@@ -39,8 +38,7 @@ def main():
     game = GameLoop(llm)
     game.setup(
         character=DEMO_CHARACTER,
-        challenge=DEMO_CHALLENGE,
-        scene_desc=DEMO_SCENE_DESCRIPTION,
+        scene=build_demo_scene(),
     )
 
     print("\n输入你的行动（输入 quit 退出）")

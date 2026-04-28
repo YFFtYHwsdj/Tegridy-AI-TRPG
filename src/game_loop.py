@@ -1,5 +1,6 @@
 from src.llm_client import LLMClient
-from src.models import Character, Challenge
+from src.models import Character
+from src.state.scene_state import SceneState
 from src.engine import check_limits
 from src.formatter import format_challenge_state
 from src.agents import (
@@ -27,8 +28,8 @@ class GameLoop:
         self.limit_break_agent = LimitBreakAgent(llm)
         self.resolution_agent = ResolutionModeAgent(llm)
 
-    def setup(self, character: Character, challenge: Challenge, scene_desc: str):
-        self.state.setup(character, challenge, scene_desc)
+    def setup(self, character: Character, scene: SceneState):
+        self.state.setup(character, scene)
 
         challenge = self.state.scene.primary_challenge()
 
@@ -36,7 +37,7 @@ class GameLoop:
         print("       :OTHERSCAPE · AI 主持 · 单场景 Demo")
         print("═" * 50)
 
-        rhythm = self.rhythm_agent.execute(scene_desc)
+        rhythm = self.rhythm_agent.execute(scene.scene_description)
         narrative = rhythm.structured.get("scene_establishment", "")
         print(f"\n{narrative}")
         self.state.append_narrative(narrative)

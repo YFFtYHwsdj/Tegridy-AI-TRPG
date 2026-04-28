@@ -5,8 +5,12 @@ from src.pipeline._tag_utils import extract_tag_names, extract_status_names
 
 
 class ConsoleDisplay:
-    @staticmethod
-    def print_tag_and_roll(tag_note, roll):
+    def __init__(self, debug_mode: bool = False):
+        self.debug_mode = debug_mode
+
+    def print_tag_and_roll(self, tag_note, roll):
+        if not self.debug_mode:
+            return
         matched_power = tag_note.structured.get("matched_power_tags", [])
         matched_weakness = tag_note.structured.get("matched_weakness_tags", [])
         power_tag_names = extract_tag_names(matched_power)
@@ -27,8 +31,9 @@ class ConsoleDisplay:
             print(f"  状态影响: {' | '.join(status_parts)}")
         print(f"  力量: {roll.power} | 掷骰: {roll.dice[0]}+{roll.dice[1]} = {roll.total} → {roll.outcome}")
 
-    @staticmethod
-    def print_effects(effect_note):
+    def print_effects(self, effect_note):
+        if not self.debug_mode:
+            return
         if effect_note is None:
             return
         effects = effect_note.structured.get("effects", [])
@@ -38,21 +43,24 @@ class ConsoleDisplay:
         else:
             print(f"  实际效果: 无")
 
-    @staticmethod
-    def print_effects_or_quick_note(effect_note, quick=False):
+    def print_effects_or_quick_note(self, effect_note, quick=False):
+        if not self.debug_mode:
+            return
         if quick:
             print(f"  实际效果: 无（快速结算不花费力量）")
         elif effect_note is not None:
-            ConsoleDisplay.print_effects(effect_note)
+            self.print_effects(effect_note)
 
-    @staticmethod
-    def print_strategy(narrator_note):
+    def print_strategy(self, narrator_note):
+        if not self.debug_mode:
+            return
         strategy = narrator_note.structured.get("scene_update") or narrator_note.reasoning[:60]
         if strategy:
             print(f"  叙事策略: {strategy}")
 
-    @staticmethod
-    def print_consequences(consequence_note):
+    def print_consequences(self, consequence_note):
+        if not self.debug_mode:
+            return
         if not consequence_note:
             return
         cons_list = consequence_note.structured.get("consequences", [])
@@ -63,8 +71,9 @@ class ConsoleDisplay:
         )
         print(f"  后果: {cons_summary}")
 
-    @staticmethod
-    def print_status(state):
+    def print_status(self, state):
+        if not self.debug_mode:
+            return
         if state.character is None:
             return
         challenge = state.scene.primary_challenge()
