@@ -82,7 +82,7 @@ class MovePipeline:
             consequence_note=consequence_note,
         )
 
-        self._run_validator_and_apply(narrator_note)
+        self.validate_and_apply(narrator_note)
 
         return PipelineResult(
             tag_note=tag_note,
@@ -106,7 +106,7 @@ class MovePipeline:
             consequence_note=consequence_note,
         )
 
-        self._run_validator_and_apply(narrator_note)
+        self.validate_and_apply(narrator_note)
 
         return PipelineResult(
             tag_note=tag_note,
@@ -116,7 +116,7 @@ class MovePipeline:
             narrator_note=narrator_note,
         )
 
-    def _run_validator_and_apply(self, narrator_note):
+    def validate_and_apply(self, narrator_note):
         scene = self.state.scene
         hidden_clues = scene.clues_hidden
         hidden_items = {
