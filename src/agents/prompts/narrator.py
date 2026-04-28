@@ -98,7 +98,6 @@ LITE_NARRATOR_PROMPT = """你是一个沉浸式叙述者。玩家说了一句不
 
 =====STRUCTURED=====
 {
-  "narrative": "纯叙事文本。80-200字",
   "scene_update": "场景状态一句话描述，供内部使用",
   "revelation_decisions": {
     "reveal_clue_ids": [],

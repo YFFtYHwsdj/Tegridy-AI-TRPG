@@ -133,7 +133,7 @@ def parse_agent_output(raw_output: str) -> "AgentNote":
         log_system(f"[JSON解析] 输出中未找到 =====STRUCTURED===== 标记。"
                    f" 原始输出前200字符: {raw_output[:200]}")
 
-    # If structured has no "narrative" but there is a NARRATIVE section, extract it
+    # Extract NARRATIVE section if not already in structured
     if "narrative" not in structured:
         narrative_match = re.search(
             r"=====NARRATIVE=====\s*(.*?)\s*=====STRUCTURED=====",
@@ -141,5 +141,12 @@ def parse_agent_output(raw_output: str) -> "AgentNote":
         )
         if narrative_match:
             structured["narrative"] = narrative_match.group(1).strip()
+        else:
+            narrative_match = re.search(
+                r"=====NARRATIVE=====\s*(.*?)$",
+                raw_output, re.DOTALL
+            )
+            if narrative_match:
+                structured["narrative"] = narrative_match.group(1).strip()
 
     return AgentNote(reasoning=reasoning, structured=structured)
