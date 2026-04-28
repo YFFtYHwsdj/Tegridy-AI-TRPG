@@ -82,6 +82,10 @@ class ConsoleDisplay:
         print(f"\n  [角色: {state.character.name}]")
         print(f"  状态: {format_statuses(state.character.statuses)}")
         print(f"  故事标签: {format_story_tags(state.character.story_tags)}")
+        char_items = state.character.items_visible
+        if char_items:
+            item_names = ", ".join(f"{item.name}({item.location})" for item in char_items.values())
+            print(f"  物品: {item_names}")
 
         print(f"\n  [挑战: {challenge.name}]")
         progress = challenge.get_limit_progress()

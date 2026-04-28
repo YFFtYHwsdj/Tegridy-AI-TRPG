@@ -10,6 +10,7 @@ from src.agents.prompts.continuation_check import CONTINUATION_CHECK_PROMPT
 from src.agents.prompts.resolution_mode import RESOLUTION_MODE_PROMPT
 
 from src.agents.prompts.validator import VALIDATOR_PROMPT
+from src.agents.prompts.item_creator import ITEM_CREATOR_PROMPT
 
 __all__ = [
     "RHYTHM_SYSTEM_PROMPT",

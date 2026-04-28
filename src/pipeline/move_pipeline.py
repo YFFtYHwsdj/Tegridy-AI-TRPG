@@ -32,6 +32,7 @@ def _summarize_last_sub(roll, effects, cons) -> str:
 
 class MovePipeline:
     def __init__(self, llm: LLMClient, state: GameState, display: ConsoleDisplay):
+        self.llm = llm
         self.state = state
         self.display = display
         self.tag_agent = TagMatcherAgent(llm)
@@ -177,7 +178,7 @@ class MovePipeline:
         for t in transfers:
             if not isinstance(t, dict):
                 continue
-            item_id = t.get("item_id", "")
+            item_id = t.get("item_id") or t.get("item", "")
             from_loc = t.get("from", "")
             to_loc = t.get("to", "")
             if not item_id or not from_loc or not to_loc:
@@ -192,6 +193,80 @@ class MovePipeline:
                 item.location = loc_map[item_id]
 
             self._insert_item(item_id, item, to_loc)
+
+        self._check_and_create_emergent(narrator_note)
+
+    def _collect_all_known_items(self):
+        scene = self.state.scene
+        known = set(scene.scene_items_visible.keys()) | set(scene.scene_items_hidden.keys())
+        if self.state.character:
+            known.update(self.state.character.items_visible.keys())
+            known.update(self.state.character.items_hidden.keys())
+        for npc in scene.npcs.values():
+            known.update(npc.items_visible.keys())
+            known.update(npc.items_hidden.keys())
+        return known
+
+    def _check_and_create_emergent(self, narrator_note):
+        narrative_contains = narrator_note.structured.get("narrative_contains", {})
+        mentioned = narrative_contains.get("mentioned_items", [])
+        if not mentioned:
+            return
+
+        known = self._collect_all_known_items()
+        emergent = [name for name in mentioned if name not in known]
+        if not emergent:
+            return
+
+        for item_name in emergent:
+            created = self._create_emergent_item(item_name, narrator_note)
+            if created:
+                char = self.state.character
+                if char:
+                    char.items_visible[created.item_id] = created
+                log_system(f"[emergent物品] 已创建 '{created.item_id}' ({created.name})")
+
+    def _create_emergent_item(self, item_name: str, narrator_note):
+        from src.agents.item_creator import ItemCreatorAgent
+        if not hasattr(self, 'item_creator'):
+            self.item_creator = ItemCreatorAgent(self.llm)
+
+        narrative = narrator_note.structured.get("narrative", "")
+        creator_note = self.item_creator.execute(item_name, narrative)
+        item_data = creator_note.structured
+        if not item_data:
+            return None
+
+        from src.models import GameItem, Tag
+        tags = []
+        for t in item_data.get("tags", []):
+            if isinstance(t, dict):
+                tags.append(Tag(
+                    name=t.get("name", ""),
+                    tag_type=t.get("tag_type", "power"),
+                    description=t.get("description", ""),
+                ))
+            elif isinstance(t, str):
+                tags.append(Tag(name=t, tag_type="power"))
+
+        weakness = None
+        w = item_data.get("weakness")
+        if w and isinstance(w, dict):
+            weakness = Tag(
+                name=w.get("name", ""),
+                tag_type="weakness",
+                description=w.get("description", ""),
+            )
+
+        item_id = item_data.get("item_id") or item_name
+        return GameItem(
+            item_id=item_id,
+            name=item_name,
+            description=item_data.get("description", ""),
+            tags=tags,
+            weakness=weakness,
+            location=item_data.get("location", "角色装备中"),
+        )
 
     def _pop_item(self, item_id: str, location: str):
         scene = self.state.scene
