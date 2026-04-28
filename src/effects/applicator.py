@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from typing import Optional
-from src.models import AgentNote, Character, Challenge
-from src.engine import apply_status, reduce_status, add_story_tag, remove_story_tag, nudge_status
+from src.engine import add_story_tag, apply_status, nudge_status, reduce_status, remove_story_tag
 from src.logger import log_system
+from src.models import AgentNote, Challenge, Character
 
 
 class EffectApplicator:
-
     @staticmethod
-    def apply_results(effect_note: Optional[AgentNote], consequence_note: Optional[AgentNote], character: Optional[Character], challenge: Optional[Challenge]) -> list[str]:
+    def apply_results(
+        effect_note: AgentNote | None,
+        consequence_note: AgentNote | None,
+        character: Character | None,
+        challenge: Challenge | None,
+    ) -> list[str]:
         errors: list[str] = []
         if character is None or challenge is None:
             return errors
@@ -20,7 +23,11 @@ class EffectApplicator:
         if consequence_note:
             consequences = consequence_note.structured.get("consequences", [])
             for cons in consequences:
-                errors.extend(EffectApplicator._apply_effect_list(cons.get("effects", []), character, challenge))
+                errors.extend(
+                    EffectApplicator._apply_effect_list(
+                        cons.get("effects", []), character, challenge
+                    )
+                )
 
         return errors
 
@@ -101,7 +108,9 @@ class EffectApplicator:
         return None
 
     @staticmethod
-    def _apply_effect_list(eff_list: list[dict], character: Character, challenge: Challenge) -> list[str]:
+    def _apply_effect_list(
+        eff_list: list[dict], character: Character, challenge: Challenge
+    ) -> list[str]:
         errors: list[str] = []
         for eff in eff_list:
             operation = eff.get("operation", "inflict_status")
@@ -128,7 +137,9 @@ class EffectApplicator:
                         continue
                     result = nudge_status(target, status_to_nudge)
                     eff_type = eff.get("effect_type", "?")
-                    log_system(f"[效果应用] {eff_type}: nudge {status_to_nudge} → 等级{result.current_tier}")
+                    log_system(
+                        f"[效果应用] {eff_type}: nudge {status_to_nudge} → 等级{result.current_tier}"
+                    )
 
                 elif operation == "reduce_status":
                     status_to_reduce = eff.get("status_to_reduce", "")
@@ -138,7 +149,9 @@ class EffectApplicator:
                     result = reduce_status(target, status_to_reduce, reduce_by)
                     eff_type = eff.get("effect_type", "?")
                     if result:
-                        log_system(f"[效果应用] {eff_type}: {status_to_reduce} 降低{reduce_by}级 → 剩余{result.current_tier}")
+                        log_system(
+                            f"[效果应用] {eff_type}: {status_to_reduce} 降低{reduce_by}级 → 剩余{result.current_tier}"
+                        )
                     else:
                         log_system(f"[效果应用] {eff_type}: {status_to_reduce} 已完全移除")
 

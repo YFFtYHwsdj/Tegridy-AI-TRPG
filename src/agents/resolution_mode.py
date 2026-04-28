@@ -27,7 +27,7 @@ class ResolutionModeAgent(BaseAgent):
 意图解析结果:
   action_type: {action_type}
   action_summary: {action_summary}
-  is_split_action: {intent_note.structured.get('is_split_action', False)}
+  is_split_action: {intent_note.structured.get("is_split_action", False)}
 
 玩家输入: {ctx.player_input}
 

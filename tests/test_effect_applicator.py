@@ -1,10 +1,10 @@
 import unittest
+
 from src.effects.applicator import EffectApplicator
-from src.models import Character, Challenge, Limit, Tag, AgentNote, Status, StoryTag
+from src.models import AgentNote, Challenge, Character, Limit, Status, StoryTag, Tag
 
 
 class TestResolveTarget(unittest.TestCase):
-
     def setUp(self):
         self.character = Character(name="Kael", description="佣兵")
         self.challenge = Challenge(
@@ -34,9 +34,7 @@ class TestResolveTarget(unittest.TestCase):
         self.assertIs(result, self.character)
 
     def test_exact_chal_name(self):
-        result = EffectApplicator._resolve_target(
-            "Miko 与她的保镖", self.character, self.challenge
-        )
+        result = EffectApplicator._resolve_target("Miko 与她的保镖", self.character, self.challenge)
         self.assertIs(result, self.challenge)
 
     def test_exact_case_insensitive(self):
@@ -83,7 +81,6 @@ class TestResolveTarget(unittest.TestCase):
 
 
 class TestApplyEffectList(unittest.TestCase):
-
     def setUp(self):
         self.character = Character(
             name="Kael",
@@ -96,18 +93,30 @@ class TestApplyEffectList(unittest.TestCase):
         )
 
     def test_inflict_status_new(self):
-        effects = [{"operation": "inflict_status", "target": "自身", "label": "受伤", "tier": 2, "effect_type": "attack"}]
+        effects = [
+            {
+                "operation": "inflict_status",
+                "target": "自身",
+                "label": "受伤",
+                "tier": 2,
+                "effect_type": "attack",
+            }
+        ]
         errors = EffectApplicator._apply_effect_list(effects, self.character, self.challenge)
         self.assertEqual(errors, [])
         self.assertIn("受伤", self.character.statuses)
         self.assertEqual(self.character.statuses["受伤"].current_tier, 2)
 
     def test_inflict_status_with_limit_category(self):
-        effects = [{
-            "operation": "inflict_status", "target": "挑战",
-            "label": "被说服", "tier": 2,
-            "limit_category": "说服或威胁"
-        }]
+        effects = [
+            {
+                "operation": "inflict_status",
+                "target": "挑战",
+                "label": "被说服",
+                "tier": 2,
+                "limit_category": "说服或威胁",
+            }
+        ]
         errors = EffectApplicator._apply_effect_list(effects, self.character, self.challenge)
         self.assertEqual(errors, [])
         self.assertIn("被说服", self.challenge.statuses)
@@ -127,25 +136,35 @@ class TestApplyEffectList(unittest.TestCase):
         self.assertEqual(self.character.statuses["被压制"].current_tier, 1)
 
     def test_nudge_status_existing(self):
-        self.character.statuses["被压制"] = Status(
-            name="被压制", current_tier=2, ticked_boxes={2}
-        )
+        self.character.statuses["被压制"] = Status(name="被压制", current_tier=2, ticked_boxes={2})
         effects = [{"operation": "nudge_status", "target": "自身", "status_to_nudge": "被压制"}]
         errors = EffectApplicator._apply_effect_list(effects, self.character, self.challenge)
         self.assertEqual(errors, [])
         self.assertEqual(self.character.statuses["被压制"].current_tier, 3)
 
     def test_reduce_status(self):
-        self.character.statuses["受伤"] = Status(
-            name="受伤", current_tier=3, ticked_boxes={2, 3}
-        )
-        effects = [{"operation": "reduce_status", "target": "自身", "status_to_reduce": "受伤", "reduce_by": 1}]
+        self.character.statuses["受伤"] = Status(name="受伤", current_tier=3, ticked_boxes={2, 3})
+        effects = [
+            {
+                "operation": "reduce_status",
+                "target": "自身",
+                "status_to_reduce": "受伤",
+                "reduce_by": 1,
+            }
+        ]
         errors = EffectApplicator._apply_effect_list(effects, self.character, self.challenge)
         self.assertEqual(errors, [])
         self.assertEqual(self.character.statuses["受伤"].current_tier, 2)
 
     def test_add_story_tag(self):
-        effects = [{"operation": "add_story_tag", "target": "自身", "story_tag_name": "掩体", "story_tag_description": "翻倒的桌子"}]
+        effects = [
+            {
+                "operation": "add_story_tag",
+                "target": "自身",
+                "story_tag_name": "掩体",
+                "story_tag_description": "翻倒的桌子",
+            }
+        ]
         errors = EffectApplicator._apply_effect_list(effects, self.character, self.challenge)
         self.assertEqual(errors, [])
         self.assertIn("掩体", self.character.story_tags)
@@ -153,13 +172,17 @@ class TestApplyEffectList(unittest.TestCase):
 
     def test_scratch_story_tag(self):
         self.character.story_tags["掩体"] = StoryTag(name="掩体", description="翻倒的桌子")
-        effects = [{"operation": "scratch_story_tag", "target": "自身", "story_tag_to_scratch": "掩体"}]
+        effects = [
+            {"operation": "scratch_story_tag", "target": "自身", "story_tag_to_scratch": "掩体"}
+        ]
         errors = EffectApplicator._apply_effect_list(effects, self.character, self.challenge)
         self.assertEqual(errors, [])
         self.assertNotIn("掩体", self.character.story_tags)
 
     def test_scratch_nonexistent_story_tag(self):
-        effects = [{"operation": "scratch_story_tag", "target": "自身", "story_tag_to_scratch": "不存在"}]
+        effects = [
+            {"operation": "scratch_story_tag", "target": "自身", "story_tag_to_scratch": "不存在"}
+        ]
         errors = EffectApplicator._apply_effect_list(effects, self.character, self.challenge)
         self.assertEqual(errors, [])
 
@@ -182,7 +205,6 @@ class TestApplyEffectList(unittest.TestCase):
 
 
 class TestApplyResults(unittest.TestCase):
-
     def setUp(self):
         self.character = Character(
             name="Kael",
@@ -210,8 +232,12 @@ class TestApplyResults(unittest.TestCase):
                     {
                         "threat_manifested": "保镖介入",
                         "effects": [
-                            {"operation": "nudge_status", "target": "挑战", "status_to_nudge": "被激怒"}
-                        ]
+                            {
+                                "operation": "nudge_status",
+                                "target": "挑战",
+                                "status_to_nudge": "被激怒",
+                            }
+                        ],
                     }
                 ]
             },

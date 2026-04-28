@@ -1,11 +1,20 @@
 import unittest
-import random
-from src.engine import calculate_power, roll_dice, apply_status, remove_status, check_limits, reduce_status, add_story_tag, remove_story_tag, nudge_status
-from src.models import Character, Challenge, Status, StoryTag, Limit, RollResult, Tag
+
+from src.engine import (
+    add_story_tag,
+    apply_status,
+    calculate_power,
+    check_limits,
+    nudge_status,
+    reduce_status,
+    remove_status,
+    remove_story_tag,
+    roll_dice,
+)
+from src.models import Challenge, Character, Limit, RollResult
 
 
 class TestCalculatePower(unittest.TestCase):
-
     def test_no_tags_no_status(self):
         self.assertEqual(calculate_power([], []), 1)
 
@@ -16,10 +25,7 @@ class TestCalculatePower(unittest.TestCase):
         self.assertEqual(calculate_power([], ["信用破产"]), 1)
 
     def test_mixed_tags(self):
-        self.assertEqual(
-            calculate_power(["前公司安保", "快速拔枪", "读懂房间"], ["信用破产"]),
-            2
-        )
+        self.assertEqual(calculate_power(["前公司安保", "快速拔枪", "读懂房间"], ["信用破产"]), 2)
 
     def test_status_helping(self):
         self.assertEqual(calculate_power([], [], best_status_tier=2), 2)
@@ -44,7 +50,6 @@ class TestCalculatePower(unittest.TestCase):
 
 
 class TestRollDice(unittest.TestCase):
-
     def test_returns_roll_result(self):
         result = roll_dice(1)
         self.assertIsInstance(result, RollResult)
@@ -69,8 +74,13 @@ class TestRollDice(unittest.TestCase):
             self.assertEqual(result.outcome, "failure")
 
     def test_outcome_boundaries(self):
-        for power, expected in [(-2, "failure"), (-1, "failure"), (0, "partial_success"),
-                                (1, "partial_success"), (2, "full_success")]:
+        for power, expected in [
+            (-2, "failure"),
+            (-1, "failure"),
+            (0, "partial_success"),
+            (1, "partial_success"),
+            (2, "full_success"),
+        ]:
             found = set()
             for _ in range(200):
                 found.add(roll_dice(power).outcome)
@@ -78,7 +88,6 @@ class TestRollDice(unittest.TestCase):
 
 
 class TestApplyStatus(unittest.TestCase):
-
     def setUp(self):
         self.character = Character(name="Test", power_tags=[], weakness_tags=[])
 
@@ -154,7 +163,6 @@ class TestApplyStatus(unittest.TestCase):
 
 
 class TestRemoveStatus(unittest.TestCase):
-
     def setUp(self):
         self.character = Character(name="Test", power_tags=[], weakness_tags=[])
 
@@ -184,7 +192,6 @@ class TestRemoveStatus(unittest.TestCase):
 
 
 class TestCheckLimits(unittest.TestCase):
-
     def setUp(self):
         self.challenge = Challenge(
             name="敌人",
@@ -213,12 +220,11 @@ class TestCheckLimits(unittest.TestCase):
         apply_status(self.challenge, "流血", 4, limit_category="伤害或制服")
         triggered = check_limits(self.challenge)
         self.assertEqual(len(triggered), 2)
-        triggered_names = {l.name for l in triggered}
+        triggered_names = {lim.name for lim in triggered}
         self.assertEqual(triggered_names, {"说服或威胁", "伤害或制服"})
 
 
 class TestReduceStatus(unittest.TestCase):
-
     def setUp(self):
         self.character = Character(name="Test", power_tags=[], weakness_tags=[])
 
@@ -265,7 +271,9 @@ class TestReduceStatus(unittest.TestCase):
         self.assertNotIn("受伤", self.character.statuses)
 
     def test_reduce_on_challenge(self):
-        challenge = Challenge(name="敌人", description="test", limits=[Limit(name="伤害", max_tier=4)])
+        challenge = Challenge(
+            name="敌人", description="test", limits=[Limit(name="伤害", max_tier=4)]
+        )
         apply_status(challenge, "受伤", 2)
         apply_status(challenge, "受伤", 5)
         # ticked: {2, 5}, current_tier=5
@@ -276,7 +284,6 @@ class TestReduceStatus(unittest.TestCase):
 
 
 class TestNudgeStatus(unittest.TestCase):
-
     def setUp(self):
         self.character = Character(name="Test", power_tags=[], weakness_tags=[])
 
@@ -302,7 +309,9 @@ class TestNudgeStatus(unittest.TestCase):
         self.assertNotIn(7, s.ticked_boxes)
 
     def test_nudge_on_challenge(self):
-        challenge = Challenge(name="敌人", description="test", limits=[Limit(name="说服或威胁", max_tier=3)])
+        challenge = Challenge(
+            name="敌人", description="test", limits=[Limit(name="说服或威胁", max_tier=3)]
+        )
         apply_status(challenge, "愿意交易", 2, limit_category="说服")
         # current_tier=2, ticked={2}
         s = nudge_status(challenge, "愿意交易")
@@ -326,7 +335,6 @@ class TestNudgeStatus(unittest.TestCase):
 
 
 class TestStoryTagEngine(unittest.TestCase):
-
     def setUp(self):
         self.character = Character(name="Test", power_tags=[], weakness_tags=[])
         self.challenge = Challenge(name="敌人", description="test", limits=[])
@@ -343,7 +351,7 @@ class TestStoryTagEngine(unittest.TestCase):
         self.assertTrue(tag.is_single_use)
 
     def test_add_story_tag_to_challenge(self):
-        tag = add_story_tag(self.challenge, "增援", "帮派成员到达")
+        _tag = add_story_tag(self.challenge, "增援", "帮派成员到达")
         self.assertIn("增援", self.challenge.story_tags)
 
     def test_remove_story_tag(self):

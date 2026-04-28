@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from src.formatter import format_statuses, format_story_tags, format_limit_progress
-from src.pipeline._tag_utils import extract_tag_names, extract_status_names
+from src.formatter import format_limit_progress, format_statuses, format_story_tags
+from src.pipeline._tag_utils import extract_status_names, extract_tag_names
 
 
 class ConsoleDisplay:
@@ -29,7 +29,9 @@ class ConsoleDisplay:
             if hinder_names:
                 status_parts.append(f"阻碍状态: {hinder_names}")
             print(f"  状态影响: {' | '.join(status_parts)}")
-        print(f"  力量: {roll.power} | 掷骰: {roll.dice[0]}+{roll.dice[1]} = {roll.total} → {roll.outcome}")
+        print(
+            f"  力量: {roll.power} | 掷骰: {roll.dice[0]}+{roll.dice[1]} = {roll.total} → {roll.outcome}"
+        )
 
     def print_effects(self, effect_note):
         if not self.debug_mode:
@@ -38,16 +40,19 @@ class ConsoleDisplay:
             return
         effects = effect_note.structured.get("effects", [])
         if effects:
-            eff_summary = ", ".join(f"{e.get('label','?')} ({e.get('effect_type','?')} {e.get('tier','?')})" for e in effects)
+            eff_summary = ", ".join(
+                f"{e.get('label', '?')} ({e.get('effect_type', '?')} {e.get('tier', '?')})"
+                for e in effects
+            )
             print(f"  实际效果: {eff_summary}")
         else:
-            print(f"  实际效果: 无")
+            print("  实际效果: 无")
 
     def print_effects_or_quick_note(self, effect_note, quick=False):
         if not self.debug_mode:
             return
         if quick:
-            print(f"  实际效果: 无（快速结算不花费力量）")
+            print("  实际效果: 无（快速结算不花费力量）")
         elif effect_note is not None:
             self.print_effects(effect_note)
 
@@ -90,9 +95,7 @@ class ConsoleDisplay:
         scene = state.scene
         scene_items = scene.scene_items_visible
         if scene_items:
-            item_names = ", ".join(
-                f"{item.name}({item.location})" for item in scene_items.values()
-            )
+            item_names = ", ".join(f"{item.name}({item.location})" for item in scene_items.values())
             print(f"  场景物品: {item_names}")
 
         print(f"\n  [挑战: {challenge.name}]")
@@ -117,4 +120,4 @@ class ConsoleDisplay:
 
     @staticmethod
     def print_incapacitated_break():
-        print(f"\n  💀 角色已丧失行动能力，剩余子行动中断")
+        print("\n  💀 角色已丧失行动能力，剩余子行动中断")

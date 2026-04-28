@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+
 from src.agents.base import BaseAgent
 from src.agents.prompts import VALIDATOR_PROMPT
 from src.models import AgentNote
@@ -21,25 +22,37 @@ class ValidatorAgent(BaseAgent):
         scene_items_visible: dict,
         npcs: dict,
     ) -> AgentNote:
-        hidden_clue_summary = ", ".join(
-            f"{cid}({c.name}: {c.description})" for cid, c in hidden_clues.items()
-        ) if hidden_clues else "（无隐藏线索）"
-        hidden_item_summary = ", ".join(
-            f"{iid}({i.name}: {i.description})" for iid, i in hidden_items.items()
-        ) if hidden_items else "（无隐藏物品）"
-        scene_hidden_summary = ", ".join(
-            f"{iid}({i.name})" for iid, i in scene_items_hidden.items()
-        ) if scene_items_hidden else "（无）"
+        hidden_clue_summary = (
+            ", ".join(f"{cid}({c.name}: {c.description})" for cid, c in hidden_clues.items())
+            if hidden_clues
+            else "（无隐藏线索）"
+        )
+        hidden_item_summary = (
+            ", ".join(f"{iid}({i.name}: {i.description})" for iid, i in hidden_items.items())
+            if hidden_items
+            else "（无隐藏物品）"
+        )
+        scene_hidden_summary = (
+            ", ".join(f"{iid}({i.name})" for iid, i in scene_items_hidden.items())
+            if scene_items_hidden
+            else "（无）"
+        )
 
-        visible_clue_summary = ", ".join(
-            f"{cid}({c.name})" for cid, c in visible_clues.items()
-        ) if visible_clues else "（无）"
-        visible_item_summary = ", ".join(
-            f"{iid}({i.name})" for iid, i in visible_items.items()
-        ) if visible_items else "（无）"
-        scene_visible_summary = ", ".join(
-            f"{iid}({i.name})" for iid, i in scene_items_visible.items()
-        ) if scene_items_visible else "（无）"
+        visible_clue_summary = (
+            ", ".join(f"{cid}({c.name})" for cid, c in visible_clues.items())
+            if visible_clues
+            else "（无）"
+        )
+        visible_item_summary = (
+            ", ".join(f"{iid}({i.name})" for iid, i in visible_items.items())
+            if visible_items
+            else "（无）"
+        )
+        scene_visible_summary = (
+            ", ".join(f"{iid}({i.name})" for iid, i in scene_items_visible.items())
+            if scene_items_visible
+            else "（无）"
+        )
 
         npc_knowledge_parts = []
         for npc in npcs.values():

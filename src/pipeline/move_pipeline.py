@@ -1,18 +1,24 @@
 from __future__ import annotations
 
 from typing import Any
-from src.llm_client import LLMClient
-from src.state.game_state import GameState
-from src.engine import calculate_power, roll_dice
-from src.logger import log_roll, log_system
-from src.pipeline._tag_utils import extract_tag_names, extract_status_tiers
-from src.pipeline.pipeline_result import PipelineResult
-from src.display.console import ConsoleDisplay
+
 from src.agents import (
-    TagMatcherAgent, EffectActualizationAgent, ConsequenceAgent,
-    QuickConsequenceAgent, NarratorAgent, QuickNarratorAgent,
-    ContinuationCheckAgent, ValidatorAgent,
+    ConsequenceAgent,
+    ContinuationCheckAgent,
+    EffectActualizationAgent,
+    NarratorAgent,
+    QuickConsequenceAgent,
+    QuickNarratorAgent,
+    TagMatcherAgent,
+    ValidatorAgent,
 )
+from src.display.console import ConsoleDisplay
+from src.engine import calculate_power, roll_dice
+from src.llm_client import LLMClient
+from src.logger import log_roll, log_system
+from src.pipeline._tag_utils import extract_status_tiers, extract_tag_names
+from src.pipeline.pipeline_result import PipelineResult
+from src.state.game_state import GameState
 
 
 def _summarize_last_sub(roll, effects, cons) -> str:
@@ -20,13 +26,9 @@ def _summarize_last_sub(roll, effects, cons) -> str:
         return "（上一步无有效掷骰）"
     parts = [f"掷骰结果: {roll.outcome}"]
     if effects:
-        parts.append("效果: " + ", ".join(
-            e.get("label", e.get("operation", "?")) for e in effects
-        ))
+        parts.append("效果: " + ", ".join(e.get("label", e.get("operation", "?")) for e in effects))
     if cons:
-        parts.append("后果: " + ", ".join(
-            c.get("threat_manifested", "?") for c in cons
-        ))
+        parts.append("后果: " + ", ".join(c.get("threat_manifested", "?") for c in cons))
     return "; ".join(parts) if parts else "（无效果信息）"
 
 
@@ -55,7 +57,8 @@ class MovePipeline:
         best_status_tier, worst_status_tier = extract_status_tiers(tag_note)
 
         power = calculate_power(
-            power_tag_names, weakness_tag_names,
+            power_tag_names,
+            weakness_tag_names,
             best_status_tier=best_status_tier,
             worst_status_tier=worst_status_tier,
         )
@@ -74,12 +77,13 @@ class MovePipeline:
 
         consequence_note = None
         if roll.outcome in ("partial_success", "failure"):
-            consequence_note = self.consequence_agent.execute(
-                intent_note, effect_note, roll, ctx
-            )
+            consequence_note = self.consequence_agent.execute(intent_note, effect_note, roll, ctx)
 
         narrator_note = self.narrator.execute(
-            intent_note, effect_note, roll, ctx,
+            intent_note,
+            effect_note,
+            roll,
+            ctx,
             consequence_note=consequence_note,
         )
 
@@ -98,12 +102,12 @@ class MovePipeline:
 
         consequence_note = None
         if roll.outcome in ("partial_success", "failure"):
-            consequence_note = self.quick_consequence_agent.execute(
-                intent_note, roll, ctx
-            )
+            consequence_note = self.quick_consequence_agent.execute(intent_note, roll, ctx)
 
         narrator_note = self.quick_narrator.execute(
-            intent_note, roll, ctx,
+            intent_note,
+            roll,
+            ctx,
             consequence_note=consequence_note,
         )
 
@@ -121,9 +125,7 @@ class MovePipeline:
         scene = self.state.scene
         hidden_clues = scene.clues_hidden
         hidden_items = {
-            iid: item
-            for npc in scene.npcs.values()
-            for iid, item in npc.items_hidden.items()
+            iid: item for npc in scene.npcs.values() for iid, item in npc.items_hidden.items()
         }
         scene_hidden = scene.scene_items_hidden
 
@@ -170,7 +172,7 @@ class MovePipeline:
                 log_system(f"[揭示执行] 未找到物品 '{item_id}'")
 
     def _apply_item_transfers(self, narrator_note):
-        scene = self.state.scene
+        _scene = self.state.scene
         transfers = narrator_note.structured.get("item_transfers", [])
         location_updates = narrator_note.structured.get("location_text_updates", [])
         loc_map = {u["item_id"]: u["new_location"] for u in location_updates if isinstance(u, dict)}
@@ -200,7 +202,8 @@ class MovePipeline:
 
     def _create_emergent_item(self, item_name: str, narrator_note):
         from src.agents.item_creator import ItemCreatorAgent
-        if not hasattr(self, 'item_creator'):
+
+        if not hasattr(self, "item_creator"):
             self.item_creator = ItemCreatorAgent(self.llm)
 
         narrative = narrator_note.structured.get("narrative", "")
@@ -210,14 +213,17 @@ class MovePipeline:
             return None
 
         from src.models import GameItem, Tag
+
         tags = []
         for t in item_data.get("tags", []):
             if isinstance(t, dict):
-                tags.append(Tag(
-                    name=t.get("name", ""),
-                    tag_type=t.get("tag_type", "power"),
-                    description=t.get("description", ""),
-                ))
+                tags.append(
+                    Tag(
+                        name=t.get("name", ""),
+                        tag_type=t.get("tag_type", "power"),
+                        description=t.get("description", ""),
+                    )
+                )
             elif isinstance(t, str):
                 tags.append(Tag(name=t, tag_type="power"))
 
@@ -289,12 +295,15 @@ class MovePipeline:
                 sub = {"action_summary": str(sub)}
             sub: dict[str, Any] = dict(sub, _index=i)
 
-            self.display.print_split_sub_header(i + 1, len(split_actions), sub.get("action_summary", "?"))
+            self.display.print_split_sub_header(
+                i + 1, len(split_actions), sub.get("action_summary", "?")
+            )
 
             if i > 0:
                 ctx = self.state.make_context()
                 check_note = self.continuation_check.execute(
-                    sub, ctx,
+                    sub,
+                    ctx,
                     _summarize_last_sub(prev_roll, prev_effects, prev_cons),
                 )
                 can_continue = check_note.structured.get("can_continue", True)
@@ -308,7 +317,13 @@ class MovePipeline:
             results.append(result)
 
             prev_roll = result.roll
-            prev_effects = result.effect_note.structured.get("effects", []) if result.effect_note else []
-            prev_cons = result.consequence_note.structured.get("consequences", []) if result.consequence_note else []
+            prev_effects = (
+                result.effect_note.structured.get("effects", []) if result.effect_note else []
+            )
+            prev_cons = (
+                result.consequence_note.structured.get("consequences", [])
+                if result.consequence_note
+                else []
+            )
 
         return results

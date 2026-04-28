@@ -1,17 +1,17 @@
 import unittest
+
 from src.formatter import (
+    format_challenge_state,
+    format_limit_gap,
+    format_limit_progress,
     format_role_tags,
     format_statuses,
     format_story_tags,
-    format_limit_progress,
-    format_challenge_state,
-    format_limit_gap,
 )
-from src.models import Tag, Status, StoryTag, Limit, Challenge
+from src.models import Challenge, Limit, Status, StoryTag, Tag
 
 
 class TestFormatRoleTags(unittest.TestCase):
-
     def test_empty_list(self):
         self.assertEqual(format_role_tags([]), "")
 
@@ -31,7 +31,6 @@ class TestFormatRoleTags(unittest.TestCase):
 
 
 class TestFormatStatuses(unittest.TestCase):
-
     def test_empty(self):
         self.assertEqual(format_statuses({}), "  (无当前状态)")
 
@@ -54,7 +53,6 @@ class TestFormatStatuses(unittest.TestCase):
 
 
 class TestFormatStoryTags(unittest.TestCase):
-
     def test_empty(self):
         self.assertEqual(format_story_tags({}), "  (无故事标签)")
 
@@ -84,7 +82,6 @@ class TestFormatStoryTags(unittest.TestCase):
 
 
 class TestFormatLimitProgress(unittest.TestCase):
-
     def test_full(self):
         limit = Limit(name="伤害", max_tier=4)
         result = format_limit_progress(limit, 4)
@@ -97,7 +94,6 @@ class TestFormatLimitProgress(unittest.TestCase):
 
 
 class TestFormatChallengeState(unittest.TestCase):
-
     def setUp(self):
         self.challenge = Challenge(
             name="Miko 与她的保镖",
@@ -138,7 +134,6 @@ class TestFormatChallengeState(unittest.TestCase):
 
 
 class TestFormatLimitGap(unittest.TestCase):
-
     def setUp(self):
         self.challenge = Challenge(
             name="Miko 与她的保镖",

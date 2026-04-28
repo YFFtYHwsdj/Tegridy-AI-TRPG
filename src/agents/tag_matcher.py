@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import json
+from src.agents._utils import resolve_sub_action_info
 from src.agents.base import BaseAgent
 from src.agents.prompts import TAG_MATCHER_PROMPT
-from src.agents._utils import resolve_sub_action_info
 from src.context import AgentContext
 from src.formatter import format_role_tags, format_statuses
 from src.models import AgentNote
@@ -43,7 +42,7 @@ class TagMatcherAgent(BaseAgent):
 意图解析:
   行动类型: {action_type}
   行动摘要: {action_summary}
-  是否拆分: {intent_note.structured.get('is_split_action', False)}
+  是否拆分: {intent_note.structured.get("is_split_action", False)}
 {split_info}
 
 请判断哪些标签帮助/阻碍本次行动，以及角色当前状态中哪些帮助哪些阻碍。"""

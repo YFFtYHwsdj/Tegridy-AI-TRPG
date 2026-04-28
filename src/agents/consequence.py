@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+
 from src.agents.base import BaseAgent
 from src.agents.prompts import CONSEQUENCE_PROMPT, QUICK_CONSEQUENCE_PROMPT
 from src.context import AgentContext
@@ -26,16 +27,16 @@ class ConsequenceAgent(BaseAgent):
 叙事历史:
 {ctx.narrative_block}
 
-{format_challenge_state(ctx.challenge) if ctx.challenge else '(无挑战)'}
+{format_challenge_state(ctx.challenge) if ctx.challenge else "(无挑战)"}
 
 效果推演推理: {effect_note.reasoning}
-已产生的效果: {json.dumps(effect_note.structured.get('effects', []), ensure_ascii=False)}
+已产生的效果: {json.dumps(effect_note.structured.get("effects", []), ensure_ascii=False)}
 
 ---
-行动摘要: {intent_note.structured.get('action_summary', '')}
+行动摘要: {intent_note.structured.get("action_summary", "")}
 掷骰结果: {roll_info}
 
-请从挑战的威胁列表中选择并兑现后果。{'(部分成功)' if roll_result.outcome == 'partial_success' else '(失败)'}"""
+请从挑战的威胁列表中选择并兑现后果。{"(部分成功)" if roll_result.outcome == "partial_success" else "(失败)"}"""
         return self._call_llm(user_msg)
 
 
@@ -57,9 +58,9 @@ class QuickConsequenceAgent(BaseAgent):
 {ctx.narrative_block}
 
 ---
-行动摘要: {intent_note.structured.get('action_summary', '')}
-行动类型: {intent_note.structured.get('action_type', 'unknown')}
+行动摘要: {intent_note.structured.get("action_summary", "")}
+行动类型: {intent_note.structured.get("action_type", "unknown")}
 掷骰结果: {roll_info}
 
-请判断此行动产生了什么后果。{'(部分成功)' if roll_result.outcome == 'partial_success' else '(失败)'}"""
+请判断此行动产生了什么后果。{"(部分成功)" if roll_result.outcome == "partial_success" else "(失败)"}"""
         return self._call_llm(user_msg)

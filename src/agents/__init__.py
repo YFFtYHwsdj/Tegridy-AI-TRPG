@@ -1,14 +1,13 @@
-from src.agents.rhythm import RhythmAgent
-from src.agents.move_gatekeeper import MoveGatekeeperAgent
-from src.agents.intent import IntentAgent
-from src.agents.tag_matcher import TagMatcherAgent
-from src.agents.effect_actualization import EffectActualizationAgent
 from src.agents.consequence import ConsequenceAgent, QuickConsequenceAgent
-from src.agents.narrator import NarratorAgent, LiteNarratorAgent, QuickNarratorAgent
-from src.agents.limit_break import LimitBreakAgent
 from src.agents.continuation_check import ContinuationCheckAgent
+from src.agents.effect_actualization import EffectActualizationAgent
+from src.agents.intent import IntentAgent
+from src.agents.limit_break import LimitBreakAgent
+from src.agents.move_gatekeeper import MoveGatekeeperAgent
+from src.agents.narrator import LiteNarratorAgent, NarratorAgent, QuickNarratorAgent
 from src.agents.resolution_mode import ResolutionModeAgent
-
+from src.agents.rhythm import RhythmAgent
+from src.agents.tag_matcher import TagMatcherAgent
 from src.agents.validator import ValidatorAgent
 
 AGENT_REGISTRY = {
@@ -29,19 +28,19 @@ AGENT_REGISTRY = {
 }
 
 __all__ = [
-    "RhythmAgent",
-    "MoveGatekeeperAgent",
-    "IntentAgent",
-    "TagMatcherAgent",
-    "EffectActualizationAgent",
-    "ConsequenceAgent",
-    "QuickConsequenceAgent",
-    "NarratorAgent",
-    "LiteNarratorAgent",
-    "QuickNarratorAgent",
-    "ValidatorAgent",
-    "LimitBreakAgent",
-    "ContinuationCheckAgent",
-    "ResolutionModeAgent",
     "AGENT_REGISTRY",
+    "ConsequenceAgent",
+    "ContinuationCheckAgent",
+    "EffectActualizationAgent",
+    "IntentAgent",
+    "LimitBreakAgent",
+    "LiteNarratorAgent",
+    "MoveGatekeeperAgent",
+    "NarratorAgent",
+    "QuickConsequenceAgent",
+    "QuickNarratorAgent",
+    "ResolutionModeAgent",
+    "RhythmAgent",
+    "TagMatcherAgent",
+    "ValidatorAgent",
 ]

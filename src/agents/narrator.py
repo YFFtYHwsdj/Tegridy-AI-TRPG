@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
+
 from src.agents.base import BaseAgent
-from src.agents.prompts import NARRATOR_PROMPT, LITE_NARRATOR_PROMPT, QUICK_NARRATOR_PROMPT
+from src.agents.prompts import LITE_NARRATOR_PROMPT, NARRATOR_PROMPT, QUICK_NARRATOR_PROMPT
 from src.context import AgentContext
 from src.models import AgentNote, RollResult
 
@@ -15,21 +16,15 @@ def _build_hidden_context(ctx: AgentContext) -> str:
     hidden_clues = getattr(scene, "clues_hidden", {})
     hidden_items = getattr(scene, "scene_items_hidden", {})
     if hidden_clues:
-        clue_list = ", ".join(
-            f"{cid}({c.name})" for cid, c in hidden_clues.items()
-        )
+        clue_list = ", ".join(f"{cid}({c.name})" for cid, c in hidden_clues.items())
         parts.append(f"隐藏线索: {clue_list}")
     if hidden_items:
-        item_list = ", ".join(
-            f"{iid}({i.name})" for iid, i in hidden_items.items()
-        )
+        item_list = ", ".join(f"{iid}({i.name})" for iid, i in hidden_items.items())
         parts.append(f"隐藏物品: {item_list}")
     npcs = getattr(scene, "npcs", {})
     for npc in npcs.values():
         if npc.items_hidden:
-            item_list = ", ".join(
-                f"{iid}({i.name})" for iid, i in npc.items_hidden.items()
-            )
+            item_list = ", ".join(f"{iid}({i.name})" for iid, i in npc.items_hidden.items())
             parts.append(f"{npc.name}身上隐藏的物品: {item_list}")
     return "\n".join(parts) if parts else ""
 
@@ -46,19 +41,13 @@ def _build_revealed_context(ctx: AgentContext) -> str:
     if char:
         char_items = getattr(char, "items_visible", {})
     if discovered:
-        clue_list = ", ".join(
-            f"{cid}({c.name})" for cid, c in discovered.items()
-        )
+        clue_list = ", ".join(f"{cid}({c.name})" for cid, c in discovered.items())
         parts.append(f"已发现线索: {clue_list}")
     if found_items:
-        item_list = ", ".join(
-            f"{iid}({i.name})" for iid, i in found_items.items()
-        )
+        item_list = ", ".join(f"{iid}({i.name})" for iid, i in found_items.items())
         parts.append(f"场景中已找到物品: {item_list}")
     if char_items:
-        item_list = ", ".join(
-            f"{iid}({i.name})" for iid, i in char_items.items()
-        )
+        item_list = ", ".join(f"{iid}({i.name})" for iid, i in char_items.items())
         parts.append(f"角色身上物品: {item_list}")
     return "\n".join(parts) if parts else ""
 
@@ -96,11 +85,11 @@ class NarratorAgent(BaseAgent):
 {revealed_block}
 
 效果推演推理: {effect_note.reasoning}
-效果: {json.dumps(effect_note.structured.get('effects', []), ensure_ascii=False)}
-叙事提示: {effect_note.structured.get('narrative_hints', '')}
+效果: {json.dumps(effect_note.structured.get("effects", []), ensure_ascii=False)}
+叙事提示: {effect_note.structured.get("narrative_hints", "")}
 
 后果推理: {cons_reasoning}
-后果: {json.dumps(cons_structured.get('consequences', []), ensure_ascii=False)}
+后果: {json.dumps(cons_structured.get("consequences", []), ensure_ascii=False)}
 
 ---
 玩家行动: {ctx.player_input}
@@ -174,10 +163,10 @@ class QuickNarratorAgent(BaseAgent):
 
 {revealed_block}
 
-意图: {intent_note.structured.get('action_summary', '')}
+意图: {intent_note.structured.get("action_summary", "")}
 
 后果推理: {cons_reasoning}
-后果: {json.dumps(cons_structured.get('consequences', []), ensure_ascii=False)}
+后果: {json.dumps(cons_structured.get("consequences", []), ensure_ascii=False)}
 
 ---
 玩家行动: {ctx.player_input}

@@ -1,5 +1,6 @@
 import random
-from src.models import Character, Challenge, Status, StoryTag, RollResult
+
+from src.models import Challenge, Character, RollResult, Status, StoryTag
 
 
 def calculate_power(

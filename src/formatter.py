@@ -74,7 +74,6 @@ def format_limit_gap(challenge) -> str:
             )
         else:
             lines.append(
-                f"  {limit.name}: 当前{current}/{limit.max_tier} "
-                f"(需要+{gap}级到达极限, 尚无状态)"
+                f"  {limit.name}: 当前{current}/{limit.max_tier} (需要+{gap}级到达极限, 尚无状态)"
             )
     return "\n".join(lines) if lines else "  (无极限)"

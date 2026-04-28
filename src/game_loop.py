@@ -1,17 +1,21 @@
-from src.llm_client import LLMClient
-from src.models import Character
-from src.state.scene_state import SceneState
+from src.agents import (
+    IntentAgent,
+    LimitBreakAgent,
+    LiteNarratorAgent,
+    MoveGatekeeperAgent,
+    ResolutionModeAgent,
+    RhythmAgent,
+)
+from src.display.console import ConsoleDisplay
+from src.effects.applicator import EffectApplicator
 from src.engine import check_limits
 from src.formatter import format_challenge_state
-from src.agents import (
-    RhythmAgent, MoveGatekeeperAgent, IntentAgent,
-    LiteNarratorAgent, LimitBreakAgent, ResolutionModeAgent,
-)
+from src.llm_client import LLMClient
 from src.logger import log_status_update, log_system
-from src.state.game_state import GameState
-from src.effects.applicator import EffectApplicator
+from src.models import Character
 from src.pipeline.move_pipeline import MovePipeline
-from src.display.console import ConsoleDisplay
+from src.state.game_state import GameState
+from src.state.scene_state import SceneState
 
 
 class GameLoop:
@@ -116,9 +120,7 @@ class GameLoop:
         rationale = gatekeeper_note.structured.get("rationale", "")
         print(f"  [叙事模式] {rationale}")
 
-        narrator_note = self.lite_narrator.execute(
-            player_input, ctx, gatekeeper_note.reasoning
-        )
+        narrator_note = self.lite_narrator.execute(player_input, ctx, gatekeeper_note.reasoning)
         print("─" * 50)
 
         self.pipeline.validate_and_apply(narrator_note)
@@ -144,8 +146,10 @@ class GameLoop:
 
         challenge = self.state.scene.primary_challenge()
         effect_errors = EffectApplicator.apply_results(
-            result.effect_note, result.consequence_note,
-            self.state.character, challenge,
+            result.effect_note,
+            result.consequence_note,
+            self.state.character,
+            challenge,
         )
         if effect_errors:
             log_system(f"[效果应用警告] 共 {len(effect_errors)} 个效果应用失败")
@@ -168,9 +172,7 @@ class GameLoop:
         return narrative
 
     def _process_split_moves(self, intent_note, split_actions) -> str:
-        results = self.pipeline.process_split_actions(
-            intent_note, split_actions
-        )
+        results = self.pipeline.process_split_actions(intent_note, split_actions)
 
         narratives = []
         for result in results:
@@ -181,8 +183,10 @@ class GameLoop:
 
             challenge = self.state.scene.primary_challenge()
             effect_errors = EffectApplicator.apply_results(
-                result.effect_note, result.consequence_note,
-                self.state.character, challenge,
+                result.effect_note,
+                result.consequence_note,
+                self.state.character,
+                challenge,
             )
             if effect_errors:
                 log_system(f"[效果应用警告] 共 {len(effect_errors)} 个效果应用失败")
@@ -220,13 +224,15 @@ class GameLoop:
     def _handle_limit_break(self, triggered_limits):
         challenge = self.state.scene.primary_challenge()
         assert challenge is not None
-        limit_names = [l.name for l in triggered_limits]
+        limit_names = [lim.name for lim in triggered_limits]
         print(f"\n  ⚡ 极限突破: {', '.join(limit_names)}!")
 
         ctx = self.state.make_context()
 
         limit_break_note = self.limit_break_agent.execute(
-            limit_names, challenge, ctx,
+            limit_names,
+            challenge,
+            ctx,
         )
         break_narrative = limit_break_note.structured.get("narrative", "")
         if break_narrative:

@@ -1,10 +1,10 @@
 import unittest
-from src.state.scene_state import SceneState, MAX_HISTORY_ENTRIES, HISTORY_BUFFER
-from src.models import Challenge, Limit, GameItem, Clue, NPC, Tag
+
+from src.models import NPC, Challenge, Clue, GameItem, Limit
+from src.state.scene_state import HISTORY_BUFFER, MAX_HISTORY_ENTRIES, SceneState
 
 
 class TestSceneState(unittest.TestCase):
-
     def test_defaults(self):
         scene = SceneState()
         self.assertEqual(scene.scene_description, "")
@@ -38,7 +38,9 @@ class TestSceneState(unittest.TestCase):
         for i in range(total):
             scene.append_narrative(f"事件{i}")
         self.assertEqual(len(scene.narrative_history), MAX_HISTORY_ENTRIES + HISTORY_BUFFER)
-        self.assertEqual(scene.narrative_history[0], f"事件{total - (MAX_HISTORY_ENTRIES + HISTORY_BUFFER)}")
+        self.assertEqual(
+            scene.narrative_history[0], f"事件{total - (MAX_HISTORY_ENTRIES + HISTORY_BUFFER)}"
+        )
 
     def test_add_and_get_challenge(self):
         scene = SceneState()

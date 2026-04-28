@@ -1,10 +1,10 @@
 import unittest
-from src.pipeline._tag_utils import extract_tag_names, extract_status_names, extract_status_tiers
+
 from src.models import AgentNote
+from src.pipeline._tag_utils import extract_status_names, extract_status_tiers, extract_tag_names
 
 
 class TestExtractNames(unittest.TestCase):
-
     def test_empty(self):
         self.assertEqual(extract_tag_names([]), [])
         self.assertEqual(extract_status_names([]), [])
@@ -30,7 +30,6 @@ class TestExtractNames(unittest.TestCase):
 
 
 class TestExtractStatusTiers(unittest.TestCase):
-
     def test_both_present(self):
         note = AgentNote(
             reasoning="分析",

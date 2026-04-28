@@ -1,12 +1,12 @@
 import unittest
-from src.state.game_state import GameState
-from src.state.scene_state import SceneState, MAX_HISTORY_ENTRIES, HISTORY_BUFFER
-from src.models import Character, Challenge, Limit, Tag
+
 from src.context import AgentContext
+from src.models import Challenge, Character, Limit, Tag
+from src.state.game_state import GameState
+from src.state.scene_state import HISTORY_BUFFER, MAX_HISTORY_ENTRIES, SceneState
 
 
 class TestGameState(unittest.TestCase):
-
     def setUp(self):
         self.state = GameState()
         self.character = Character(

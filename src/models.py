@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import ClassVar
 
 
 @dataclass
@@ -92,7 +92,7 @@ class GameItem:
     description: str = ""
     location: str = ""
     tags: list[Tag] = field(default_factory=list)
-    weakness: Optional[Tag] = None
+    weakness: Tag | None = None
 
     def __post_init__(self):
         if not self.item_id:
@@ -139,7 +139,16 @@ class Character:
     items_hidden: dict[str, "GameItem"] = field(default_factory=dict)
     description: str = ""
 
-    INCAPACITATING_STATUSES = {"死亡", "失去行动能力", "被打晕", "被制服", "被束缚", "dead", "unconscious", "incapacitated"}
+    INCAPACITATING_STATUSES: ClassVar[set[str]] = {
+        "死亡",
+        "失去行动能力",
+        "被打晕",
+        "被制服",
+        "被束缚",
+        "dead",
+        "unconscious",
+        "incapacitated",
+    }
 
     def is_incapacitated(self) -> bool:
         for status in self.statuses.values():
@@ -159,7 +168,9 @@ class RollResult:
 
     def __post_init__(self):
         if self.outcome not in ("full_success", "partial_success", "failure"):
-            raise ValueError(f"outcome must be full_success/partial_success/failure, got '{self.outcome}'")
+            raise ValueError(
+                f"outcome must be full_success/partial_success/failure, got '{self.outcome}'"
+            )
 
 
 @dataclass

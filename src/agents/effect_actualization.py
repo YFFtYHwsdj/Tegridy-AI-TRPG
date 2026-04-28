@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import json
+
+from src.agents._utils import resolve_sub_action_info
 from src.agents.base import BaseAgent
 from src.agents.prompts import EFFECT_ACTUALIZATION_PROMPT
-from src.agents._utils import resolve_sub_action_info
 from src.context import AgentContext
 from src.formatter import (
+    format_challenge_state,
+    format_limit_gap,
     format_role_tags,
     format_statuses,
     format_story_tags,
-    format_challenge_state,
-    format_limit_gap,
 )
 from src.models import AgentNote, RollResult
 
@@ -30,7 +31,7 @@ class EffectActualizationAgent(BaseAgent):
         if roll_result.outcome == "failure":
             return AgentNote(
                 reasoning="掷骰结果为失败，不产生效果",
-                structured={"effects": [], "narrative_hints": ""}
+                structured={"effects": [], "narrative_hints": ""},
             )
 
         power_tags_str = format_role_tags(ctx.character.power_tags) if ctx.character else ""
@@ -67,13 +68,13 @@ class EffectActualizationAgent(BaseAgent):
 
 标签匹配:
   reasoning: {tag_note.reasoning}
-  matched_power_tags: {json.dumps(tag_note.structured.get('matched_power_tags', []), ensure_ascii=False)}
-  matched_weakness_tags: {json.dumps(tag_note.structured.get('matched_weakness_tags', []), ensure_ascii=False)}
+  matched_power_tags: {json.dumps(tag_note.structured.get("matched_power_tags", []), ensure_ascii=False)}
+  matched_weakness_tags: {json.dumps(tag_note.structured.get("matched_weakness_tags", []), ensure_ascii=False)}
 
-挑战: {format_challenge_state(ctx.challenge) if ctx.challenge else '(无)'}
+挑战: {format_challenge_state(ctx.challenge) if ctx.challenge else "(无)"}
 
 挑战极限与状态差距:
-{format_limit_gap(ctx.challenge) if ctx.challenge else '  (无极限)'}
+{format_limit_gap(ctx.challenge) if ctx.challenge else "  (无极限)"}
 
 ---
 掷骰结果: {roll_info}

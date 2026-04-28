@@ -2,7 +2,12 @@ from __future__ import annotations
 
 import json
 import re
+from typing import TYPE_CHECKING
+
 from src.logger import log_system
+
+if TYPE_CHECKING:
+    from src.models import AgentNote
 
 
 def _extract_json_object(text: str) -> str | None:
@@ -30,7 +35,7 @@ def _extract_json_object(text: str) -> str | None:
         elif ch == "}":
             depth -= 1
             if depth == 0:
-                return text[start:i + 1]
+                return text[start : i + 1]
     return None
 
 
@@ -59,13 +64,13 @@ def _recover_json(text: str) -> dict | None:
     if extracted is not None and extracted != json_str:
         try:
             result = json.loads(extracted)
-            log_system(f"[JSON修复] 平衡括号提取JSON成功")
+            log_system("[JSON修复] 平衡括号提取JSON成功")
             return result
         except json.JSONDecodeError:
             fixed_extracted = re.sub(r",\s*([}\]])", r"\1", extracted)
             try:
                 result = json.loads(fixed_extracted)
-                log_system(f"[JSON修复] 平衡括号提取 + 尾随逗号修复成功")
+                log_system("[JSON修复] 平衡括号提取 + 尾随逗号修复成功")
                 return result
             except json.JSONDecodeError:
                 pass
@@ -76,21 +81,17 @@ def _recover_json(text: str) -> dict | None:
         fixed_quotes = re.sub(r",\s*([}\]])", r"\1", fixed_quotes)
         try:
             result = json.loads(fixed_quotes)
-            log_system(f"[JSON修复] 单引号替换为双引号修复成功")
+            log_system("[JSON修复] 单引号替换为双引号修复成功")
             return result
         except json.JSONDecodeError:
             pass
 
     # Step 5: Fix unquoted keys
-    fixed_keys = re.sub(
-        r'([{,])\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:',
-        r'\1"\2":',
-        json_str
-    )
+    fixed_keys = re.sub(r"([{,])\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:", r'\1"\2":', json_str)
     fixed_keys = re.sub(r",\s*([}\]])", r"\1", fixed_keys)
     try:
         result = json.loads(fixed_keys)
-        log_system(f"[JSON修复] 未加引号的键名修复成功")
+        log_system("[JSON修复] 未加引号的键名修复成功")
         return result
     except json.JSONDecodeError:
         pass
@@ -98,7 +99,7 @@ def _recover_json(text: str) -> dict | None:
     return None
 
 
-def parse_agent_output(raw_output: str) -> "AgentNote":
+def parse_agent_output(raw_output: str) -> AgentNote:
     from src.models import AgentNote
 
     reasoning = ""
@@ -106,17 +107,13 @@ def parse_agent_output(raw_output: str) -> "AgentNote":
 
     # Extract REASONING: between REASONING and the next section marker
     reasoning_match = re.search(
-        r"=====REASONING=====\s*(.*?)\s*=====(?:NARRATIVE|STRUCTURED)=====",
-        raw_output, re.DOTALL
+        r"=====REASONING=====\s*(.*?)\s*=====(?:NARRATIVE|STRUCTURED)=====", raw_output, re.DOTALL
     )
     if reasoning_match:
         reasoning = reasoning_match.group(1).strip()
 
     # Extract STRUCTURED: from STRUCTURED to end of text
-    structured_match = re.search(
-        r"=====STRUCTURED=====\s*(.*?)$",
-        raw_output, re.DOTALL
-    )
+    structured_match = re.search(r"=====STRUCTURED=====\s*(.*?)$", raw_output, re.DOTALL)
     if structured_match:
         structured_str = structured_match.group(1).strip()
         result = _recover_json(structured_str)
@@ -124,28 +121,23 @@ def parse_agent_output(raw_output: str) -> "AgentNote":
             structured = result
         else:
             snippet = structured_str[:200] + ("..." if len(structured_str) > 200 else "")
-            log_system(
-                f"[JSON解析] 所有修复尝试均失败，回退为raw。"
-                f" 原始内容前200字符: {snippet}"
-            )
+            log_system(f"[JSON解析] 所有修复尝试均失败，回退为raw。 原始内容前200字符: {snippet}")
             structured = {"raw": structured_str}
     else:
-        log_system(f"[JSON解析] 输出中未找到 =====STRUCTURED===== 标记。"
-                   f" 原始输出前200字符: {raw_output[:200]}")
+        log_system(
+            f"[JSON解析] 输出中未找到 =====STRUCTURED===== 标记。"
+            f" 原始输出前200字符: {raw_output[:200]}"
+        )
 
     # Extract NARRATIVE section if not already in structured
     if "narrative" not in structured:
         narrative_match = re.search(
-            r"=====NARRATIVE=====\s*(.*?)\s*=====STRUCTURED=====",
-            raw_output, re.DOTALL
+            r"=====NARRATIVE=====\s*(.*?)\s*=====STRUCTURED=====", raw_output, re.DOTALL
         )
         if narrative_match:
             structured["narrative"] = narrative_match.group(1).strip()
         else:
-            narrative_match = re.search(
-                r"=====NARRATIVE=====\s*(.*?)$",
-                raw_output, re.DOTALL
-            )
+            narrative_match = re.search(r"=====NARRATIVE=====\s*(.*?)$", raw_output, re.DOTALL)
             if narrative_match:
                 structured["narrative"] = narrative_match.group(1).strip()
 

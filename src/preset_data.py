@@ -1,4 +1,4 @@
-from src.models import Tag, Limit, Challenge, Character, GameItem, Clue, NPC
+from src.models import NPC, Challenge, Character, Clue, GameItem, Limit, Tag
 from src.state.scene_state import SceneState
 
 DEMO_SCENE_DESCRIPTION = """
@@ -41,9 +41,21 @@ MIKO_CHALLENGE = Challenge(
     ],
     base_tags=[
         Tag(name="精明的谈判者", tag_type="power", description="从不让步，除非对方亮出足够的筹码"),
-        Tag(name="两个专业保镖", tag_type="power", description="退役伤痛干员和液压巨汉，反应速度和破坏力远超普通打手"),
-        Tag(name="帮派情报网", tag_type="power", description="在帮派内部消息灵通，很可能已经知道Kael的真实底细"),
-        Tag(name="主场优势", tag_type="power", description="「最后一杯」是她的地盘——酒保、常客、角落的逃生门，都在她掌控之中"),
+        Tag(
+            name="两个专业保镖",
+            tag_type="power",
+            description="退役伤痛干员和液压巨汉，反应速度和破坏力远超普通打手",
+        ),
+        Tag(
+            name="帮派情报网",
+            tag_type="power",
+            description="在帮派内部消息灵通，很可能已经知道Kael的真实底细",
+        ),
+        Tag(
+            name="主场优势",
+            tag_type="power",
+            description="「最后一杯」是她的地盘——酒保、常客、角落的逃生门，都在她掌控之中",
+        ),
     ],
     notes=(
         "威胁→后果参考（供后果Agent使用）：\n"

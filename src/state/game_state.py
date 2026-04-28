@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-from typing import Optional
-from src.models import Character
 from src.context import AgentContext
-from src.state.scene_state import SceneState, MAX_HISTORY_ENTRIES, HISTORY_BUFFER
+from src.models import Character
+from src.state.scene_state import SceneState
 
 
 class GameState:
     def __init__(self):
-        self.character: Optional[Character] = None
+        self.character: Character | None = None
         self.scene: SceneState = SceneState()
         self.scene_history: list[SceneState] = []
 

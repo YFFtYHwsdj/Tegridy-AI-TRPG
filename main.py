@@ -1,10 +1,10 @@
 import os
 import sys
-import readline
+
 from dotenv import load_dotenv
 
-from src.llm_client import LLMClient
 from src.game_loop import GameLoop
+from src.llm_client import LLMClient
 from src.logger import init_log
 from src.preset_data import (
     DEMO_CHARACTER,

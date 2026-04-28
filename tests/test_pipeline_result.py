@@ -1,15 +1,24 @@
 import unittest
-from src.pipeline.pipeline_result import PipelineResult
+
 from src.models import AgentNote, RollResult
+from src.pipeline.pipeline_result import PipelineResult
 
 
 class TestPipelineResult(unittest.TestCase):
-
     def test_full_pipeline(self):
-        tag_note = AgentNote(reasoning="标签匹配分析", structured={"matched_power_tags": [{"name": "快速拔枪"}]})
+        tag_note = AgentNote(
+            reasoning="标签匹配分析", structured={"matched_power_tags": [{"name": "快速拔枪"}]}
+        )
         roll = RollResult(power=2, dice=(5, 4), total=11, outcome="full_success")
-        effect_note = AgentNote(reasoning="效果推演", structured={"effects": [{"effect_type": "attack", "tier": 2, "target": "挑战", "label": "受伤"}]})
-        consequence_note = AgentNote(reasoning="后果分析", structured={"consequences": [{"threat_manifested": "保镖介入"}]})
+        effect_note = AgentNote(
+            reasoning="效果推演",
+            structured={
+                "effects": [{"effect_type": "attack", "tier": 2, "target": "挑战", "label": "受伤"}]
+            },
+        )
+        consequence_note = AgentNote(
+            reasoning="后果分析", structured={"consequences": [{"threat_manifested": "保镖介入"}]}
+        )
         narrator_note = AgentNote(reasoning="叙事策略", structured={"narrative": "你迅速拔枪..."})
 
         result = PipelineResult(

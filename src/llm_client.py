@@ -1,7 +1,8 @@
 import time
+
 from openai import (
-    APIError,
     APIConnectionError,
+    APIError,
     APITimeoutError,
     InternalServerError,
     OpenAI,
@@ -19,7 +20,9 @@ class LLMClient:
         self.model = model
         self.max_retries = max_retries
 
-    def chat(self, system_prompt: str, user_message: str, temperature: float = 0.3) -> tuple[str, dict]:
+    def chat(
+        self, system_prompt: str, user_message: str, temperature: float = 0.3
+    ) -> tuple[str, dict]:
         for attempt in range(self.max_retries):
             try:
                 response = self.client.chat.completions.create(
@@ -40,15 +43,25 @@ class LLMClient:
                     "completion_tokens": usage.completion_tokens if usage else 0,
                     "total_tokens": usage.total_tokens if usage else 0,
                 }
-                if usage and hasattr(usage, "prompt_tokens_details") and usage.prompt_tokens_details:
+                if (
+                    usage
+                    and hasattr(usage, "prompt_tokens_details")
+                    and usage.prompt_tokens_details
+                ):
                     cached = getattr(usage.prompt_tokens_details, "cached_tokens", None)
                     if cached is not None:
                         usage_info["cached_tokens"] = cached
 
                 return content, usage_info
-            except (RateLimitError, APIConnectionError, APITimeoutError, InternalServerError, APIError) as e:
+            except (
+                RateLimitError,
+                APIConnectionError,
+                APITimeoutError,
+                InternalServerError,
+                APIError,
+            ) as e:
                 if attempt < self.max_retries - 1:
-                    time.sleep(2 ** attempt)
+                    time.sleep(2**attempt)
                     continue
                 raise LLMError(f"API 调用失败（已重试 {self.max_retries} 次）: {e}") from e
             except LLMError:

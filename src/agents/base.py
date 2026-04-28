@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from abc import ABC
-from src.llm_client import LLMClient
-from src.models import AgentNote
+
 from src.json_parser import parse_agent_output
+from src.llm_client import LLMClient
 from src.logger import log_call
+from src.models import AgentNote
 
 
-class BaseAgent(ABC):
+class BaseAgent(ABC):  # noqa: B024
     system_prompt: str = ""
     agent_name: str = "BaseAgent"
 

@@ -1,9 +1,23 @@
 import unittest
-from src.models import Tag, Status, StoryTag, Limit, Challenge, Character, RollResult, EffectEntry, ConsequenceEntry, AgentNote, GameItem, Clue, NPC
+
+from src.models import (
+    NPC,
+    AgentNote,
+    Challenge,
+    Character,
+    Clue,
+    ConsequenceEntry,
+    EffectEntry,
+    GameItem,
+    Limit,
+    RollResult,
+    Status,
+    StoryTag,
+    Tag,
+)
 
 
 class TestTag(unittest.TestCase):
-
     def test_power_tag(self):
         t = Tag(name="快速拔枪", tag_type="power", description="枪法快")
         self.assertEqual(t.name, "快速拔枪")
@@ -21,7 +35,6 @@ class TestTag(unittest.TestCase):
 
 
 class TestStatus(unittest.TestCase):
-
     def test_defaults(self):
         s = Status(name="受伤")
         self.assertEqual(s.name, "受伤")
@@ -31,7 +44,6 @@ class TestStatus(unittest.TestCase):
 
 
 class TestStoryTag(unittest.TestCase):
-
     def test_defaults(self):
         st = StoryTag(name="临时掩体")
         self.assertEqual(st.name, "临时掩体")
@@ -53,16 +65,15 @@ class TestStoryTag(unittest.TestCase):
 
 
 class TestLimit(unittest.TestCase):
-
     def test_valid_limit(self):
-        l = Limit(name="伤害", max_tier=3)
-        self.assertEqual(l.name, "伤害")
-        self.assertEqual(l.max_tier, 3)
-        self.assertFalse(l.is_progress)
+        lim = Limit(name="伤害", max_tier=3)
+        self.assertEqual(lim.name, "伤害")
+        self.assertEqual(lim.max_tier, 3)
+        self.assertFalse(lim.is_progress)
 
     def test_is_progress(self):
-        l = Limit(name="穿越", max_tier=4, is_progress=True)
-        self.assertTrue(l.is_progress)
+        lim = Limit(name="穿越", max_tier=4, is_progress=True)
+        self.assertTrue(lim.is_progress)
 
     def test_max_tier_too_low_raises(self):
         with self.assertRaises(ValueError):
@@ -74,7 +85,6 @@ class TestLimit(unittest.TestCase):
 
 
 class TestRollResult(unittest.TestCase):
-
     def test_full_success(self):
         r = RollResult(power=2, dice=(5, 4), total=11, outcome="full_success")
         self.assertEqual(r.total, 11)
@@ -86,7 +96,6 @@ class TestRollResult(unittest.TestCase):
 
 
 class TestChallenge(unittest.TestCase):
-
     def setUp(self):
         self.challenge = Challenge(
             name="Miko 与她的保镖",
@@ -175,7 +184,6 @@ class TestChallenge(unittest.TestCase):
 
 
 class TestCharacter(unittest.TestCase):
-
     def test_defaults(self):
         c = Character(name="Test")
         self.assertEqual(c.name, "Test")
@@ -225,7 +233,6 @@ class TestCharacter(unittest.TestCase):
 
 
 class TestGameItem(unittest.TestCase):
-
     def test_defaults(self):
         item = GameItem()
         self.assertEqual(item.item_id, "")
@@ -269,7 +276,6 @@ class TestGameItem(unittest.TestCase):
 
 
 class TestClue(unittest.TestCase):
-
     def test_defaults(self):
         clue = Clue()
         self.assertEqual(clue.clue_id, "")
@@ -290,7 +296,6 @@ class TestClue(unittest.TestCase):
 
 
 class TestNPC(unittest.TestCase):
-
     def test_defaults(self):
         npc = NPC()
         self.assertEqual(npc.npc_id, "")
@@ -345,7 +350,6 @@ class TestNPC(unittest.TestCase):
 
 
 class TestEffectEntry(unittest.TestCase):
-
     def test_defaults(self):
         e = EffectEntry(effect_type="attack", tier=2, target="敌人", label="受伤")
         self.assertEqual(e.effect_type, "attack")
@@ -356,7 +360,6 @@ class TestEffectEntry(unittest.TestCase):
 
 
 class TestConsequenceEntry(unittest.TestCase):
-
     def test_defaults(self):
         c = ConsequenceEntry(threat_manifested="保镖上前", narrative_description="保镖向前迈出一步")
         self.assertEqual(c.threat_manifested, "保镖上前")
@@ -365,7 +368,6 @@ class TestConsequenceEntry(unittest.TestCase):
 
 
 class TestAgentNote(unittest.TestCase):
-
     def test_basic(self):
         note = AgentNote(reasoning="分析过程", structured={"action_type": "combat"})
         self.assertEqual(note.reasoning, "分析过程")

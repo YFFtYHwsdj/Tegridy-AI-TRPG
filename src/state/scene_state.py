@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
-from src.models import Character, Challenge, GameItem, Clue, NPC
-from src.formatter import format_statuses, format_story_tags, format_limit_progress
+
 from src.context import AgentContext
+from src.formatter import format_limit_progress, format_statuses, format_story_tags
+from src.models import NPC, Challenge, Character, Clue, GameItem
 
 MAX_HISTORY_ENTRIES = 6
 HISTORY_BUFFER = 2
@@ -39,9 +39,11 @@ class SceneState:
     def append_narrative(self, entry: str):
         self.narrative_history.append(entry)
         if len(self.narrative_history) > MAX_HISTORY_ENTRIES + HISTORY_BUFFER:
-            self.narrative_history = self.narrative_history[-(MAX_HISTORY_ENTRIES + HISTORY_BUFFER):]
+            self.narrative_history = self.narrative_history[
+                -(MAX_HISTORY_ENTRIES + HISTORY_BUFFER) :
+            ]
 
-    def make_context(self, character: Optional[Character], player_input: str = "") -> AgentContext:
+    def make_context(self, character: Character | None, player_input: str = "") -> AgentContext:
         challenge = self.primary_challenge()
         return AgentContext(
             context_block=self._build_context_block(character, challenge),
@@ -52,7 +54,7 @@ class SceneState:
             extra={"scene_state": self},
         )
 
-    def _build_context_block(self, character: Optional[Character], challenge: Optional[Challenge]) -> str:
+    def _build_context_block(self, character: Character | None, challenge: Challenge | None) -> str:
         if character is None or challenge is None:
             return ""
 
@@ -63,8 +65,7 @@ class SceneState:
 
         progress = challenge.get_limit_progress()
         limits = ", ".join(
-            format_limit_progress(limit, progress[limit.name])
-            for limit in challenge.limits
+            format_limit_progress(limit, progress[limit.name]) for limit in challenge.limits
         )
         if not limits:
             limits = "（无极限设置）"
