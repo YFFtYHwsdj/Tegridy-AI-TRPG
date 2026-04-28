@@ -86,6 +86,48 @@ class Challenge:
 
 
 @dataclass
+class GameItem:
+    item_id: str = ""
+    name: str = ""
+    description: str = ""
+    location: str = ""
+    tags: list[Tag] = field(default_factory=list)
+    weakness: Optional[Tag] = None
+
+    def __post_init__(self):
+        if not self.item_id:
+            self.item_id = self.name
+
+
+@dataclass
+class Clue:
+    clue_id: str = ""
+    name: str = ""
+    description: str = ""
+
+    def __post_init__(self):
+        if not self.clue_id:
+            self.clue_id = self.name
+
+
+@dataclass
+class NPC:
+    npc_id: str = ""
+    name: str = ""
+    description: str = ""
+    tags: list[Tag] = field(default_factory=list)
+    statuses: dict[str, Status] = field(default_factory=dict)
+    known_clue_ids: list[str] = field(default_factory=list)
+    known_item_ids: list[str] = field(default_factory=list)
+    items_visible: dict[str, "GameItem"] = field(default_factory=dict)
+    items_hidden: dict[str, "GameItem"] = field(default_factory=dict)
+
+    def __post_init__(self):
+        if not self.npc_id:
+            self.npc_id = self.name
+
+
+@dataclass
 class Character:
     name: str
     power_tags: list[Tag] = field(default_factory=list)
@@ -93,6 +135,8 @@ class Character:
     statuses: dict[str, Status] = field(default_factory=dict)
     story_tags: dict[str, StoryTag] = field(default_factory=dict)
     burned_tags: set[str] = field(default_factory=set)
+    items_visible: dict[str, "GameItem"] = field(default_factory=dict)
+    items_hidden: dict[str, "GameItem"] = field(default_factory=dict)
     description: str = ""
 
     INCAPACITATING_STATUSES = {"死亡", "失去行动能力", "被打晕", "被制服", "被束缚", "dead", "unconscious", "incapacitated"}

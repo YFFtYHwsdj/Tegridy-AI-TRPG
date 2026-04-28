@@ -1,5 +1,5 @@
 import unittest
-from src.models import Tag, Status, StoryTag, Limit, Challenge, Character, RollResult, EffectEntry, ConsequenceEntry, AgentNote
+from src.models import Tag, Status, StoryTag, Limit, Challenge, Character, RollResult, EffectEntry, ConsequenceEntry, AgentNote, GameItem, Clue, NPC
 
 
 class TestTag(unittest.TestCase):
@@ -214,6 +214,134 @@ class TestCharacter(unittest.TestCase):
     def test_not_incapacitated_no_statuses(self):
         c = Character(name="Test")
         self.assertFalse(c.is_incapacitated())
+
+    def test_items_visible_default_empty(self):
+        c = Character(name="Test")
+        self.assertEqual(c.items_visible, {})
+
+    def test_items_hidden_default_empty(self):
+        c = Character(name="Test")
+        self.assertEqual(c.items_hidden, {})
+
+
+class TestGameItem(unittest.TestCase):
+
+    def test_defaults(self):
+        item = GameItem()
+        self.assertEqual(item.item_id, "")
+        self.assertEqual(item.name, "")
+        self.assertEqual(item.description, "")
+        self.assertEqual(item.location, "")
+        self.assertEqual(item.tags, [])
+        self.assertIsNone(item.weakness)
+
+    def test_item_id_defaults_to_name(self):
+        item = GameItem(name="急救包")
+        self.assertEqual(item.item_id, "急救包")
+
+    def test_custom_item_id(self):
+        item = GameItem(item_id="medkit_01", name="急救包")
+        self.assertEqual(item.item_id, "medkit_01")
+        self.assertEqual(item.name, "急救包")
+
+    def test_with_location(self):
+        item = GameItem(name="芯片", location="夹克内袋")
+        self.assertEqual(item.location, "夹克内袋")
+
+    def test_with_tags(self):
+        t = Tag("小型", "power", "易于隐藏")
+        item = GameItem(name="匕首", tags=[t])
+        self.assertEqual(len(item.tags), 1)
+        self.assertEqual(item.tags[0].name, "小型")
+
+    def test_with_weakness(self):
+        w = Tag("易碎", "weakness", "承受不住重击")
+        item = GameItem(name="瓷瓶", weakness=w)
+        self.assertIsNotNone(item.weakness)
+        if item.weakness is not None:
+            self.assertEqual(item.weakness.name, "易碎")
+
+    def test_multiple_instances_same_name(self):
+        a = GameItem(item_id="aidkit_01", name="急救包", location="吧台")
+        b = GameItem(item_id="aidkit_02", name="急救包", location="储藏室")
+        self.assertEqual(a.name, b.name)
+        self.assertNotEqual(a.item_id, b.item_id)
+
+
+class TestClue(unittest.TestCase):
+
+    def test_defaults(self):
+        clue = Clue()
+        self.assertEqual(clue.clue_id, "")
+        self.assertEqual(clue.name, "")
+        self.assertEqual(clue.description, "")
+
+    def test_clue_id_defaults_to_name(self):
+        clue = Clue(name="加密数据芯片")
+        self.assertEqual(clue.clue_id, "加密数据芯片")
+
+    def test_custom_clue_id(self):
+        clue = Clue(clue_id="clue_001", name="加密数据芯片")
+        self.assertEqual(clue.clue_id, "clue_001")
+
+    def test_with_description(self):
+        clue = Clue(name="通讯记录", description="腕部终端的短讯记录")
+        self.assertEqual(clue.description, "腕部终端的短讯记录")
+
+
+class TestNPC(unittest.TestCase):
+
+    def test_defaults(self):
+        npc = NPC()
+        self.assertEqual(npc.npc_id, "")
+        self.assertEqual(npc.name, "")
+        self.assertEqual(npc.description, "")
+        self.assertEqual(npc.tags, [])
+        self.assertEqual(npc.statuses, {})
+        self.assertEqual(npc.known_clue_ids, [])
+        self.assertEqual(npc.known_item_ids, [])
+        self.assertEqual(npc.items_visible, {})
+        self.assertEqual(npc.items_hidden, {})
+
+    def test_npc_id_defaults_to_name(self):
+        npc = NPC(name="Miko")
+        self.assertEqual(npc.npc_id, "Miko")
+
+    def test_custom_npc_id(self):
+        npc = NPC(npc_id="miko_npc", name="Miko")
+        self.assertEqual(npc.npc_id, "miko_npc")
+
+    def test_with_tags(self):
+        t = Tag("精明的谈判者", "power")
+        npc = NPC(name="Miko", tags=[t])
+        self.assertEqual(len(npc.tags), 1)
+        self.assertEqual(npc.tags[0].name, "精明的谈判者")
+
+    def test_with_statuses(self):
+        s = Status(name="被威胁", current_tier=2, ticked_boxes={1, 2})
+        npc = NPC(name="Miko", statuses={"被威胁": s})
+        self.assertIn("被威胁", npc.statuses)
+        self.assertEqual(npc.statuses["被威胁"].current_tier, 2)
+
+    def test_with_known_references(self):
+        npc = NPC(
+            name="Miko",
+            known_clue_ids=["clue_001", "clue_002"],
+            known_item_ids=["chip_encrypted"],
+        )
+        self.assertEqual(len(npc.known_clue_ids), 2)
+        self.assertEqual(len(npc.known_item_ids), 1)
+        self.assertIn("chip_encrypted", npc.known_item_ids)
+
+    def test_items_visible_and_hidden(self):
+        item = GameItem(item_id="chip", name="加密芯片", location="夹克内袋")
+        npc = NPC(
+            name="Miko",
+            items_hidden={"chip": item},
+        )
+        self.assertIn("chip", npc.items_hidden)
+        self.assertEqual(npc.items_visible, {})
+        self.assertEqual(npc.items_hidden["chip"].item_id, "chip")
 
 
 class TestEffectEntry(unittest.TestCase):
