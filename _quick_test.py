@@ -1,3 +1,12 @@
+"""快速回归测试 —— Character.is_incapacitated() 判定逻辑验证。
+
+测试四种场景：
+    1. 任意状态 tier 6 → incapacitated
+    2. 特定状态名 tier 1+ → incapacitated
+    3. 低 tier 普通状态 → 非 incapacitated
+    4. 无状态 → 非 incapacitated
+"""
+
 import sys
 
 sys.path.insert(0, "/Users/tegridy/Git Programs/Tegridy-AI-TRPG")

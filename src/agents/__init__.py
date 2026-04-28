@@ -1,3 +1,10 @@
+"""Agent 基类 —— 所有 LLM Agent 的抽象基类和注册表。
+
+BaseAgent 提供统一的 LLM 调用、日志记录和输出解析流程。
+每个具体 Agent 只需设定 system_prompt 和 agent_name。
+AGENT_REGISTRY 维护所有 Agent 类的全局注册表。
+"""
+
 from src.agents.consequence import ConsequenceAgent, QuickConsequenceAgent
 from src.agents.continuation_check import ContinuationCheckAgent
 from src.agents.effect_actualization import EffectActualizationAgent

@@ -1,3 +1,11 @@
+"""预置数据 —— Demo 场景的角色、挑战和场景构建。
+
+提供赛博朋克风格的单场景 Demo 数据，包含：
+    - DEMO_CHARACTER: 玩家角色 Kael（前公司安保干员）
+    - DEMO_CHALLENGE: 主挑战 Miko（情报中间人 + 两个保镖）
+    - build_demo_scene(): 构建包含 NPC、物品、线索的完整场景
+"""
+
 from src.models import NPC, Challenge, Character, Clue, GameItem, Limit, Tag
 from src.state.scene_state import SceneState
 
@@ -74,6 +82,14 @@ DEMO_CHALLENGE = MIKO_CHALLENGE
 
 
 def build_demo_scene() -> SceneState:
+    """构建 Demo 场景。
+
+    创建包含 Miko 挑战、NPC（Miko + 两个保镖）、
+    可见/隐藏物品和隐藏线索的完整 SceneState。
+
+    Returns:
+        完整的 SceneState 对象
+    """
     scene = SceneState(scene_description=DEMO_SCENE_DESCRIPTION)
 
     scene.add_challenge(MIKO_CHALLENGE)

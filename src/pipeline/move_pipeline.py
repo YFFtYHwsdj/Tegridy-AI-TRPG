@@ -1,3 +1,15 @@
+"""Action 流程编排 —— 多 Agent 接力执行的 Pipe-and-Filter 流水线。
+
+本模块是系统的核心控制器。MovePipeline 协调 Tag 匹配、掷骰、效果推演、
+后果生成、叙事渲染和校验应用的全流程。每条流水线对应一次玩家行动，
+按照 PBTA 规则完成"意图 → 判定 → 效果 → 后果 → 叙事"的完整序列。
+
+流水线模式：
+    - run_single_move_pipeline: 标准完整流水线（单步 action）
+    - run_quick_pipeline: 快速流水线（跳过效果推演 Agent）
+    - process_split_actions: 复合 action 拆分流水线（多步子 action 接力）
+"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -22,6 +34,16 @@ from src.state.game_state import GameState
 
 
 def _summarize_last_sub(roll, effects, cons) -> str:
+    """生成上一步子 action 的摘要文本，用于继续性检查。
+
+    Args:
+        roll: 上一步的 RollResult
+        effects: 上一步的效果列表
+        cons: 上一步的后果列表
+
+    Returns:
+        格式化的摘要字符串
+    """
     if roll is None:
         return "（上一步无有效掷骰）"
     parts = [f"掷骰结果: {roll.outcome}"]
@@ -33,10 +55,24 @@ def _summarize_last_sub(roll, effects, cons) -> str:
 
 
 class MovePipeline:
+    """Action 流水线 —— 多 Agent 接力执行的核心控制器。
+
+    初始化时创建所有所需的 Agent 实例（Tag 匹配、效果推演、后果、
+    叙述者、继续性检查、校验），每条流水线调用时按固定顺序执行它们。
+
+    关键方法：
+        run_single_move_pipeline: 完整流水线，适用于一般 action
+        run_quick_pipeline: 快速流水线，跳过效果推演，适用于简单 action
+        process_split_actions: 复合 action 拆分执行
+        validate_and_apply: 校验叙事输出并将其中的线索/物品揭示应用到游戏状态
+    """
+
     def __init__(self, llm: LLMClient, state: GameState, display: ConsoleDisplay):
         self.llm = llm
         self.state = state
         self.display = display
+
+        # 创建所有 Agent 实例
         self.tag_agent = TagMatcherAgent(llm)
         self.effect_agent = EffectActualizationAgent(llm)
         self.consequence_agent = ConsequenceAgent(llm)
@@ -47,6 +83,19 @@ class MovePipeline:
         self.validator = ValidatorAgent(llm)
 
     def _run_tag_and_roll(self, intent_note, ctx, sub_action=None):
+        """流水线阶段1: 标签匹配 + 掷骰。
+
+        执行 Tag 匹配 Agent 获取命中的力量/弱点标签，
+        提取标签名和状态 tier，计算力量值并掷骰。
+
+        Args:
+            intent_note: 意图解析 Agent 的分析便签
+            ctx: 当前场景上下文
+            sub_action: 子 action 数据（复合 action 场景），可选
+
+        Returns:
+            (tag_note, roll) 元组
+        """
         tag_note = self.tag_agent.execute(intent_note, ctx, sub_action=sub_action)
 
         matched_power = tag_note.structured.get("matched_power_tags", [])
@@ -69,12 +118,30 @@ class MovePipeline:
         return tag_note, roll
 
     def run_single_move_pipeline(self, intent_note, ctx, sub_action=None) -> PipelineResult:
+        """执行标准完整流水线。
+
+        阶段顺序：
+            1. 标签匹配 + 掷骰 (_run_tag_and_roll)
+            2. 效果推演 (EffectActualizationAgent)
+            3. 后果生成 (ConsequenceAgent) — 仅在 partial_success 或 failure 时
+            4. 叙事渲染 (NarratorAgent)
+            5. 校验与生效 (validate_and_apply)
+
+        Args:
+            intent_note: 意图解析 Agent 的分析便签
+            ctx: 当前场景上下文
+            sub_action: 子 action 数据（复合 action 场景），可选
+
+        Returns:
+            PipelineResult: 包含各阶段 AgentNote 和掷骰结果的完整数据
+        """
         tag_note, roll = self._run_tag_and_roll(intent_note, ctx, sub_action)
 
         effect_note = self.effect_agent.execute(
             intent_note, tag_note, roll, ctx, sub_action=sub_action
         )
 
+        # 仅在未完全成功时生成后果（部分成功和失败都有代价）
         consequence_note = None
         if roll.outcome in ("partial_success", "failure"):
             consequence_note = self.consequence_agent.execute(intent_note, effect_note, roll, ctx)
@@ -98,6 +165,18 @@ class MovePipeline:
         )
 
     def run_quick_pipeline(self, intent_note, ctx) -> PipelineResult:
+        """执行快速流水线（跳过效果推演 Agent）。
+
+        适用于效果由系统直接裁定、不需要 LLM 推演的简单 action。
+        阶段顺序：标签匹配+掷骰 → 快速后果 → 快速叙事 → 校验生效。
+
+        Args:
+            intent_note: 意图解析 Agent 的分析便签
+            ctx: 当前场景上下文
+
+        Returns:
+            PipelineResult（effect_note 为 None）
+        """
         tag_note, roll = self._run_tag_and_roll(intent_note, ctx)
 
         consequence_note = None
@@ -122,7 +201,18 @@ class MovePipeline:
         )
 
     def validate_and_apply(self, narrator_note):
+        """校验叙事输出并应用状态变更。
+
+        将叙述者 Agent 产出的叙事文本交给校验器 Agent 审查，
+        确保其中揭示的线索/物品是合法的（确实隐藏中），
+        然后执行揭示和物品转移操作。
+
+        Args:
+            narrator_note: 叙述者 Agent 的分析便签
+        """
         scene = self.state.scene
+
+        # 收集所有隐藏线索和物品的索引
         hidden_clues = scene.clues_hidden
         hidden_items = {
             iid: item for npc in scene.npcs.values() for iid, item in npc.items_hidden.items()
@@ -140,6 +230,7 @@ class MovePipeline:
             npcs=scene.npcs,
         )
 
+        # 校验不通过则跳过
         if valid_note.structured.get("verdict") == "reject":
             return
 
@@ -147,6 +238,14 @@ class MovePipeline:
         self._apply_item_transfers(narrator_note)
 
     def _apply_revelations(self, narrator_note):
+        """执行叙事中揭示的线索和物品。
+
+        从叙述者便签的 revelation_decisions 中提取揭示指令，
+        将隐藏的线索/物品从隐藏字典转移到可见字典。
+
+        Args:
+            narrator_note: 叙述者 Agent 的分析便签
+        """
         scene = self.state.scene
         decisions = narrator_note.structured.get("revelation_decisions", {})
 
@@ -157,11 +256,13 @@ class MovePipeline:
 
         for item_id in decisions.get("reveal_item_ids", []):
             found = False
+            # 先在场景物品中查找
             if item_id in scene.scene_items_hidden:
                 item = scene.scene_items_hidden.pop(item_id)
                 scene.scene_items_visible[item_id] = item
                 found = True
             else:
+                # 再在 NPC 隐藏物品中查找
                 for npc in scene.npcs.values():
                     if item_id in npc.items_hidden:
                         item = npc.items_hidden.pop(item_id)
@@ -172,9 +273,19 @@ class MovePipeline:
                 log_system(f"[揭示执行] 未找到物品 '{item_id}'")
 
     def _apply_item_transfers(self, narrator_note):
+        """执行叙事中的物品转移。
+
+        处理物品在不同位置之间的移动（场景 ↔ 角色 ↔ NPC），
+        支持自动创建 emergent 物品（叙述者即兴引入的新物品）。
+
+        Args:
+            narrator_note: 叙述者 Agent 的分析便签
+        """
         _scene = self.state.scene
         transfers = narrator_note.structured.get("item_transfers", [])
         location_updates = narrator_note.structured.get("location_text_updates", [])
+
+        # 构建物品位置更新映射
         loc_map = {u["item_id"]: u["new_location"] for u in location_updates if isinstance(u, dict)}
 
         for t in transfers:
@@ -186,8 +297,10 @@ class MovePipeline:
             if not item_id or not from_loc or not to_loc:
                 continue
 
+            # 从源位置取出物品
             item = self._pop_item(item_id, from_loc)
             if item is None:
+                # 物品不存在 → 尝试自动创建 emergent 物品
                 created = self._create_emergent_item(item_id, narrator_note)
                 if not created:
                     log_system(f"[物品转移] 未找到且无法创建 '{item_id}' (from={from_loc})")
@@ -195,12 +308,26 @@ class MovePipeline:
                 item = created
                 log_system(f"[emergent物品] 转移时自动创建 '{item_id}'")
 
+            # 更新物品的 location 文本
             if item_id in loc_map:
                 item.location = loc_map[item_id]
 
+            # 插入到目标位置
             self._insert_item(item_id, item, to_loc)
 
     def _create_emergent_item(self, item_name: str, narrator_note):
+        """创建 emergent 物品 —— 叙述者即兴引入的新物品。
+
+        LLM 叙述者可能在叙事中引入原数据中不存在的物品。
+        此时调用 ItemCreator Agent 根据叙事上下文自动生成物品数据。
+
+        Args:
+            item_name: 物品名称
+            narrator_note: 叙述者 Agent 的分析便签
+
+        Returns:
+            新创建的 GameItem 对象，创建失败返回 None
+        """
         from src.agents.item_creator import ItemCreatorAgent
 
         if not hasattr(self, "item_creator"):
@@ -214,6 +341,7 @@ class MovePipeline:
 
         from src.models import GameItem, Tag
 
+        # 解析物品标签（支持 dict 和 str 两种格式）
         tags = []
         for t in item_data.get("tags", []):
             if isinstance(t, dict):
@@ -247,6 +375,20 @@ class MovePipeline:
         )
 
     def _pop_item(self, item_id: str, location: str):
+        """从指定位置取出物品（从可见或隐藏字典中移除）。
+
+        支持的位置格式：
+            - "scene": 场景物品
+            - "character": 角色物品
+            - "npc.<npc_id>": 指定 NPC 的物品
+
+        Args:
+            item_id: 物品 ID
+            location: 位置标识符
+
+        Returns:
+            取出的物品对象，未找到返回 None
+        """
         scene = self.state.scene
         if location == "scene":
             for d in (scene.scene_items_visible, scene.scene_items_hidden):
@@ -268,6 +410,15 @@ class MovePipeline:
         return None
 
     def _insert_item(self, item_id: str, item, location: str):
+        """将物品插入到指定位置的可见字典。
+
+        支持的位置格式同 _pop_item。
+
+        Args:
+            item_id: 物品 ID
+            item: 物品对象
+            location: 目标位置标识符
+        """
         scene = self.state.scene
         if location == "scene":
             scene.scene_items_visible[item_id] = item
@@ -281,6 +432,23 @@ class MovePipeline:
                 npc.items_visible[item_id] = item
 
     def process_split_actions(self, intent_note, split_actions) -> list:
+        """执行复合 action 的拆分流水线。
+
+        当一个意图被意图解析 Agent 拆分为多个子 action（split_actions）时，
+        按顺序逐个执行，每步之前检查是否可以继续（continuation_check）。
+
+        流程：
+            1. 对每个子 action 运行完整流水线
+            2. 执行前检查上一步结果是否阻止继续
+            3. 将上一步的掷骰/效果/后果作为上下文传递给下一步
+
+        Args:
+            intent_note: 意图解析 Agent 的分析便签
+            split_actions: 子 action 列表
+
+        Returns:
+            PipelineResult 列表（可能因 blocked 而提前终止）
+        """
         self.display.print_split_action_header(len(split_actions))
 
         prev_roll = None
@@ -299,6 +467,7 @@ class MovePipeline:
                 i + 1, len(split_actions), sub.get("action_summary", "?")
             )
 
+            # 非首步：检查上一步结果是否允许继续
             if i > 0:
                 ctx = self.state.make_context()
                 check_note = self.continuation_check.execute(
@@ -316,6 +485,7 @@ class MovePipeline:
             result = self.run_single_move_pipeline(intent_note, ctx, sub_action=sub)
             results.append(result)
 
+            # 保存当前步的结果供下一步的继续性检查使用
             prev_roll = result.roll
             prev_effects = (
                 result.effect_note.structured.get("effects", []) if result.effect_note else []

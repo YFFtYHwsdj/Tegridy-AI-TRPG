@@ -1,3 +1,9 @@
+"""Tegridy-AI-TRPG 入口脚本。
+
+加载环境变量，初始化 LLM 客户端和日志系统，
+创建 GameLoop 实例并加载 Demo 场景，进入交互式主循环。
+"""
+
 import os
 import sys
 
@@ -17,6 +23,13 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
 def main():
+    """主入口函数。
+
+    1. 从 .env 加载 DeepSeek API 配置
+    2. 初始化日志和 LLM 客户端
+    3. 创建 GameLoop 并加载 Demo 场景
+    4. 进入交互式输入循环（/quit 退出）
+    """
     api_key = os.getenv("DEEPSEEK_API_KEY")
     base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
     model = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")

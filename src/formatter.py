@@ -1,7 +1,21 @@
+"""格式化工具 —— 将游戏数据渲染为可读的文本块。
+
+提供各类格式化函数，将 Tag、Status、StoryTag、Limit、Challenge
+等数据模型格式化为人类可读的文本（供 Agent 上下文和调试输出使用）。
+"""
+
 from __future__ import annotations
 
 
 def format_role_tags(tags: list) -> str:
+    """格式化标签列表（力量/弱点）。
+
+    Args:
+        tags: Tag 对象列表
+
+    Returns:
+        格式化的多行文本
+    """
     lines = []
     for tag in tags:
         desc = f" ({tag.description})" if tag.description else ""
@@ -10,6 +24,14 @@ def format_role_tags(tags: list) -> str:
 
 
 def format_statuses(statuses: dict) -> str:
+    """格式化状态字典。
+
+    Args:
+        statuses: {状态名: Status对象} 字典
+
+    Returns:
+        格式化的多行文本，每行显示状态名、等级和已勾选的 tier
+    """
     if not statuses:
         return "  (无当前状态)"
     lines = []
@@ -20,6 +42,14 @@ def format_statuses(statuses: dict) -> str:
 
 
 def format_story_tags(story_tags: dict) -> str:
+    """格式化叙事标签字典。
+
+    Args:
+        story_tags: {标签名: StoryTag对象} 字典
+
+    Returns:
+        格式化的多行文本，标注一次性/消耗品属性
+    """
     if not story_tags:
         return "  (无故事标签)"
     lines = []
@@ -36,11 +66,33 @@ def format_story_tags(story_tags: dict) -> str:
 
 
 def format_limit_progress(limit, current: int) -> str:
+    """格式化极限进度条。
+
+    使用 █ 和 ░ 字符渲染进度条。
+    例如: "时间压力: [███░░░] 3/6"
+
+    Args:
+        limit: Limit 对象
+        current: 当前进度值
+
+    Returns:
+        单行格式化文本
+    """
     prog = "/".join("█" * current + "░" * (limit.max_tier - current))
     return f"{limit.name}: [{prog}] {current}/{limit.max_tier}"
 
 
 def format_challenge_state(challenge) -> str:
+    """格式化挑战的完整状态信息。
+
+    包含挑战名、描述、便签、极限进度、标签和状态。
+
+    Args:
+        challenge: Challenge 对象
+
+    Returns:
+        格式化的多行文本块
+    """
     lines = [
         f"挑战: {challenge.name}",
         f"描述: {challenge.description}",
@@ -60,6 +112,14 @@ def format_challenge_state(challenge) -> str:
 
 
 def format_limit_gap(challenge) -> str:
+    """格式化极限差距信息 —— 显示还需多少级才能触发每个极限。
+
+    Args:
+        challenge: Challenge 对象
+
+    Returns:
+        格式化的多行文本
+    """
     lines = []
     progress = challenge.get_limit_progress()
     for limit in challenge.limits:

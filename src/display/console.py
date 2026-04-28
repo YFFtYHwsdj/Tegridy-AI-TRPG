@@ -1,3 +1,9 @@
+"""控制台显示模块 —— 调试模式下的信息可视化输出。
+
+ConsoleDisplay 负责在调试模式下将各 Agent 的内部信息和游戏状态
+以人类可读的格式输出到终端。非调试模式下所有输出被跳过。
+"""
+
 from __future__ import annotations
 
 from src.formatter import format_limit_progress, format_statuses, format_story_tags
@@ -5,10 +11,22 @@ from src.pipeline._tag_utils import extract_status_names, extract_tag_names
 
 
 class ConsoleDisplay:
+    """调试信息显示器。
+
+    仅在 debug_mode=True 时输出内容，用于开发调试和观察 Agent 内部决策过程。
+    涵盖标签匹配结果、掷骰详情、效果列表、后果摘要、叙事策略和完整状态快照。
+    """
+
     def __init__(self, debug_mode: bool = False):
         self.debug_mode = debug_mode
 
     def print_tag_and_roll(self, tag_note, roll):
+        """打印标签匹配和掷骰详情。
+
+        Args:
+            tag_note: Tag 匹配 Agent 的分析便签
+            roll: 掷骰结果
+        """
         if not self.debug_mode:
             return
         matched_power = tag_note.structured.get("matched_power_tags", [])
@@ -34,6 +52,11 @@ class ConsoleDisplay:
         )
 
     def print_effects(self, effect_note):
+        """打印效果推演结果。
+
+        Args:
+            effect_note: 效果推演 Agent 的分析便签
+        """
         if not self.debug_mode:
             return
         if effect_note is None:
@@ -49,6 +72,12 @@ class ConsoleDisplay:
             print("  实际效果: 无")
 
     def print_effects_or_quick_note(self, effect_note, quick=False):
+        """根据模式打印效果或快速结算提示。
+
+        Args:
+            effect_note: 效果推演便签（标准模式）或 None（快速模式）
+            quick: 是否为快速结算模式
+        """
         if not self.debug_mode:
             return
         if quick:
@@ -57,6 +86,11 @@ class ConsoleDisplay:
             self.print_effects(effect_note)
 
     def print_strategy(self, narrator_note):
+        """打印叙述者的叙事策略。
+
+        Args:
+            narrator_note: 叙述者 Agent 的分析便签
+        """
         if not self.debug_mode:
             return
         strategy = narrator_note.structured.get("scene_update") or narrator_note.reasoning[:60]
@@ -64,6 +98,11 @@ class ConsoleDisplay:
             print(f"  叙事策略: {strategy}")
 
     def print_consequences(self, consequence_note):
+        """打印后果摘要。
+
+        Args:
+            consequence_note: 后果 Agent 的分析便签
+        """
         if not self.debug_mode:
             return
         if not consequence_note:
@@ -77,6 +116,13 @@ class ConsoleDisplay:
         print(f"  后果: {cons_summary}")
 
     def print_status(self, state):
+        """打印当前游戏状态快照。
+
+        包含角色状态、故事标签、持有物品，以及挑战的极限进度和状态。
+
+        Args:
+            state: 当前 GameState
+        """
         if not self.debug_mode:
             return
         if state.character is None:
@@ -108,16 +154,35 @@ class ConsoleDisplay:
 
     @staticmethod
     def print_split_action_header(count: int):
+        """打印复合 action 拆分提示。
+
+        Args:
+            count: 子 action 数量
+        """
         print(f"  ⚡ 行动拆分为 {count} 个子行动")
 
     @staticmethod
     def print_split_sub_header(index: int, total: int, summary: str):
+        """打印子 action 执行提示。
+
+        Args:
+            index: 当前子 action 序号
+            total: 子 action 总数
+            summary: 子 action 摘要
+        """
         print(f"\n  --- 子行动 {index}/{total}: {summary} ---")
 
     @staticmethod
     def print_split_blocked(action_summary: str, reason: str):
+        """打印子 action 被阻止提示。
+
+        Args:
+            action_summary: 被阻止的子 action 摘要
+            reason: 阻止原因
+        """
         print(f"\n  ⛔ 子行动 [{action_summary}] 无法继续: {reason}")
 
     @staticmethod
     def print_incapacitated_break():
+        """打印角色丧失行动能力提示。"""
         print("\n  💀 角色已丧失行动能力，剩余子行动中断")

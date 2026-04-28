@@ -1,3 +1,11 @@
+"""日志模块 —— 会话日志记录和 Agent 调用追踪。
+
+按会话创建带时间戳的日志文件，记录：
+    - 每次 LLM API 调用的完整 system prompt、user message、response
+    - Token 用量统计（含 DeepSeek 缓存命中）
+    - 代码层事件（掷骰结果、状态变更、系统消息）
+"""
+
 from __future__ import annotations
 
 import os
@@ -8,6 +16,16 @@ _call_index = 0
 
 
 def init_log(project_root: str):
+    """初始化会话日志文件。
+
+    在 project_root/logs/ 下创建以时间戳命名的日志文件。
+
+    Args:
+        project_root: 项目根目录路径
+
+    Returns:
+        日志文件路径
+    """
     global _session_log_file, _call_index
     _call_index = 0
     logs_dir = os.path.join(project_root, "logs")
@@ -29,6 +47,15 @@ def log_call(
     response: str,
     usage_info: dict | None = None,
 ):
+    """记录一次完整的 LLM API 调用。
+
+    Args:
+        agent_name: Agent 名称标识
+        system_prompt: 系统提示词
+        user_message: 用户消息
+        response: LLM 返回文本
+        usage_info: Token 用量信息
+    """
     global _session_log_file, _call_index
     if _session_log_file is None:
         return
@@ -72,6 +99,11 @@ def log_call(
 
 
 def log_system(msg: str):
+    """记录系统消息。
+
+    Args:
+        msg: 消息文本
+    """
     global _session_log_file
     if _session_log_file is None:
         return
@@ -82,6 +114,16 @@ def log_system(msg: str):
 def log_roll(
     power: int, dice: tuple, total: int, outcome: str, power_tags: list, weakness_tags: list
 ):
+    """记录一次掷骰结果。
+
+    Args:
+        power: 力量值
+        dice: (d1, d2) 骰面元组
+        total: 总和
+        outcome: 结果标签（full_success/partial_success/failure）
+        power_tags: 命中的力量标签名列表
+        weakness_tags: 命中的弱点标签名列表
+    """
     global _session_log_file
     if _session_log_file is None:
         return
@@ -96,6 +138,12 @@ def log_roll(
 
 
 def log_status_update(entity_name: str, statuses: dict):
+    """记录实体状态变更。
+
+    Args:
+        entity_name: 实体名称（角色名或挑战名）
+        statuses: {状态名: Status对象} 字典
+    """
     global _session_log_file
     if _session_log_file is None:
         return
