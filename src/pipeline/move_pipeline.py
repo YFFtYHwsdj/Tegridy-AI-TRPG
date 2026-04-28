@@ -186,45 +186,17 @@ class MovePipeline:
 
             item = self._pop_item(item_id, from_loc)
             if item is None:
-                log_system(f"[物品转移] 未找到 '{item_id}' (from={from_loc})")
-                continue
+                created = self._create_emergent_item(item_id, narrator_note)
+                if not created:
+                    log_system(f"[物品转移] 未找到且无法创建 '{item_id}' (from={from_loc})")
+                    continue
+                item = created
+                log_system(f"[emergent物品] 转移时自动创建 '{item_id}'")
 
             if item_id in loc_map:
                 item.location = loc_map[item_id]
 
             self._insert_item(item_id, item, to_loc)
-
-        self._check_and_create_emergent(narrator_note)
-
-    def _collect_all_known_items(self):
-        scene = self.state.scene
-        known = set(scene.scene_items_visible.keys()) | set(scene.scene_items_hidden.keys())
-        if self.state.character:
-            known.update(self.state.character.items_visible.keys())
-            known.update(self.state.character.items_hidden.keys())
-        for npc in scene.npcs.values():
-            known.update(npc.items_visible.keys())
-            known.update(npc.items_hidden.keys())
-        return known
-
-    def _check_and_create_emergent(self, narrator_note):
-        narrative_contains = narrator_note.structured.get("narrative_contains", {})
-        mentioned = narrative_contains.get("mentioned_items", [])
-        if not mentioned:
-            return
-
-        known = self._collect_all_known_items()
-        emergent = [name for name in mentioned if name not in known]
-        if not emergent:
-            return
-
-        for item_name in emergent:
-            created = self._create_emergent_item(item_name, narrator_note)
-            if created:
-                char = self.state.character
-                if char:
-                    char.items_visible[created.item_id] = created
-                log_system(f"[emergent物品] 已创建 '{created.item_id}' ({created.name})")
 
     def _create_emergent_item(self, item_name: str, narrator_note):
         from src.agents.item_creator import ItemCreatorAgent
@@ -265,7 +237,7 @@ class MovePipeline:
             description=item_data.get("description", ""),
             tags=tags,
             weakness=weakness,
-            location=item_data.get("location", "角色装备中"),
+            location=item_data.get("location", ""),
         )
 
     def _pop_item(self, item_id: str, location: str):
