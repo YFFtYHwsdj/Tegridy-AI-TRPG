@@ -65,19 +65,22 @@ class ConsoleDisplay:
 
     @staticmethod
     def print_status(state):
-        if state.character is None or state.challenge is None:
+        if state.character is None:
+            return
+        challenge = state.scene.primary_challenge()
+        if challenge is None:
             return
         print(f"\n  [角色: {state.character.name}]")
         print(f"  状态: {format_statuses(state.character.statuses)}")
         print(f"  故事标签: {format_story_tags(state.character.story_tags)}")
 
-        print(f"\n  [挑战: {state.challenge.name}]")
-        progress = state.challenge.get_limit_progress()
-        for limit in state.challenge.limits:
+        print(f"\n  [挑战: {challenge.name}]")
+        progress = challenge.get_limit_progress()
+        for limit in challenge.limits:
             current = progress[limit.name]
             print(f"  {format_limit_progress(limit, current)}")
-        print(f"  故事标签: {format_story_tags(state.challenge.story_tags)}")
-        print(f"  状态: {format_statuses(state.challenge.statuses)}")
+        print(f"  故事标签: {format_story_tags(challenge.story_tags)}")
+        print(f"  状态: {format_statuses(challenge.statuses)}")
 
     @staticmethod
     def print_split_action_header(count: int):

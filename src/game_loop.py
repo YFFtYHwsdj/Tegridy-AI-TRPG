@@ -30,6 +30,8 @@ class GameLoop:
     def setup(self, character: Character, challenge: Challenge, scene_desc: str):
         self.state.setup(character, challenge, scene_desc)
 
+        challenge = self.state.scene.primary_challenge()
+
         print("\n" + "═" * 50)
         print("       :OTHERSCAPE · AI 主持 · 单场景 Demo")
         print("═" * 50)
@@ -41,7 +43,7 @@ class GameLoop:
 
         print(f"\n{'─' * 50}")
         print("挑战状态:")
-        print(format_challenge_state(self.state.challenge))
+        print(format_challenge_state(challenge))
         print("─" * 50)
 
         spotlight = rhythm.structured.get("spotlight_handoff", "你要做什么？")
@@ -110,9 +112,10 @@ class GameLoop:
         self.display.print_consequences(result.consequence_note)
         self.display.print_strategy(result.narrator_note)
 
+        challenge = self.state.scene.primary_challenge()
         effect_errors = EffectApplicator.apply_results(
             result.effect_note, result.consequence_note,
-            self.state.character, self.state.challenge,
+            self.state.character, challenge,
         )
         if effect_errors:
             log_system(f"[效果应用警告] 共 {len(effect_errors)} 个效果应用失败")
@@ -127,8 +130,8 @@ class GameLoop:
 
         self.display.print_status(self.state)
 
-        if self.state.challenge is not None:
-            triggered_limits = check_limits(self.state.challenge)
+        if challenge is not None:
+            triggered_limits = check_limits(challenge)
             if triggered_limits:
                 self._handle_limit_break(triggered_limits)
 
@@ -146,9 +149,10 @@ class GameLoop:
             self.display.print_consequences(result.consequence_note)
             self.display.print_strategy(result.narrator_note)
 
+            challenge = self.state.scene.primary_challenge()
             effect_errors = EffectApplicator.apply_results(
                 result.effect_note, result.consequence_note,
-                self.state.character, self.state.challenge,
+                self.state.character, challenge,
             )
             if effect_errors:
                 log_system(f"[效果应用警告] 共 {len(effect_errors)} 个效果应用失败")
@@ -168,20 +172,23 @@ class GameLoop:
 
         self.display.print_status(self.state)
 
-        if self.state.challenge is not None:
-            triggered_limits = check_limits(self.state.challenge)
+        challenge = self.state.scene.primary_challenge()
+        if challenge is not None:
+            triggered_limits = check_limits(challenge)
             if triggered_limits:
                 self._handle_limit_break(triggered_limits)
 
         return "\n".join(narratives)
 
     def _finalize_move(self):
-        if self.state.character and self.state.challenge:
-            log_status_update(self.state.character.name, self.state.character.statuses)
-            log_status_update(self.state.challenge.name, self.state.challenge.statuses)
+        character = self.state.character
+        challenge = self.state.scene.primary_challenge()
+        if character and challenge:
+            log_status_update(character.name, character.statuses)
+            log_status_update(challenge.name, challenge.statuses)
 
     def _handle_limit_break(self, triggered_limits):
-        challenge = self.state.challenge
+        challenge = self.state.scene.primary_challenge()
         assert challenge is not None
         limit_names = [l.name for l in triggered_limits]
         print(f"\n  ⚡ 极限突破: {', '.join(limit_names)}!")
