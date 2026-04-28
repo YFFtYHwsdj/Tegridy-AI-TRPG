@@ -35,13 +35,13 @@ def main():
         print(f"连接失败: {e}")
         sys.exit(1)
 
-    game = GameLoop(llm)
+    game = GameLoop(llm, debug_mode=True)
     game.setup(
         character=DEMO_CHARACTER,
         scene=build_demo_scene(),
     )
 
-    print("\n输入你的行动（输入 quit 退出）")
+    print("\n输入你的行动（输入 /quit 退出，/help 查看命令）")
 
     while True:
         try:

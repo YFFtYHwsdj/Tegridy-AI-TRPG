@@ -15,10 +15,10 @@ from src.display.console import ConsoleDisplay
 
 
 class GameLoop:
-    def __init__(self, llm: LLMClient):
+    def __init__(self, llm: LLMClient, debug_mode: bool = False):
         self.llm = llm
         self.state = GameState()
-        self.display = ConsoleDisplay()
+        self.display = ConsoleDisplay(debug_mode=debug_mode)
         self.pipeline = MovePipeline(llm, self.state, self.display)
 
         self.rhythm_agent = RhythmAgent(llm)
@@ -27,6 +27,28 @@ class GameLoop:
         self.lite_narrator = LiteNarratorAgent(llm)
         self.limit_break_agent = LimitBreakAgent(llm)
         self.resolution_agent = ResolutionModeAgent(llm)
+
+    def toggle_debug(self):
+        self.display.debug_mode = not self.display.debug_mode
+        return self.display.debug_mode
+
+    def _handle_command(self, raw: str) -> str:
+        cmd = raw.lower().split()[0]
+        if cmd in ("/quit", "/exit"):
+            return "QUIT"
+        if cmd == "/debug":
+            state = self.toggle_debug()
+            label = "ON" if state else "OFF"
+            print(f"  [系统] 调试模式已切换为: {label}")
+            return ""
+        if cmd == "/help":
+            print("  [命令列表]")
+            print("    /quit, /exit  — 退出游戏")
+            print("    /debug        — 切换调试显示模式")
+            print("    /help         — 显示此帮助")
+            return ""
+        print(f"  [系统] 未知命令: {cmd}。输入 /help 查看可用命令。")
+        return ""
 
     def setup(self, character: Character, scene: SceneState):
         self.state.setup(character, scene)
@@ -51,22 +73,26 @@ class GameLoop:
         print(f"\n{spotlight}")
 
     def process_action(self, player_input: str) -> str:
-        if player_input.strip().lower() in ("quit", "exit", "q"):
-            return "QUIT"
+        raw = player_input.strip()
+        if raw.startswith("/"):
+            return self._handle_command(raw)
+
+        if not raw:
+            return ""
 
         print("\n" + "─" * 50)
 
-        ctx = self.state.make_context(player_input)
+        ctx = self.state.make_context(raw)
 
-        gatekeeper_note = self.gatekeeper.execute(player_input, ctx)
+        gatekeeper_note = self.gatekeeper.execute(raw, ctx)
         is_move = gatekeeper_note.structured.get("is_move", True)
 
         if not is_move:
-            return self._handle_non_move(player_input, ctx, gatekeeper_note)
+            return self._handle_non_move(raw, ctx, gatekeeper_note)
 
         print("  [管道开始 · 掷骰模式]")
 
-        intent_note = self.intent_agent.execute(player_input, ctx)
+        intent_note = self.intent_agent.execute(raw, ctx)
         is_split = intent_note.structured.get("is_split_action", False)
         split_actions = intent_note.structured.get("split_actions", [])
         action_type = intent_note.structured.get("action_type", "unknown")
