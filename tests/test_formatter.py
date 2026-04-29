@@ -8,7 +8,7 @@ from src.formatter import (
     format_statuses,
     format_story_tags,
 )
-from src.models import Challenge, Limit, Status, StoryTag, Tag
+from src.models import Challenge, Limit, PowerTag, Status, StoryTag, WeaknessTag
 
 
 class TestFormatRoleTags(unittest.TestCase):
@@ -16,14 +16,14 @@ class TestFormatRoleTags(unittest.TestCase):
         self.assertEqual(format_role_tags([]), "")
 
     def test_with_description(self):
-        tags = [Tag(name="快速拔枪", tag_type="power", description="枪法快")]
+        tags = [PowerTag(name="快速拔枪", description="枪法快")]
         result = format_role_tags(tags)
         self.assertIn("[power]", result)
         self.assertIn("快速拔枪", result)
         self.assertIn("(枪法快)", result)
 
     def test_without_description(self):
-        tags = [Tag(name="信用破产", tag_type="weakness")]
+        tags = [WeaknessTag(name="信用破产")]
         result = format_role_tags(tags)
         self.assertIn("[weakness]", result)
         self.assertIn("信用破产", result)
@@ -103,8 +103,8 @@ class TestFormatChallengeState(unittest.TestCase):
                 Limit(name="伤害或制服", max_tier=4),
             ],
             base_tags=[
-                Tag(name="精明的谈判者", tag_type="power"),
-                Tag(name="两个专业保镖", tag_type="power"),
+                PowerTag(name="精明的谈判者"),
+                PowerTag(name="两个专业保镖"),
             ],
             notes="Miko 重视情报",
         )

@@ -24,7 +24,7 @@ from src.agents import (
     TagMatcherAgent,
 )
 from src.display.console import ConsoleDisplay
-from src.engine import calculate_power, roll_dice
+from src.engine import calculate_power, resolve_matched_tags, roll_dice
 from src.llm_client import LLMClient
 from src.logger import log_roll
 from src.pipeline._item_manager import ItemManager
@@ -107,9 +107,17 @@ class MovePipeline:
 
         best_status_tier, worst_status_tier = extract_status_tiers(tag_note)
 
+        if ctx is None or ctx.character is None:
+            raise ValueError("MovePipeline._run_tag_and_roll 需要有效的上下文和角色信息")
+        char = ctx.character
+        challenge = ctx.challenge
+        resolved_power, resolved_weakness = resolve_matched_tags(
+            char, challenge, power_tag_names, weakness_tag_names
+        )
+
         power = calculate_power(
-            power_tag_names,
-            weakness_tag_names,
+            resolved_power,
+            resolved_weakness,
             best_status_tier=best_status_tier,
             worst_status_tier=worst_status_tier,
         )

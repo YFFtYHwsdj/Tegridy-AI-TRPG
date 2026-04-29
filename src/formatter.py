@@ -6,12 +6,20 @@
 
 from __future__ import annotations
 
+import logging
+
+from src.models import PowerTag, WeaknessTag
+
+logger = logging.getLogger("aitrpg.game")
+
 
 def format_role_tags(tags: list) -> str:
     """格式化标签列表（力量/弱点）。
 
+    通过 isinstance 类型判别确定标签前缀，不依赖 tag_type 字符串字段。
+
     Args:
-        tags: Tag 对象列表
+        tags: PowerTag 或 WeaknessTag 对象列表
 
     Returns:
         格式化的多行文本
@@ -19,7 +27,14 @@ def format_role_tags(tags: list) -> str:
     lines = []
     for tag in tags:
         desc = f" ({tag.description})" if tag.description else ""
-        lines.append(f"  - [{tag.tag_type}] {tag.name}{desc}")
+        if isinstance(tag, PowerTag):
+            prefix = "power"
+        elif isinstance(tag, WeaknessTag):
+            prefix = "weakness"
+        else:
+            logger.warning("format_role_tags 收到未知类型标签: %s", type(tag).__name__)
+            prefix = "?"
+        lines.append(f"  - [{prefix}] {tag.name}{desc}")
     return "\n".join(lines)
 
 

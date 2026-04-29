@@ -10,14 +10,58 @@
     nudge（轻推）: 状态自然恶化一级，来自 Otherscape 机制
 """
 
+import logging
 import random
 
-from src.models import Challenge, Character, RollResult, Status, StoryTag
+from src.models import Challenge, Character, PowerTag, RollResult, Status, StoryTag, WeaknessTag
+
+logger = logging.getLogger("aitrpg.game")
+
+
+def resolve_matched_tags(
+    character: Character,
+    challenge: Challenge | None,
+    matched_power_names: list[str],
+    matched_weakness_names: list[str],
+) -> tuple[list[PowerTag], list[WeaknessTag]]:
+    """将 TagMatcher 输出的标签名解析为强类型 Tag 对象。
+
+    从角色和挑战的标签列表中查找匹配项。同时起到验证作用——
+    LLM 返回的不存在的标签名会被静默过滤。
+
+    Args:
+        character: 当前角色
+        challenge: 当前挑战（可为 None）
+        matched_power_names: TagMatcher 匹配的力量标签名
+        matched_weakness_names: TagMatcher 匹配的弱点标签名
+
+    Returns:
+        (resolved_power_tags, resolved_weakness_tags) 元组
+    """
+    all_power: list[PowerTag] = list(character.power_tags)
+    all_weakness: list[WeaknessTag] = list(character.weakness_tags)
+    if challenge:
+        all_power.extend(challenge.base_tags)
+
+    name_set_power = set(matched_power_names)
+    name_set_weakness = set(matched_weakness_names)
+
+    resolved_power = [t for t in all_power if t.name in name_set_power]
+    resolved_weakness = [t for t in all_weakness if t.name in name_set_weakness]
+
+    unknown_power = name_set_power - {t.name for t in all_power}
+    unknown_weakness = name_set_weakness - {t.name for t in all_weakness}
+    if unknown_power:
+        logger.warning("丢弃 LLM 返回的未知力量标签: %s", unknown_power)
+    if unknown_weakness:
+        logger.warning("丢弃 LLM 返回的未知弱点标签: %s", unknown_weakness)
+
+    return resolved_power, resolved_weakness
 
 
 def calculate_power(
-    matched_power_tags: list[str],
-    matched_weakness_tags: list[str],
+    power_tags: list[PowerTag],
+    weakness_tags: list[WeaknessTag],
     best_status_tier: int = 0,
     worst_status_tier: int = 0,
 ) -> int:
@@ -28,15 +72,15 @@ def calculate_power(
     底线为 1，确保即使在最不利的情况下也有基本的行动可能。
 
     Args:
-        matched_power_tags: 本行动命中的力量标签名列表
-        matched_weakness_tags: 本行动命中的弱点标签名列表
+        power_tags: 本行动命中的 PowerTag 对象列表
+        weakness_tags: 本行动命中的 WeaknessTag 对象列表
         best_status_tier: 施加影响的最高正面状态 Tier（默认 0）
         worst_status_tier: 施加影响的最高负面状态 Tier（默认 0）
 
     Returns:
         int: 力量值，最小为 1
     """
-    tag_power = len(matched_power_tags) - len(matched_weakness_tags)
+    tag_power = len(power_tags) - len(weakness_tags)
     return max(tag_power + best_status_tier - worst_status_tier, 1)
 
 

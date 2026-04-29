@@ -9,23 +9,31 @@ from src.engine import (
     reduce_status,
     remove_status,
     remove_story_tag,
+    resolve_matched_tags,
     roll_dice,
 )
-from src.models import Challenge, Character, Limit, RollResult
+from src.models import Challenge, Character, Limit, PowerTag, RollResult, WeaknessTag
 
 
 class TestCalculatePower(unittest.TestCase):
+    def setUp(self):
+        self.p1 = PowerTag(name="前公司安保")
+        self.p2 = PowerTag(name="快速拔枪")
+        self.p3 = PowerTag(name="读懂房间")
+        self.w1 = WeaknessTag(name="信用破产")
+        self.w2 = WeaknessTag(name="另一个弱点")
+
     def test_no_tags_no_status(self):
         self.assertEqual(calculate_power([], []), 1)
 
     def test_power_tags_only(self):
-        self.assertEqual(calculate_power(["前公司安保", "快速拔枪"], []), 2)
+        self.assertEqual(calculate_power([self.p1, self.p2], []), 2)
 
     def test_weakness_tags_only(self):
-        self.assertEqual(calculate_power([], ["信用破产"]), 1)
+        self.assertEqual(calculate_power([], [self.w1]), 1)
 
     def test_mixed_tags(self):
-        self.assertEqual(calculate_power(["前公司安保", "快速拔枪", "读懂房间"], ["信用破产"]), 2)
+        self.assertEqual(calculate_power([self.p1, self.p2, self.p3], [self.w1]), 2)
 
     def test_status_helping(self):
         self.assertEqual(calculate_power([], [], best_status_tier=2), 2)
@@ -38,15 +46,75 @@ class TestCalculatePower(unittest.TestCase):
 
     def test_tags_and_statuses_combined(self):
         result = calculate_power(
-            ["前公司安保", "快速拔枪"],
-            ["信用破产"],
+            [self.p1, self.p2],
+            [self.w1],
             best_status_tier=2,
             worst_status_tier=1,
         )
         self.assertEqual(result, 2)
 
     def test_power_minimum_one(self):
-        self.assertEqual(calculate_power([], ["信用破产", "另一个弱点"], worst_status_tier=2), 1)
+        self.assertEqual(calculate_power([], [self.w1, self.w2], worst_status_tier=2), 1)
+
+
+class TestResolveMatchedTags(unittest.TestCase):
+    def setUp(self):
+        self.character = Character(
+            name="Kael",
+            power_tags=[
+                PowerTag(name="快速拔枪"),
+                PowerTag(name="前公司安保"),
+            ],
+            weakness_tags=[
+                WeaknessTag(name="信用破产"),
+            ],
+        )
+        self.challenge = Challenge(
+            name="Miko",
+            description="中间人",
+            limits=[],
+            base_tags=[PowerTag(name="主场优势")],
+        )
+
+    def test_resolve_power_from_character(self):
+        power, weakness = resolve_matched_tags(self.character, self.challenge, ["快速拔枪"], [])
+        self.assertEqual(len(power), 1)
+        self.assertEqual(power[0].name, "快速拔枪")
+        self.assertEqual(len(weakness), 0)
+
+    def test_resolve_weakness_from_character(self):
+        power, weakness = resolve_matched_tags(self.character, self.challenge, [], ["信用破产"])
+        self.assertEqual(len(power), 0)
+        self.assertEqual(len(weakness), 1)
+        self.assertEqual(weakness[0].name, "信用破产")
+
+    def test_resolve_power_from_challenge_base_tags(self):
+        power, weakness = resolve_matched_tags(self.character, self.challenge, ["主场优势"], [])
+        self.assertEqual(len(power), 1)
+        self.assertEqual(power[0].name, "主场优势")
+        self.assertEqual(len(weakness), 0)
+
+    def test_resolve_unknown_name_filtered(self):
+        power, weakness = resolve_matched_tags(
+            self.character, self.challenge, ["不存在的能力"], ["不存在的弱点"]
+        )
+        self.assertEqual(len(power), 0)
+        self.assertEqual(len(weakness), 0)
+
+    def test_challenge_none_does_not_crash(self):
+        power, weakness = resolve_matched_tags(self.character, None, ["快速拔枪"], ["信用破产"])
+        self.assertEqual(len(power), 1)
+        self.assertEqual(len(weakness), 1)
+
+    def test_resolve_multiple_from_all_sources(self):
+        power, weakness = resolve_matched_tags(
+            self.character,
+            self.challenge,
+            ["快速拔枪", "前公司安保", "主场优势"],
+            ["信用破产"],
+        )
+        self.assertEqual(len(power), 3)
+        self.assertEqual(len(weakness), 1)
 
 
 class TestRollDice(unittest.TestCase):

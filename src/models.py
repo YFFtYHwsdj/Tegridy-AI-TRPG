@@ -4,7 +4,8 @@
 所有模型使用 Python dataclass 实现，保持简洁和类型安全。
 
 核心概念：
-    Tag（标签）: 角色/挑战的力量来源或弱点，参与力量值计算
+    PowerTag（力量标签）: 角色/挑战/物品的优势特征，命中行动时提供 +1 力量值
+    WeaknessTag（弱点标签）: 角色/物品的劣势特征，命中行动时提供 -1 力量值
     Status（状态）: PBTA tick 系统的水位标记，tier 1-6 递进
     StoryTag（叙事标签）: 临时的情境性标记，不参与数学计算
     Limit（极限）: 挑战的关键突破条件，与关联状态的控制阈值挂钩
@@ -17,24 +18,32 @@ from typing import ClassVar
 
 
 @dataclass
-class Tag:
-    """PBTA 标签 —— 角色或挑战的核心特征标识。
+class PowerTag:
+    """力量标签 —— 角色、挑战或物品的优势特征。
 
-    标签分为两种类型：
-        power（力量）: 行动时可利用的优势，增加力量值
-        weakness（弱点）: 行动时的劣势，减少力量值
+    命中行动时提供 +1 力量值。可以被燃烧（burn）以换取额外效果。
+    与 WeaknessTag 在类型层面彻底分离，杜绝编译期混淆。
 
-    注意：Tag 与 StoryTag 不同。Tag 参与力量值计算，
-    StoryTag 是纯叙事标记，由 Agent 在效果推演中引用。
+    角色通过 power_tags 字段持有，挑战通过 base_tags 字段持有，
+    物品通过 tags 字段持有。
     """
 
     name: str
-    tag_type: str
     description: str = ""
 
-    def __post_init__(self):
-        if self.tag_type not in ("power", "weakness"):
-            raise ValueError(f"tag_type must be 'power' or 'weakness', got '{self.tag_type}'")
+
+@dataclass
+class WeaknessTag:
+    """弱点标签 —— 角色或物品的劣势特征。
+
+    命中行动时提供 -1 力量值。不可燃烧。
+    与 PowerTag 在类型层面彻底分离，杜绝编译期混淆。
+
+    角色通过 weakness_tags 字段持有，物品通过 weakness_tags 字段持有。
+    """
+
+    name: str
+    description: str = ""
 
 
 @dataclass
@@ -60,7 +69,7 @@ class Status:
 class StoryTag:
     """叙事标签 —— 临时的情境性标记。
 
-    与 Tag（力量/弱点标签）不同，StoryTag 不参与力量值计算。
+    与 PowerTag/WeaknessTag（力量/弱点标签）不同，StoryTag 不参与力量值计算。
     它们记录叙事中的临时状态，例如：
         - "被警方通缉"
         - "拥有博物馆地图"
@@ -110,7 +119,7 @@ class Challenge:
     name: str
     description: str
     limits: list[Limit] = field(default_factory=list)
-    base_tags: list[Tag] = field(default_factory=list)
+    base_tags: list[PowerTag] = field(default_factory=list)
     statuses: dict[str, Status] = field(default_factory=dict)
     story_tags: dict[str, StoryTag] = field(default_factory=dict)
     notes: str = ""
@@ -193,8 +202,8 @@ class GameItem:
     name: str = ""
     description: str = ""
     location: str = ""
-    tags: list[Tag] = field(default_factory=list)
-    weakness: Tag | None = None
+    tags: list[PowerTag] = field(default_factory=list)
+    weakness_tags: list[WeaknessTag] = field(default_factory=list)
 
     def __post_init__(self):
         if not self.item_id:
@@ -230,7 +239,7 @@ class NPC:
     npc_id: str = ""
     name: str = ""
     description: str = ""
-    tags: list[Tag] = field(default_factory=list)
+    tags: list[PowerTag] = field(default_factory=list)
     statuses: dict[str, Status] = field(default_factory=dict)
     known_clue_ids: list[str] = field(default_factory=list)
     known_item_ids: list[str] = field(default_factory=list)
@@ -255,8 +264,8 @@ class Character:
     """
 
     name: str
-    power_tags: list[Tag] = field(default_factory=list)
-    weakness_tags: list[Tag] = field(default_factory=list)
+    power_tags: list[PowerTag] = field(default_factory=list)
+    weakness_tags: list[WeaknessTag] = field(default_factory=list)
     statuses: dict[str, Status] = field(default_factory=dict)
     story_tags: dict[str, StoryTag] = field(default_factory=dict)
     burned_tags: set[str] = field(default_factory=set)

@@ -10,28 +10,34 @@ from src.models import (
     EffectEntry,
     GameItem,
     Limit,
+    PowerTag,
     RollResult,
     Status,
     StoryTag,
-    Tag,
+    WeaknessTag,
 )
 
 
-class TestTag(unittest.TestCase):
-    def test_power_tag(self):
-        t = Tag(name="快速拔枪", tag_type="power", description="枪法快")
+class TestPowerTag(unittest.TestCase):
+    def test_create(self):
+        t = PowerTag(name="快速拔枪", description="枪法快")
         self.assertEqual(t.name, "快速拔枪")
-        self.assertEqual(t.tag_type, "power")
         self.assertEqual(t.description, "枪法快")
 
-    def test_weakness_tag(self):
-        t = Tag(name="信用破产", tag_type="weakness")
-        self.assertEqual(t.tag_type, "weakness")
+    def test_default_description(self):
+        t = PowerTag(name="快速拔枪")
         self.assertEqual(t.description, "")
 
-    def test_invalid_tag_type_raises(self):
-        with self.assertRaises(ValueError):
-            Tag(name="bad", tag_type="neutral")
+
+class TestWeaknessTag(unittest.TestCase):
+    def test_create(self):
+        t = WeaknessTag(name="信用破产")
+        self.assertEqual(t.name, "信用破产")
+        self.assertEqual(t.description, "")
+
+    def test_with_description(self):
+        t = WeaknessTag(name="信用破产", description="名声不好")
+        self.assertEqual(t.description, "名声不好")
 
 
 class TestStatus(unittest.TestCase):
@@ -197,8 +203,8 @@ class TestCharacter(unittest.TestCase):
     def test_with_tags(self):
         c = Character(
             name="Kael",
-            power_tags=[Tag(name="前公司安保", tag_type="power")],
-            weakness_tags=[Tag(name="信用破产", tag_type="weakness")],
+            power_tags=[PowerTag(name="前公司安保")],
+            weakness_tags=[WeaknessTag(name="信用破产")],
             description="佣兵",
         )
         self.assertEqual(len(c.power_tags), 1)
@@ -240,7 +246,7 @@ class TestGameItem(unittest.TestCase):
         self.assertEqual(item.description, "")
         self.assertEqual(item.location, "")
         self.assertEqual(item.tags, [])
-        self.assertIsNone(item.weakness)
+        self.assertEqual(item.weakness_tags, [])
 
     def test_item_id_defaults_to_name(self):
         item = GameItem(name="急救包")
@@ -256,17 +262,16 @@ class TestGameItem(unittest.TestCase):
         self.assertEqual(item.location, "夹克内袋")
 
     def test_with_tags(self):
-        t = Tag("小型", "power", "易于隐藏")
+        t = PowerTag("小型", "易于隐藏")
         item = GameItem(name="匕首", tags=[t])
         self.assertEqual(len(item.tags), 1)
         self.assertEqual(item.tags[0].name, "小型")
 
     def test_with_weakness(self):
-        w = Tag("易碎", "weakness", "承受不住重击")
-        item = GameItem(name="瓷瓶", weakness=w)
-        self.assertIsNotNone(item.weakness)
-        if item.weakness is not None:
-            self.assertEqual(item.weakness.name, "易碎")
+        w = WeaknessTag("易碎", "承受不住重击")
+        item = GameItem(name="瓷瓶", weakness_tags=[w])
+        self.assertEqual(len(item.weakness_tags), 1)
+        self.assertEqual(item.weakness_tags[0].name, "易碎")
 
     def test_multiple_instances_same_name(self):
         a = GameItem(item_id="aidkit_01", name="急救包", location="吧台")
@@ -317,7 +322,7 @@ class TestNPC(unittest.TestCase):
         self.assertEqual(npc.npc_id, "miko_npc")
 
     def test_with_tags(self):
-        t = Tag("精明的谈判者", "power")
+        t = PowerTag("精明的谈判者")
         npc = NPC(name="Miko", tags=[t])
         self.assertEqual(len(npc.tags), 1)
         self.assertEqual(npc.tags[0].name, "精明的谈判者")

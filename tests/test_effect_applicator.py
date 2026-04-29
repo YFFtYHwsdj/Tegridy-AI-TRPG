@@ -1,7 +1,7 @@
 import unittest
 
 from src.effects.applicator import EffectApplicator
-from src.models import AgentNote, Challenge, Character, Limit, Status, StoryTag, Tag
+from src.models import AgentNote, Challenge, Character, Limit, PowerTag, Status, StoryTag
 
 
 class TestResolveTarget(unittest.TestCase):
@@ -84,7 +84,7 @@ class TestApplyEffectList(unittest.TestCase):
     def setUp(self):
         self.character = Character(
             name="Kael",
-            power_tags=[Tag(name="快速拔枪", tag_type="power")],
+            power_tags=[PowerTag(name="快速拔枪")],
         )
         self.challenge = Challenge(
             name="Miko 与她的保镖",
@@ -208,7 +208,7 @@ class TestApplyResults(unittest.TestCase):
     def setUp(self):
         self.character = Character(
             name="Kael",
-            power_tags=[Tag(name="快速拔枪", tag_type="power")],
+            power_tags=[PowerTag(name="快速拔枪")],
         )
         self.challenge = Challenge(
             name="Miko 与她的保镖",

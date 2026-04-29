@@ -136,29 +136,48 @@ class ItemManager:
         if not item_data:
             return None
 
-        from src.models import GameItem, Tag
+        from src.models import GameItem, PowerTag, WeaknessTag
 
         tags = []
         for t in item_data.get("tags", []):
             if isinstance(t, dict):
                 tags.append(
-                    Tag(
+                    PowerTag(
                         name=t.get("name", ""),
-                        tag_type=t.get("tag_type", "power"),
                         description=t.get("description", ""),
                     )
                 )
             elif isinstance(t, str):
-                tags.append(Tag(name=t, tag_type="power"))
+                tags.append(PowerTag(name=t))
 
-        weakness = None
-        w = item_data.get("weakness")
-        if w and isinstance(w, dict):
-            weakness = Tag(
-                name=w.get("name", ""),
-                tag_type="weakness",
-                description=w.get("description", ""),
-            )
+        weakness_tags: list[WeaknessTag] = []
+        w_tags_raw = item_data.get("weakness_tags")
+        if w_tags_raw and isinstance(w_tags_raw, list):
+            for w_extra in w_tags_raw:
+                if isinstance(w_extra, dict):
+                    weakness_tags.append(
+                        WeaknessTag(
+                            name=w_extra.get("name", ""),
+                            description=w_extra.get("description", ""),
+                        )
+                    )
+        elif not w_tags_raw:
+            w = item_data.get("weakness")
+            if w and isinstance(w, dict):
+                weakness_tags.append(
+                    WeaknessTag(
+                        name=w.get("name", ""),
+                        description=w.get("description", ""),
+                    )
+                )
+
+        seen = set()
+        deduped = []
+        for wt in weakness_tags:
+            if wt.name and wt.name not in seen:
+                seen.add(wt.name)
+                deduped.append(wt)
+        weakness_tags = deduped
 
         item_id = item_data.get("item_id") or item_name
         return GameItem(
@@ -166,7 +185,7 @@ class ItemManager:
             name=item_name,
             description=item_data.get("description", ""),
             tags=tags,
-            weakness=weakness,
+            weakness_tags=weakness_tags,
             location=item_data.get("location", ""),
         )
 

@@ -1,7 +1,7 @@
 import unittest
 
 from src.context import AgentContext
-from src.models import Challenge, Character, Limit, Tag
+from src.models import Challenge, Character, Limit, PowerTag, WeaknessTag
 from src.state.game_state import GameState
 from src.state.scene_state import SceneState
 
@@ -12,8 +12,8 @@ class TestGameState(unittest.TestCase):
         self.character = Character(
             name="Kael",
             description="佣兵",
-            power_tags=[Tag(name="快速拔枪", tag_type="power")],
-            weakness_tags=[Tag(name="信用破产", tag_type="weakness")],
+            power_tags=[PowerTag(name="快速拔枪")],
+            weakness_tags=[WeaknessTag(name="信用破产")],
         )
         self.challenge = Challenge(
             name="Miko 与她的保镖",

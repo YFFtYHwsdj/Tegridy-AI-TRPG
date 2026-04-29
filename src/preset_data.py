@@ -6,7 +6,7 @@
     - build_demo_scene(): 构建包含 NPC、物品、线索的完整场景
 """
 
-from src.models import NPC, Challenge, Character, Clue, GameItem, Limit, Tag
+from src.models import NPC, Challenge, Character, Clue, GameItem, Limit, PowerTag, WeaknessTag
 from src.state.scene_state import SceneState
 
 DEMO_SCENE_DESCRIPTION = """
@@ -21,13 +21,13 @@ DEMO_CHARACTER = Character(
     name="Kael",
     description="前公司安保干员，现在靠街头情报网过活。身手利落，人脉广但信用破产。",
     power_tags=[
-        Tag(name="前公司安保", tag_type="power", description="受过专业的安保和战斗训练"),
-        Tag(name="街头线人网", tag_type="power", description="在底层有广泛的情报来源和人脉"),
-        Tag(name="快速拔枪", tag_type="power", description="枪法快且准，近距离战斗专家"),
-        Tag(name="读懂房间", tag_type="power", description="擅长观察气氛和他人的真实意图"),
+        PowerTag(name="前公司安保", description="受过专业的安保和战斗训练"),
+        PowerTag(name="街头线人网", description="在底层有广泛的情报来源和人脉"),
+        PowerTag(name="快速拔枪", description="枪法快且准，近距离战斗专家"),
+        PowerTag(name="读懂房间", description="擅长观察气氛和他人的真实意图"),
     ],
     weakness_tags=[
-        Tag(name="信用破产", tag_type="weakness", description="在圈子里名声不好，没人愿意先给好处"),
+        WeaknessTag(name="信用破产", description="在圈子里名声不好，没人愿意先给好处"),
     ],
 )
 
@@ -48,20 +48,17 @@ MIKO_CHALLENGE = Challenge(
         Limit(name="伤害或制服", max_tier=4),
     ],
     base_tags=[
-        Tag(name="精明的谈判者", tag_type="power", description="从不让步，除非对方亮出足够的筹码"),
-        Tag(
+        PowerTag(name="精明的谈判者", description="从不让步，除非对方亮出足够的筹码"),
+        PowerTag(
             name="两个专业保镖",
-            tag_type="power",
             description="退役伤痛干员和液压巨汉，反应速度和破坏力远超普通打手",
         ),
-        Tag(
+        PowerTag(
             name="帮派情报网",
-            tag_type="power",
             description="在帮派内部消息灵通，很可能已经知道Kael的真实底细",
         ),
-        Tag(
+        PowerTag(
             name="主场优势",
-            tag_type="power",
             description="「最后一杯」是她的地盘——酒保、常客、角落的逃生门，都在她掌控之中",
         ),
     ],
@@ -99,7 +96,7 @@ def build_demo_scene() -> SceneState:
         name="Miko的数据板",
         description="纤薄的全息数据板，屏幕上是密文滚动的情报摘要。搁在吧台上，微微发光。",
         location="吧台台面上",
-        tags=[Tag("情报来源", "power", "可能包含Miko正在浏览的交易信息")],
+        tags=[PowerTag("情报来源", "可能包含Miko正在浏览的交易信息")],
     )
 
     scene.scene_items_visible["weapon_locker"] = GameItem(
@@ -107,7 +104,7 @@ def build_demo_scene() -> SceneState:
         name="应急武器柜",
         description="酒吧后墙的金属柜，生物识别锁。传闻老板在里面存了应对麻烦的'最终方案'。",
         location="酒吧后墙",
-        tags=[Tag("应急武器", "power", "内含一把霰弹枪——如果能打开的话")],
+        tags=[PowerTag("应急武器", "内含一把霰弹枪——如果能打开的话")],
     )
 
     scene.scene_items_hidden["medkit_bar"] = GameItem(
@@ -115,7 +112,7 @@ def build_demo_scene() -> SceneState:
         name="军规急救包",
         description="军规级自凝血注射器和创伤敷料，装在防水尼龙袋里。可能是某个退伍佣兵遗忘的。",
         location="吧台下方暗格深处",
-        tags=[Tag("急救包", "power", "一次性的紧急治疗用具")],
+        tags=[PowerTag("急救包", "一次性的紧急治疗用具")],
     )
 
     scene.clues_hidden["comm_log"] = Clue(
@@ -135,8 +132,8 @@ def build_demo_scene() -> SceneState:
         name="Miko",
         description="赤色数据的资深情报中间人。合成皮夹克，细长电子烟，从不先亮牌。",
         tags=[
-            Tag("精明的谈判者", "power", "从不让步，善于在对话中设置陷阱"),
-            Tag("帮派情报网", "power", "在帮派内部消息灵通"),
+            PowerTag("精明的谈判者", "从不让步，善于在对话中设置陷阱"),
+            PowerTag("帮派情报网", "在帮派内部消息灵通"),
         ],
         known_clue_ids=["comm_log", "miko_motive"],
         known_item_ids=["chip_encrypted", "miko_communicator"],
@@ -146,7 +143,7 @@ def build_demo_scene() -> SceneState:
                 name="加密通讯器",
                 description="系在腰带上的军用级加密通讯器。红色指示灯有节奏地闪烁——随时在线。",
                 location="Miko腰带上的皮套内",
-                tags=[Tag("加密通讯", "power", "可联系帮派内线")],
+                tags=[PowerTag("加密通讯", "可联系帮派内线")],
             ),
         },
         items_hidden={
@@ -155,7 +152,7 @@ def build_demo_scene() -> SceneState:
                 name="加密数据芯片",
                 description="一枚微型芯片，刻有赤色数据的密级标记。藏在Miko合成皮夹克内侧的暗袋里。",
                 location="Miko合成皮夹克内侧暗袋",
-                tags=[Tag("关键情报", "power", "包含赤色数据对Kael雇主的追踪记录——有人在出卖他")],
+                tags=[PowerTag("关键情报", "包含赤色数据对Kael雇主的追踪记录——有人在出卖他")],
             ),
         },
     )
@@ -166,7 +163,7 @@ def build_demo_scene() -> SceneState:
         name="退役伤痛干员",
         description="颅骨上有散热槽的退伍干员。反应速度比大多数人拔枪更快。沉默而专注，眼神像扫描仪一样来回切割。",
         tags=[
-            Tag("赛博反射", "power", "神经加速植入物赋予超人的反应速度"),
+            PowerTag("赛博反射", "神经加速植入物赋予超人的反应速度"),
         ],
         known_clue_ids=["comm_log"],
         known_item_ids=["guard_sidearm"],
@@ -176,7 +173,7 @@ def build_demo_scene() -> SceneState:
                 name="伤痛干员的配枪",
                 description="定制的重型手枪，枪口补偿器暗示着使用者的射击习惯。快拔枪套固定在右腿外侧。",
                 location="右侧大腿快拔枪套",
-                tags=[Tag("重火力", "power", "高制止力的定制弹药")],
+                tags=[PowerTag("重火力", "高制止力的定制弹药")],
             ),
         },
     )
@@ -187,7 +184,7 @@ def build_demo_scene() -> SceneState:
         name="液压巨汉",
         description="脖颈嵌着液压管的沉默巨人。据说能用单手捏碎赛博改造过的颅骨。从不主动开口。",
         tags=[
-            Tag("超人类力量", "power", "液压增强肌肉纤维提供惊人的物理破坏力"),
+            PowerTag("超人类力量", "液压增强肌肉纤维提供惊人的物理破坏力"),
         ],
         known_item_ids=["weapon_locker"],
     )

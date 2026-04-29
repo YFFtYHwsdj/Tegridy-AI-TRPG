@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from src.context import AgentContext
-from src.models import AgentNote, Challenge, Character, Limit, RollResult, Tag
+from src.models import AgentNote, Challenge, Character, Limit, PowerTag, RollResult, WeaknessTag
 from src.state.game_state import GameState
 from src.state.scene_state import SceneState
 
@@ -85,11 +85,11 @@ def make_test_character() -> Character:
         name="Kael",
         description="佣兵",
         power_tags=[
-            Tag(name="快速拔枪", tag_type="power", description="枪法快"),
-            Tag(name="前公司安保", tag_type="power"),
+            PowerTag(name="快速拔枪", description="枪法快"),
+            PowerTag(name="前公司安保"),
         ],
         weakness_tags=[
-            Tag(name="信用破产", tag_type="weakness"),
+            WeaknessTag(name="信用破产"),
         ],
     )
 
@@ -108,8 +108,8 @@ def make_test_challenge() -> Challenge:
             Limit(name="伤害或制服", max_tier=4),
         ],
         base_tags=[
-            Tag(name="精明的谈判者", tag_type="power"),
-            Tag(name="两个专业保镖", tag_type="power"),
+            PowerTag(name="精明的谈判者"),
+            PowerTag(name="两个专业保镖"),
         ],
     )
 
