@@ -295,7 +295,7 @@ class TestMovePipelineQuickPipeline(unittest.TestCase):
 
 
 class TestMovePipelineSplitActions(unittest.TestCase):
-    """测试 process_split_actions 拆分 action。"""
+    """测试 process_split_actions 拆分 action（统一叙事版）。"""
 
     def _make_pipeline(self, state, mock_llm: MockLLMClient) -> MovePipeline:
         """创建带 Mock Agent 的流水线。"""
@@ -312,16 +312,22 @@ class TestMovePipelineSplitActions(unittest.TestCase):
         )
 
         pipeline.effect_agent = MagicMock()
-        pipeline.effect_agent.execute.return_value = make_agent_note(structured={"effects": []})
+        pipeline.effect_agent.execute.return_value = make_agent_note(
+            structured={
+                "effects": [{"label": "受伤", "effect_type": "attack", "tier": 1}],
+                "narrative_hints": "测试叙事提示",
+            }
+        )
 
         pipeline.consequence_agent = MagicMock()
         pipeline.consequence_agent.execute.return_value = make_agent_note(
             structured={"consequences": []}
         )
 
+        # 统一叙述者 mock
         pipeline.narrator = MagicMock()
-        pipeline.narrator.execute.return_value = make_agent_note(
-            structured={"narrative": "...", "revelation_decisions": {}}
+        pipeline.narrator.execute_split.return_value = make_agent_note(
+            structured={"narrative": "统一叙事文本...", "revelation_decisions": {}}
         )
 
         pipeline.continuation_check = MagicMock()
@@ -333,8 +339,8 @@ class TestMovePipelineSplitActions(unittest.TestCase):
 
         return pipeline
 
-    def test_executes_each_sub_action(self):
-        """多个子 action 每个都执行一次流水线。"""
+    def test_executes_each_sub_action_resolution(self):
+        """多个子 action 每个都独立执行解算（tag + roll + effect）。"""
         mock_llm = MockLLMClient()
         state = make_test_game_state()
         pipeline = self._make_pipeline(state, mock_llm)
@@ -350,7 +356,52 @@ class TestMovePipelineSplitActions(unittest.TestCase):
         results = pipeline.process_split_actions(intent_note, split_actions)
 
         self.assertEqual(len(results), 2)
+        # 每个子行动各调用一次 tag_agent 和 effect_agent
         self.assertEqual(pipeline.tag_agent.execute.call_count, 2)
+        self.assertEqual(pipeline.effect_agent.execute.call_count, 2)
+
+    def test_narrator_called_once_with_execute_split(self):
+        """统一叙述者 execute_split 只调用 1 次（而非 N 次 execute）。"""
+        mock_llm = MockLLMClient()
+        state = make_test_game_state()
+        pipeline = self._make_pipeline(state, mock_llm)
+
+        intent_note = make_agent_note(
+            structured={"action_type": "compound", "is_split_action": True}
+        )
+        split_actions = [
+            {"action_type": "combat", "action_summary": "拔枪", "fragment": "拔枪", "_index": 0},
+            {"action_type": "combat", "action_summary": "射击", "fragment": "射击", "_index": 1},
+        ]
+
+        pipeline.process_split_actions(intent_note, split_actions)
+
+        # execute_split 调用 1 次
+        pipeline.narrator.execute_split.assert_called_once()
+        # execute（单次叙述者）不应被调用
+        pipeline.narrator.execute.assert_not_called()
+
+    def test_last_result_contains_unified_narrator_note(self):
+        """最后一个 result 包含统一叙述者的 narrator_note。"""
+        mock_llm = MockLLMClient()
+        state = make_test_game_state()
+        pipeline = self._make_pipeline(state, mock_llm)
+
+        intent_note = make_agent_note(
+            structured={"action_type": "compound", "is_split_action": True}
+        )
+        split_actions = [
+            {"action_type": "combat", "action_summary": "拔枪", "fragment": "拔枪", "_index": 0},
+            {"action_type": "combat", "action_summary": "射击", "fragment": "射击", "_index": 1},
+        ]
+
+        results = pipeline.process_split_actions(intent_note, split_actions)
+
+        # 最后一个 result 有 narrator_note
+        self.assertIsNotNone(results[-1].narrator_note)
+        self.assertEqual(results[-1].narrator_note.structured.get("narrative"), "统一叙事文本...")
+        # 非最后的 result 没有 narrator_note
+        self.assertIsNone(results[0].narrator_note)
 
     def test_stops_on_continuation_rejection(self):
         """continuation_check 返回不可继续时中断后续子 action。"""
@@ -377,6 +428,8 @@ class TestMovePipelineSplitActions(unittest.TestCase):
 
         # 只执行了前两个（第二个检查返回 False 后中断）
         self.assertEqual(len(results), 2)
+        # 统一叙述者仍然调用 1 次（对已完成的 2 个子行动）
+        pipeline.narrator.execute_split.assert_called_once()
 
     def test_passes_last_sub_summary(self):
         """每一步传递上一步的摘要给 continuation_check。"""
@@ -402,6 +455,25 @@ class TestMovePipelineSplitActions(unittest.TestCase):
         # 第3个位置参数是上一步的摘要，包含掷骰结果信息
         self.assertIsNotNone(call_args[2])
         self.assertIn("掷骰结果", call_args[2])
+
+    def test_validate_and_apply_called_once(self):
+        """validate_and_apply 仅在统一叙事后调用一次。"""
+        mock_llm = MockLLMClient()
+        state = make_test_game_state()
+        pipeline = self._make_pipeline(state, mock_llm)
+
+        intent_note = make_agent_note(
+            structured={"action_type": "compound", "is_split_action": True}
+        )
+        split_actions = [
+            {"action_type": "combat", "action_summary": "拔枪", "fragment": "拔枪", "_index": 0},
+            {"action_type": "combat", "action_summary": "射击", "fragment": "射击", "_index": 1},
+        ]
+
+        pipeline.process_split_actions(intent_note, split_actions)
+
+        # validate_and_apply 只调用 1 次（统一叙事后）
+        pipeline.item_manager.validate_and_apply.assert_called_once()
 
 
 if __name__ == "__main__":

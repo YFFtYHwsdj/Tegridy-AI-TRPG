@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from src.agents import (
@@ -210,6 +211,40 @@ class MovePipeline:
             narrator_note=narrator_note,
         )
 
+    def _run_resolution_only(self, intent_note, ctx, sub_action=None) -> PipelineResult:
+        """执行解算流水线（不含叙述者和 validate_and_apply）。
+
+        仅执行标签匹配 → 掷骰 → 效果推演 → 后果生成，
+        用于拆分 action 场景中收集各子行动的规则结果，
+        最后由统一叙述者一次性生成叙事。
+
+        Args:
+            intent_note: 意图解析 Agent 的分析便签
+            ctx: 当前场景上下文
+            sub_action: 子 action 数据（复合 action 场景），可选
+
+        Returns:
+            PipelineResult（narrator_note 为 None）
+        """
+        tag_note, roll = self._run_tag_and_roll(intent_note, ctx, sub_action)
+
+        effect_note = self.effect_agent.execute(
+            intent_note, tag_note, roll, ctx, sub_action=sub_action
+        )
+
+        # 仅在未完全成功时生成后果
+        consequence_note = None
+        if roll.outcome in ("partial_success", "failure"):
+            consequence_note = self.consequence_agent.execute(intent_note, effect_note, roll, ctx)
+
+        return PipelineResult(
+            tag_note=tag_note,
+            roll=roll,
+            effect_note=effect_note,
+            consequence_note=consequence_note,
+            # narrator_note 留空，由调用方统一处理
+        )
+
     def validate_and_apply(self, narrator_note, ctx=None):
         """应用叙事输出中的揭示和物品转移。
 
@@ -223,22 +258,26 @@ class MovePipeline:
         self.item_manager.validate_and_apply(narrator_note, ctx)
 
     def process_split_actions(self, intent_note, split_actions) -> list:
-        """执行复合 action 的拆分流水线。
+        """执行复合 action 的拆分流水线（统一叙事版）。
 
         当一个意图被意图解析 Agent 拆分为多个子 action（split_actions）时，
-        按顺序逐个执行，每步之前检查是否可以继续（continuation_check）。
+        按顺序逐个执行解算流水线（不含叙述者），所有子行动解算完毕后，
+        调用统一叙述者一次性生成连贯叙事。
 
         流程：
-            1. 对每个子 action 运行完整流水线
-            2. 执行前检查上一步结果是否阻止继续
-            3. 将上一步的掷骰/效果/后果作为上下文传递给下一步
+            1. 对每个子 action 运行解算流水线（_run_resolution_only）
+            2. 执行前检查上一步结果是否阻止继续（continuation_check）
+            3. 收集所有子行动的解算结果
+            4. 调用 narrator.execute_split 生成统一叙事
+            5. 将统一叙事的 narrator_note 附加到最后一个 result
+            6. 调用 validate_and_apply 处理揭示和物品转移
 
         Args:
             intent_note: 意图解析 Agent 的分析便签
             split_actions: 子 action 列表
 
         Returns:
-            PipelineResult 列表（可能因 blocked 而提前终止）
+            PipelineResult 列表（最后一个 result 包含统一 narrator_note）
         """
         self.display.print_split_action_header(len(split_actions))
 
@@ -270,10 +309,11 @@ class MovePipeline:
                 if not can_continue:
                     reason = check_note.structured.get("reason", "")
                     self.display.print_split_blocked(sub.get("action_summary", "?"), reason)
-                    return results
+                    break
 
             ctx = self.state.make_context(sub.get("fragment", ""))
-            result = self.run_single_move_pipeline(intent_note, ctx, sub_action=sub)
+            # 仅执行解算，不调用叙述者
+            result = self._run_resolution_only(intent_note, ctx, sub_action=sub)
             results.append(result)
 
             # 保存当前步的结果供下一步的继续性检查使用
@@ -286,5 +326,53 @@ class MovePipeline:
                 if result.consequence_note
                 else []
             )
+
+        # 所有子行动解算完毕后，统一生成叙事
+        if results:
+            sub_results_for_narrator = []
+            for result in results:
+                roll = result.roll
+                roll_summary = (
+                    f"{roll.dice[0]}+{roll.dice[1]}+{roll.power}={roll.total} ({roll.outcome})"
+                )
+                effects_json = json.dumps(
+                    result.effect_note.structured.get("effects", []) if result.effect_note else [],
+                    ensure_ascii=False,
+                )
+                narrative_hints = (
+                    result.effect_note.structured.get("narrative_hints", "")
+                    if result.effect_note
+                    else ""
+                )
+                consequences_json = json.dumps(
+                    result.consequence_note.structured.get("consequences", [])
+                    if result.consequence_note
+                    else [],
+                    ensure_ascii=False,
+                )
+                # 从 result 的 tag_note 获取子行动摘要
+                summary = result.tag_note.structured.get(
+                    "action_summary",
+                    f"子行动 {len(sub_results_for_narrator) + 1}",
+                )
+                sub_results_for_narrator.append(
+                    {
+                        "summary": summary,
+                        "roll_summary": roll_summary,
+                        "effects_json": effects_json,
+                        "narrative_hints": narrative_hints,
+                        "consequences_json": consequences_json,
+                    }
+                )
+
+            # 使用最新的上下文调用统一叙述者
+            ctx = self.state.make_context()
+            narrator_note = self.narrator.execute_split(sub_results_for_narrator, ctx)
+
+            # 将统一叙事附加到最后一个 result
+            results[-1].narrator_note = narrator_note
+
+            # 统一执行揭示和物品转移
+            self.validate_and_apply(narrator_note, ctx)
 
         return results

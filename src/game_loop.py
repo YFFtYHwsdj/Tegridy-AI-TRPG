@@ -359,26 +359,25 @@ class GameLoop:
         return narrative
 
     def _process_split_moves(self, intent_note, split_actions) -> str:
-        """处理复合 action 的拆分流水线。
+        """处理复合 action 的拆分流水线（统一叙事版）。
 
-        对多个子 action 逐个执行流水线，每步检查是否被阻止继续。
-        如果角色在过程中失去行动能力，中断后续步骤。
+        对多个子 action 逐个执行解算流水线，每步显示解算信息并应用效果。
+        所有子 action 完成后，统一输出一次叙事（由 pipeline 层的统一叙述者生成）。
 
         Args:
             intent_note: 意图解析便签
             split_actions: 子 action 列表
 
         Returns:
-            所有子 action 的叙事拼接
+            统一叙事文本
         """
         results = self.pipeline.process_split_actions(intent_note, split_actions)
 
-        narratives = []
+        # 逐个子行动显示解算信息并应用效果
         for result in results:
             self.display.print_tag_and_roll(result.tag_note, result.roll)
             self.display.print_effects(result.effect_note)
             self.display.print_consequences(result.consequence_note)
-            self.display.print_strategy(result.narrator_note)
 
             challenge = self.state.scene.primary_challenge()
             effect_errors = EffectApplicator.apply_results(
@@ -392,18 +391,22 @@ class GameLoop:
 
             self._finalize_move()
 
-            self._log.info("─" * 50)
-
-            narrative = result.narrator_note.structured.get("narrative", "")
-            self._log.info("")
-            self._log.info(narrative)
-            self.state.append_narrative(narrative)
-            narratives.append(narrative)
-
-            # 角色失去行动能力 → 中断后续子 action
+            # 角色失去行动能力 → 中断后续子 action 的效果应用
             if self.state.character and self.state.character.is_incapacitated():
                 self.display.print_incapacitated_break()
                 break
+
+        # 统一叙事输出（来自最后一个 result 的 narrator_note）
+        narrative = ""
+        if results:
+            last_result = results[-1]
+            if last_result.narrator_note:
+                self.display.print_strategy(last_result.narrator_note)
+                self._log.info("─" * 50)
+                narrative = last_result.narrator_note.structured.get("narrative", "")
+                self._log.info("")
+                self._log.info(narrative)
+                self.state.append_narrative(narrative)
 
         self.display.print_status(self.state)
 
@@ -413,7 +416,7 @@ class GameLoop:
             if triggered_limits:
                 self._handle_limit_break(triggered_limits)
 
-        return "\n".join(narratives)
+        return narrative
 
     def _finalize_move(self):
         """完成一次 Move 后的收尾工作。

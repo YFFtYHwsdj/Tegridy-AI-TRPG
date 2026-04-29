@@ -25,6 +25,6 @@ class PipelineResult:
 
     tag_note: AgentNote
     roll: RollResult
-    narrator_note: AgentNote
+    narrator_note: AgentNote | None = None
     effect_note: AgentNote | None = None
     consequence_note: AgentNote | None = None
