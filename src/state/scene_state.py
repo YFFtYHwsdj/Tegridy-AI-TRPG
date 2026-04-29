@@ -4,9 +4,11 @@
     - 场景描述与活跃挑战
     - NPC、线索、物品（可见/隐藏）
     - 叙事历史（场景内完整保留）
+    - 场景压缩摘要与前驱场景引用
     - Agent 上下文构建（拼接场景资产、角色、挑战、叙事历史为上下文块）
 
 场景作为上下文单元，叙事历史在场景内完整保留。
+场景切换时产生压缩摘要，前驱场景引用支持回溯链。
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ from dataclasses import dataclass, field
 
 from src.context import AgentContext
 from src.formatter import format_limit_progress, format_statuses, format_story_tags
-from src.models import NPC, Challenge, Character, Clue, GameItem
+from src.models import NPC, Challenge, Character, Clue, GameItem, SceneSummary
 
 
 @dataclass
@@ -31,6 +33,8 @@ class SceneState:
         npcs: 场景中的 NPC
         active_challenges: 活跃的挑战（通常一个场景只有一个主挑战）
         narrative_history: 叙事历史列表（最新在后，场景内完整保留）
+        compression: 场景结束后的压缩摘要（CompressorAgent 产出）
+        previous_scenes: 前驱场景的轻量引用列表（支持回溯链）
     """
 
     scene_description: str = ""
@@ -45,6 +49,9 @@ class SceneState:
     active_challenges: dict[str, Challenge] = field(default_factory=dict)
 
     narrative_history: list[str] = field(default_factory=list)
+
+    compression: str = ""
+    previous_scenes: list[SceneSummary] = field(default_factory=list)
 
     def primary_challenge(self) -> Challenge | None:
         """获取当前场景的主挑战（第一个活跃挑战）。
@@ -187,11 +194,11 @@ class SceneState:
             lines.append("\n场景人物:")
             for npc in self.npcs.values():
                 parts = [f"  - {npc.name}: {npc.description}"]
-                vis_items = [f"{i.name}(可见)" for i in npc.items_visible.values()]
-                hid_items = [f"{i.name}(隐藏)" for i in npc.items_hidden.values()]
-                all_items = vis_items + hid_items
-                if all_items:
-                    parts.append(f" [携带: {', '.join(all_items)}]")
+                vis_items: list[str] = [f"{i.name}(可见)" for i in npc.items_visible.values()]
+                hid_items: list[str] = [f"{i.name}(隐藏)" for i in npc.items_hidden.values()]
+                npc_items: list[str] = vis_items + hid_items
+                if npc_items:
+                    parts.append(f" [携带: {', '.join(npc_items)}]")
                 lines.append("".join(parts))
         else:
             lines.append("\n场景人物: （无）")

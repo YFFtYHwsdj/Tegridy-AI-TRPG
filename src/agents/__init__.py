@@ -5,6 +5,7 @@ BaseAgent 提供统一的 LLM 调用、日志记录和输出解析流程。
 AGENT_REGISTRY 维护所有 Agent 类的全局注册表。
 """
 
+from src.agents.compressor import CompressorAgent
 from src.agents.consequence import ConsequenceAgent, QuickConsequenceAgent
 from src.agents.continuation_check import ContinuationCheckAgent
 from src.agents.effect_actualization import EffectActualizationAgent
@@ -14,6 +15,8 @@ from src.agents.move_gatekeeper import MoveGatekeeperAgent
 from src.agents.narrator import LiteNarratorAgent, NarratorAgent, QuickNarratorAgent
 from src.agents.resolution_mode import ResolutionModeAgent
 from src.agents.rhythm import RhythmAgent
+from src.agents.scene_creator import SceneCreatorAgent
+from src.agents.scene_director import SceneDirectorAgent
 from src.agents.tag_matcher import TagMatcherAgent
 
 AGENT_REGISTRY = {
@@ -22,6 +25,7 @@ AGENT_REGISTRY = {
     "intent": IntentAgent,
     "tag_matcher": TagMatcherAgent,
     "effect_actualization": EffectActualizationAgent,
+    "compressor": CompressorAgent,
     "consequence": ConsequenceAgent,
     "quick_consequence": QuickConsequenceAgent,
     "narrator": NarratorAgent,
@@ -30,10 +34,13 @@ AGENT_REGISTRY = {
     "limit_break": LimitBreakAgent,
     "continuation_check": ContinuationCheckAgent,
     "resolution_mode": ResolutionModeAgent,
+    "scene_creator": SceneCreatorAgent,
+    "scene_director": SceneDirectorAgent,
 }
 
 __all__ = [
     "AGENT_REGISTRY",
+    "CompressorAgent",
     "ConsequenceAgent",
     "ContinuationCheckAgent",
     "EffectActualizationAgent",
@@ -46,5 +53,7 @@ __all__ = [
     "QuickNarratorAgent",
     "ResolutionModeAgent",
     "RhythmAgent",
+    "SceneCreatorAgent",
+    "SceneDirectorAgent",
     "TagMatcherAgent",
 ]

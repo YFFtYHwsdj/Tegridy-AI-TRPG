@@ -27,8 +27,7 @@ def main():
 
     1. 从 .env 加载 DeepSeek API 配置
     2. 初始化日志和 LLM 客户端
-    3. 创建 GameLoop 并加载 Demo 场景
-    4. 进入交互式输入循环（/quit 退出）
+    3. 创建 GameLoop 并启动完整游戏循环
     """
     api_key = os.getenv("DEEPSEEK_API_KEY")
     base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
@@ -52,29 +51,10 @@ def main():
         sys.exit(1)
 
     game = GameLoop(llm, debug_mode=True)
-    game.setup(
+    game.run(
         character=DEMO_CHARACTER,
-        scene=build_demo_scene(),
+        first_scene=build_demo_scene(),
     )
-
-    _log.info("")
-    _log.info("输入你的行动（输入 /quit 退出，/help 查看命令）")
-
-    while True:
-        try:
-            player_input = input("\n> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            _log.info("")
-            _log.info("游戏结束。")
-            break
-
-        if not player_input:
-            continue
-
-        result = game.process_action(player_input)
-        if result == "QUIT":
-            _log.info("游戏结束。")
-            break
 
 
 if __name__ == "__main__":

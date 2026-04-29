@@ -15,6 +15,8 @@ class TestSceneState(unittest.TestCase):
         self.assertEqual(scene.npcs, {})
         self.assertEqual(scene.active_challenges, {})
         self.assertEqual(scene.narrative_history, [])
+        self.assertEqual(scene.compression, "")
+        self.assertEqual(scene.previous_scenes, [])
 
     def test_scene_description(self):
         scene = SceneState(scene_description="赛博朋克酒吧")

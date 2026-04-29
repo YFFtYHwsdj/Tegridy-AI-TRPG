@@ -363,3 +363,23 @@ class AgentNote:
 
     reasoning: str
     structured: dict
+
+
+@dataclass
+class SceneSummary:
+    """前驱场景的轻量摘要 —— 存于 SceneState.previous_scenes。
+
+    不持有完整 SceneState 对象以避免无限嵌套。
+    完整叙事文本由 GlobalState 统一管理。
+
+    Attributes:
+        scene_id: 场景唯一标识
+        scene_description: 场景描述文本
+        compression: CompressorAgent 产出的场景压缩摘要
+        narrative_count: 该场景的叙事条数（元信息，不放全文）
+    """
+
+    scene_id: str
+    scene_description: str = ""
+    compression: str = ""
+    narrative_count: int = 0

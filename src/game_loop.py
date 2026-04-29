@@ -1,16 +1,17 @@
 """游戏主循环 —— 玩家与 AI Agent 流水线的交互桥梁。
 
-本模块的 GameLoop 类是系统的"前台控制器"，负责：
-    1. 接收玩家自然语言输入
-    2. 判断是否为系统命令（/quit, /debug, /help）
-    3. 区分 Move（需要掷骰的规则行动）和非 Move（纯叙事互动）
-    4. 根据结算模式选择流水线类型（标准/快速/拆分）
-    5. 驱动效果执行、状态更新、极限突破处理
-    6. 将最终叙事输出给玩家
+本模块的 GameLoop 类是系统的"前台控制器"，负责两层循环：
+    场景循环（scene loop）：场景间切换，由 SceneDirectorAgent 判定结束条件
+    行动循环（action loop）：场景内单次玩家行动处理
 
-核心流程：
+核心流程（场景内）：
     玩家输入 → Move 判定 → 意图解析 → 结算模式选择
     → 流水线执行 → 效果落地 → 叙事输出 → 极限检查
+
+场景切换流程：
+    SceneDirector 判定结束 → Compressor 压缩当前场景
+    → SceneCreator 创作下一场景 → transition_to 切换状态
+    → RhythmAgent 开场新场景
 
 输出通道划分：
     - 叙事文本、系统命令响应 → INFO（终端始终可见）
@@ -18,13 +19,17 @@
 """
 
 from src.agents import (
+    CompressorAgent,
     IntentAgent,
     LimitBreakAgent,
     LiteNarratorAgent,
     MoveGatekeeperAgent,
     ResolutionModeAgent,
     RhythmAgent,
+    SceneCreatorAgent,
+    SceneDirectorAgent,
 )
+from src.agents.scene_creator import build_scene_from_creator
 from src.display.console import ConsoleDisplay
 from src.effects.applicator import EffectApplicator
 from src.engine import check_limits
@@ -40,11 +45,12 @@ from src.state.scene_state import SceneState
 class GameLoop:
     """游戏主循环控制器。
 
-    初始化所有 Agent 实例（节奏、守门人、意图解析、结算模式、
-    极限突破、轻量叙述者）和 MovePipeline。
+    持有所有 Agent 实例和流水线。run() 方法驱动完整的游戏体验，
+    包含场景循环和场景内行动循环。
 
     核心入口：
-        setup(): 初始化场景，输出开场叙事
+        run(): 启动完整游戏循环（场景循环 + 行动循环）
+        setup(): 初始化首个场景
         process_action(): 处理单次玩家行动（命令/Move/非Move）
     """
 
@@ -57,13 +63,23 @@ class GameLoop:
         self.debug_mode = debug_mode
         set_debug_mode(debug_mode)
 
-        # 创建各类 Agent 实例
+        # 行动层 Agent
         self.rhythm_agent = RhythmAgent(llm)
         self.gatekeeper = MoveGatekeeperAgent(llm)
         self.intent_agent = IntentAgent(llm)
         self.lite_narrator = LiteNarratorAgent(llm)
         self.limit_break_agent = LimitBreakAgent(llm)
         self.resolution_agent = ResolutionModeAgent(llm)
+
+        # 场景切换层 Agent
+        self.scene_director = SceneDirectorAgent(llm)
+        self.compressor = CompressorAgent(llm)
+        self.scene_creator = SceneCreatorAgent(llm)
+
+        # 场景切换间传递的过渡提示
+        self._transition_hint = ""
+        # 是否为首个场景（控制标题显示）
+        self._first_scene = True
 
     def toggle_debug(self):
         """切换调试模式开关。
@@ -106,24 +122,40 @@ class GameLoop:
         self._log.info("  [系统] 未知命令: %s。输入 /help 查看可用命令。", cmd)
         return ""
 
-    def setup(self, character: Character, scene: SceneState):
-        """初始化游戏场景。
+    # ───────────────────── 场景管理 ─────────────────────
 
-        设置角色和场景，调用节奏 Agent 输出场景建立叙事和角色聚焦，
-        显示挑战状态。
+    def setup(self, character: Character, scene: SceneState):
+        """初始化首个场景。
+
+        设置角色和场景状态，调用 RhythmAgent 输出开场叙事。
 
         Args:
             character: 玩家角色
             scene: 初始场景
         """
         self.state.setup(character, scene)
+        self._open_scene()
 
-        challenge = self.state.scene.primary_challenge()
+    def _open_scene(self):
+        """为当前场景生成开场叙事。
 
-        self._log.info("")
-        self._log.info("═" * 50)
-        self._log.info("       :OTHERSCAPE · AI 主持 · 单场景 Demo")
-        self._log.info("═" * 50)
+        调用 RhythmAgent 建立场景氛围，输出场景建立叙事、
+        挑战状态概览和聚光灯传递。首个场景额外显示标题。
+        """
+        scene = self.state.scene
+        challenge = scene.primary_challenge()
+
+        if self._first_scene:
+            self._log.info("")
+            self._log.info("═" * 50)
+            self._log.info("       :OTHERSCAPE · AI 主持")
+            self._log.info("═" * 50)
+            self._first_scene = False
+        else:
+            self._log.info("")
+            self._log.info("═" * 50)
+            self._log.info("       场景切换")
+            self._log.info("═" * 50)
 
         rhythm = self.rhythm_agent.execute(scene.scene_description)
         narrative = rhythm.structured.get("scene_establishment", "")
@@ -141,6 +173,47 @@ class GameLoop:
         self._log.info("")
         self._log.info(spotlight)
 
+    def _transition_scene(self):
+        """执行场景过渡流水线。
+
+        1. CompressorAgent 压缩当前场景 → scene.compression
+        2. SceneCreatorAgent 创作下一个场景 → 新 SceneState
+        3. GameState.transition_to() 切换状态（归档到 GlobalState）
+        4. _open_scene() 为新场景生成开场叙事
+        """
+        old_scene = self.state.scene
+
+        # 1. 压缩当前场景
+        compressor_note = self.compressor.execute(old_scene)
+        compression = compressor_note.structured.get("scene_summary", "")
+        old_scene.compression = compression
+
+        # 2. 构建场景创作者的上下文块
+        # 包含刚刚结束的场景信息 + 跨场景历史
+        just_finished = (
+            "=== 刚刚结束的场景（需基于此创作下一场景） ===\n"
+            f"场景描述: {old_scene.scene_description}\n"
+            f"场景压缩摘要: {compression}\n"
+        )
+        existing = self.state.global_state.build_block()
+        creator_block = f"{just_finished}\n{existing}" if existing else just_finished
+
+        # 3. 创作下一个场景
+        creator_note = self.scene_creator.execute(
+            creator_block,
+            self.state.character,
+            self._transition_hint,
+        )
+        new_scene = build_scene_from_creator(creator_note.structured)
+
+        # 4. 切换状态（归档到 GlobalState）
+        self.state.transition_to(new_scene)
+
+        # 5. 开场新场景
+        self._open_scene()
+
+    # ───────────────────── 行动处理 ─────────────────────
+
     def process_action(self, player_input: str) -> str:
         """处理单次玩家行动。
 
@@ -155,7 +228,7 @@ class GameLoop:
             player_input: 玩家原始输入
 
         Returns:
-            叙事文本；"QUIT" 表示退出
+            叙事文本；"QUIT" 表示退出；"" 表示空输入或命令已处理
         """
         raw = player_input.strip()
 
@@ -395,3 +468,68 @@ class GameLoop:
 
         challenge.mark_limits_broken(limit_names)
         log_status_update(challenge.name, challenge.statuses)
+
+    # ───────────────────── 主循环 ─────────────────────
+
+    def run(self, character: Character, first_scene: SceneState):
+        """启动完整的游戏循环。
+
+        包含两层循环：
+            - 场景循环：场景间切换，由 SceneDirectorAgent 判定结束
+            - 行动循环：场景内逐次处理玩家输入
+
+        返回条件：玩家输入 /quit 或 EOF/KeyboardInterrupt。
+
+        Args:
+            character: 玩家角色
+            first_scene: 初始场景
+        """
+        self.setup(character, first_scene)
+
+        self._log.info("")
+        self._log.info("输入你的行动（输入 /quit 退出，/help 查看命令）")
+
+        while True:
+            should_quit = self._run_scene_loop()
+            if should_quit:
+                self._log.info("游戏结束。")
+                return
+
+    def _run_scene_loop(self) -> bool:
+        """运行单个场景的行动循环，并在结束时执行场景过渡。
+
+        Returns:
+            True 表示玩家请求退出，False 表示场景正常结束需要过渡
+        """
+        while True:
+            try:
+                player_input = input("\n> ").strip()
+            except (EOFError, KeyboardInterrupt):
+                self._log.info("")
+                return True
+
+            if not player_input:
+                continue
+
+            result = self.process_action(player_input)
+            if result == "QUIT":
+                return True
+
+            # 命令处理或空结果不触发场景导演检查
+            if not result:
+                continue
+
+            # 每轮行动后询问场景导演是否该结束场景
+            ctx = self.state.make_context()
+            director_note = self.scene_director.execute(ctx, result)
+            if director_note.structured.get("scene_should_end", False):
+                self._transition_hint = director_note.structured.get("transition_hint", "")
+                self._log.info("")
+                self._log.info(
+                    "  [场景导演] 场景结束: %s", director_note.structured.get("reason", "")
+                )
+                break
+
+        # 场景正常结束 → 执行过渡
+        self._transition_scene()
+        return False
