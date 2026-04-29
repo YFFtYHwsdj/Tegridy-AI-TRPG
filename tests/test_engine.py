@@ -66,12 +66,22 @@ class TestRollDice(unittest.TestCase):
     def test_outcome_full_success(self):
         for _ in range(100):
             result = roll_dice(100)
-            self.assertEqual(result.outcome, "full_success")
+            # 箱车（双6）总是成功，但蛇眼（双1）总是失败
+            # 当 power=100 时，total 总是 >= 10，但蛇眼例外
+            if result.dice == (1, 1):
+                self.assertEqual(result.outcome, "failure")
+            else:
+                self.assertEqual(result.outcome, "full_success")
 
     def test_outcome_failure(self):
         for _ in range(100):
             result = roll_dice(-100)
-            self.assertEqual(result.outcome, "failure")
+            # 蛇眼（双1）总是失败，但箱车（双6）总是成功
+            # 当 power=-100 时，total 总是 < 7，但箱车例外
+            if result.dice == (6, 6):
+                self.assertEqual(result.outcome, "full_success")
+            else:
+                self.assertEqual(result.outcome, "failure")
 
     def test_outcome_boundaries(self):
         for power, expected in [
