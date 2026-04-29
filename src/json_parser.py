@@ -179,10 +179,8 @@ def parse_agent_output(raw_output: str) -> AgentNote:
             log_system(f"[JSON解析] 所有修复尝试均失败，回退为raw。 原始内容前200字符: {snippet}")
             structured = {"raw": structured_str}
     else:
-        log_system(
-            f"[JSON解析] 输出中未找到 =====STRUCTURED===== 标记。"
-            f" 原始输出前200字符: {raw_output[:200]}"
-        )
+        # 叙述者等 Agent 可能在无揭示/转移时不输出 STRUCTURED，属正常情况
+        pass
 
     # 补充提取 NARRATIVE 段落（如果 structured 中没有 narrative 字段）
     if "narrative" not in structured:

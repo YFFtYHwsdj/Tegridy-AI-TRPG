@@ -8,6 +8,13 @@ from src.models import AgentNote
 
 
 class ValidatorAgent(BaseAgent):
+    """叙事校验与修正器 —— 审查叙述者提议并输出最终的揭示和转移决策。
+
+    角色定位：叙述者的 STRUCTURED 只是提议，Validator 是最终决策者。
+    检查泄露、矛盾、揭示完整性和转移完整性，输出直接可执行的
+    revelation_decisions 和 item_transfers。
+    """
+
     system_prompt = VALIDATOR_PROMPT
     agent_name = "叙事验证Agent"
 
@@ -22,6 +29,24 @@ class ValidatorAgent(BaseAgent):
         scene_items_visible: dict,
         npcs: dict,
     ) -> AgentNote:
+        """校验叙述者输出并返回最终的揭示和转移决策。
+
+        收集场景状态信息（隐藏/可见线索物品、NPC 知识范围），
+        拼装为结构化 user_msg 交给 LLM 校验。
+
+        Args:
+            narrator_note: 叙述者 Agent 的分析便签
+            hidden_clues: 所有隐藏线索 {clue_id: Clue}
+            hidden_items: NPC 身上所有隐藏物品 {item_id: GameItem}
+            visible_clues: 已揭示线索 {clue_id: Clue}
+            visible_items: 角色身上可见物品 {item_id: GameItem}
+            scene_items_hidden: 场景隐藏物品 {item_id: GameItem}
+            scene_items_visible: 场景可见物品 {item_id: GameItem}
+            npcs: 场景中所有 NPC {npc_id: NPC}
+
+        Returns:
+            AgentNote: 包含最终 revelation_decisions 和 item_transfers 的便签
+        """
         hidden_clue_summary = (
             ", ".join(f"{cid}({c.name}: {c.description})" for cid, c in hidden_clues.items())
             if hidden_clues
@@ -65,18 +90,16 @@ class ValidatorAgent(BaseAgent):
 
         revelations = narrator_note.structured.get("revelation_decisions", {})
         transfers = narrator_note.structured.get("item_transfers", [])
-        narrative_contains = narrator_note.structured.get("narrative_contains", {})
         narrative_text = narrator_note.structured.get("narrative", "")
 
-        user_msg = f"""=== 需要验证的叙事 ===
+        user_msg = f"""=== 需要校验的叙事 ===
 {narrative_text}
 
-=== Narrator 的结构化决策 ===
-揭示决策: {json.dumps(revelations, ensure_ascii=False)}
-物品转移: {json.dumps(transfers, ensure_ascii=False)}
-叙事内容提及: {json.dumps(narrative_contains, ensure_ascii=False)}
+=== Narrator 的提议（供参考） ===
+提议揭示: {json.dumps(revelations, ensure_ascii=False)}
+提议物品转移: {json.dumps(transfers, ensure_ascii=False)}
 
-=== 场景隐藏信息（不应该在叙事中泄露） ===
+=== 场景隐藏信息 ===
 隐藏线索: {hidden_clue_summary}
 NPC身上隐藏物品: {hidden_item_summary}
 场景隐藏物品: {scene_hidden_summary}
@@ -86,9 +109,9 @@ NPC身上隐藏物品: {hidden_item_summary}
 角色身上物品: {visible_item_summary}
 场景可见物品: {scene_visible_summary}
 
-=== NPC 知识范围 ===
+=== NPC 知识范围（用于判断泄露：NPC 有权说的不算泄露） ===
 {npc_knowledge_block}
 
 ---
-请逐项检查。先列出检查结果，再给出最终裁决。"""
+请校验以上叙事文本，输出最终的 revelation_decisions 和 item_transfers。"""
         return self._call_llm(user_msg)

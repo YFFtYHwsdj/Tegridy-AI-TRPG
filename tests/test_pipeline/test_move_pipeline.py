@@ -317,20 +317,28 @@ class TestMovePipelineValidateAndApply(unittest.TestCase):
     """测试 validate_and_apply 方法。"""
 
     def _make_pipeline(self, state) -> MovePipeline:
-        """创建带 Mock validator 的流水线。"""
+        """创建带 Mock validator 的流水线。
+
+        validator 返回最终格式：revelation_decisions + item_transfers，
+        与叙述者的提议格式相同，代码直接消费。
+        """
         mock_llm = MockLLMClient()
         pipeline = MovePipeline(mock_llm, state, MagicMock())
 
         pipeline.validator = MagicMock()
-        pipeline.validator.execute.return_value = make_agent_note(structured={"verdict": "accept"})
+        pipeline.validator.execute.return_value = make_agent_note(
+            structured={
+                "revelation_decisions": {"reveal_clue_ids": [], "reveal_item_ids": []},
+                "item_transfers": [],
+            }
+        )
 
         return pipeline
 
-    def test_rejects_invalid_revelation(self):
-        """validator 返回 reject 时不执行揭示。"""
+    def test_validator_removes_unwanted_revelation(self):
+        """验证 Agent 过滤掉不应揭示的线索时不执行揭示。"""
         state = make_test_game_state()
         pipeline = self._make_pipeline(state)
-        pipeline.validator.execute.return_value = make_agent_note(structured={"verdict": "reject"})
 
         narrator_note = make_agent_note(
             structured={
@@ -339,19 +347,24 @@ class TestMovePipelineValidateAndApply(unittest.TestCase):
             }
         )
 
-        # 预先放置一个隐藏线索
         state.scene.clues_hidden["hidden_clue"] = Clue(clue_id="hidden_clue", name="隐藏线索")
 
         pipeline.validate_and_apply(narrator_note)
 
-        # 线索应仍在隐藏中
+        # 验证 Agent 移除了该揭示，线索应仍在隐藏中
         self.assertIn("hidden_clue", state.scene.clues_hidden)
         self.assertNotIn("hidden_clue", state.scene.clues_visible)
 
     def test_apply_revelations_moves_clue(self):
-        """揭示线索从 clues_hidden 移动到 clues_visible。"""
+        """验证 Agent 通过的揭示：线索从 hidden 移动到 visible。"""
         state = make_test_game_state()
         pipeline = self._make_pipeline(state)
+        pipeline.validator.execute.return_value = make_agent_note(
+            structured={
+                "revelation_decisions": {"reveal_clue_ids": ["secret"], "reveal_item_ids": []},
+                "item_transfers": [],
+            }
+        )
 
         state.scene.clues_hidden["secret"] = Clue(clue_id="secret", name="秘密")
 
@@ -368,9 +381,15 @@ class TestMovePipelineValidateAndApply(unittest.TestCase):
         self.assertIn("secret", state.scene.clues_visible)
 
     def test_apply_revelations_moves_scene_item(self):
-        """揭示物品从 scene_items_hidden 移动到 scene_items_visible。"""
+        """验证 Agent 通过的揭示：物品从 scene_items_hidden 移动到 visible。"""
         state = make_test_game_state()
         pipeline = self._make_pipeline(state)
+        pipeline.validator.execute.return_value = make_agent_note(
+            structured={
+                "revelation_decisions": {"reveal_clue_ids": [], "reveal_item_ids": ["medkit"]},
+                "item_transfers": [],
+            }
+        )
 
         state.scene.scene_items_hidden["medkit"] = GameItem(item_id="medkit", name="急救包")
 
@@ -387,9 +406,15 @@ class TestMovePipelineValidateAndApply(unittest.TestCase):
         self.assertIn("medkit", state.scene.scene_items_visible)
 
     def test_apply_revelations_moves_npc_hidden_item(self):
-        """揭示 NPC 隐藏物品到 NPC 可见物品。"""
+        """验证 Agent 通过的揭示：NPC 隐藏物品移动到可见。"""
         state = make_test_game_state()
         pipeline = self._make_pipeline(state)
+        pipeline.validator.execute.return_value = make_agent_note(
+            structured={
+                "revelation_decisions": {"reveal_clue_ids": [], "reveal_item_ids": ["key"]},
+                "item_transfers": [],
+            }
+        )
 
         from src.models import NPC
 

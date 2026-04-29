@@ -200,11 +200,156 @@ class MovePipeline:
             narrator_note=narrator_note,
         )
 
+    @staticmethod
+    def _extract_ngrams(text: str, n: int = 2) -> set[str]:
+        """从中文文本中提取连续 n 字组合。
+
+        仅提取中文字符，跳过标点、空格和英文。用于与隐藏信息的
+        description 做重叠检测。
+
+        Args:
+            text: 原始文本
+            n: n-gram 的 n，默认 2
+
+        Returns:
+            n-gram 集合，文本过短时返回空集合
+        """
+        chars = [c for c in text if "\u4e00" <= c <= "\u9fff"]
+        if len(chars) < n:
+            return set()
+        return {"".join(chars[i : i + n]) for i in range(len(chars) - n + 1)}
+
+    def _collect_scene_names(self) -> set[str]:
+        """收集场景中所有 NPC 和物品名称，用于 bigram 净化。
+
+        叙事文本必然提及 NPC 和可见物品名称——这些不构成"隐藏信息被提及"。
+        从隐藏信息描述中剥离这些名称后再做 bigram 匹配，避免误报。
+
+        Returns:
+            场景中所有公开事物名称的集合（NPC 名、物品名、线索名）
+        """
+        scene = self.state.scene
+        names: set[str] = set()
+
+        for npc in scene.npcs.values():
+            if npc.name:
+                names.add(npc.name)
+            for item in npc.items_visible.values():
+                if item.name:
+                    names.add(item.name)
+            for item in npc.items_hidden.values():
+                if item.name:
+                    names.add(item.name)
+
+        for item in scene.scene_items_visible.values():
+            if item.name:
+                names.add(item.name)
+        for item in scene.scene_items_hidden.values():
+            if item.name:
+                names.add(item.name)
+
+        for clue in scene.clues_hidden.values():
+            if clue.name:
+                names.add(clue.name)
+        for clue in scene.clues_visible.values():
+            if clue.name:
+                names.add(clue.name)
+
+        return names
+
+    def _strip_names(self, text: str, names: set[str]) -> str:
+        """从文本中移除所有已知名称，消除 NPC 称谓带来的误匹配。
+
+        按名称长度从长到短替换，避免短名称破坏长名称的移除。
+
+        Args:
+            text: 原始文本
+            names: 要移除的名称集合
+
+        Returns:
+            净化后的文本
+        """
+        result = text
+        for name in sorted(names, key=len, reverse=True):
+            result = result.replace(name, "")
+        return result
+
+    def _mentions_hidden_info(self, narrative_text: str) -> bool:
+        """零成本关键词预检：叙事文本是否疑似提及隐藏信息。
+
+        两层检测：
+        1. 名称匹配 — 隐藏信息的 name 是否为叙事文本的子串
+        2. 描述 bigram 重叠 — 隐藏信息的 description（剥离 NPC/物品
+           名称后）与叙事文本的 2-gram 交集达到 ≥3 个
+
+        注意：名称剥离消除了"叙事提及 NPC 名称 = 命中该 NPC 关联的
+        隐藏线索描述"的误报。
+
+        Args:
+            narrative_text: 叙事文本
+
+        Returns:
+            疑似提及隐藏信息时为 True
+        """
+        scene = self.state.scene
+        scene_names = self._collect_scene_names()
+
+        for clue in scene.clues_hidden.values():
+            if clue.name and clue.name in narrative_text:
+                return True
+            if clue.description:
+                stripped = self._strip_names(clue.description, scene_names)
+                if self._check_bigram_overlap(stripped, narrative_text):
+                    return True
+
+        for npc in scene.npcs.values():
+            for item in npc.items_hidden.values():
+                if item.name and item.name in narrative_text:
+                    return True
+                if item.description:
+                    stripped = self._strip_names(item.description, scene_names)
+                    if self._check_bigram_overlap(stripped, narrative_text):
+                        return True
+
+        for item in scene.scene_items_hidden.values():
+            if item.name and item.name in narrative_text:
+                return True
+            if item.description:
+                stripped = self._strip_names(item.description, scene_names)
+                if self._check_bigram_overlap(stripped, narrative_text):
+                    return True
+
+        return False
+
+    def _check_bigram_overlap(self, description: str, narrative: str) -> bool:
+        """检查净化后的描述与叙事文本的 bigram 重叠是否达到阈值。
+
+        阈值 3：大致对应一个 3-4 字短语的匹配（如"防水尼龙"产生
+        防水、水尼、尼龙 三个 bigrams）。
+
+        Args:
+            description: 净化后的隐藏信息描述文本
+            narrative: 叙事文本
+
+        Returns:
+            bigram 重叠数 ≥ 3 时返回 True
+        """
+        desc_bigrams = self._extract_ngrams(description, 2)
+        if not desc_bigrams:
+            return False
+        nar_bigrams = self._extract_ngrams(narrative, 2)
+        overlap = desc_bigrams & nar_bigrams
+        return len(overlap) >= 3
+
     def _needs_validation(self, narrator_note) -> bool:
         """判断是否需要触发 LLM 验证 Agent。
 
-        仅在叙述者标记了线索/物品揭示或物品转移时触发验证。
-        纯叙事（绝大多数情况）直接跳过，节省约 1500 token/次。
+        三层触发条件（任一满足即触发）：
+        1. 叙述者标记了线索/物品揭示操作
+        2. 叙述者标记了物品转移操作
+        3. 关键词预检检测到叙事文本疑似提及隐藏信息
+
+        纯叙事（绝大多数情况）直接跳过，节省约 500 token/次。
 
         Args:
             narrator_note: 叙述者 Agent 的分析便签
@@ -216,32 +361,49 @@ class MovePipeline:
         decisions = structured.get("revelation_decisions", {})
         if decisions.get("reveal_clue_ids") or decisions.get("reveal_item_ids"):
             return True
+        narrative = structured.get("narrative", "")
+        if narrative and self._mentions_hidden_info(narrative):
+            return True
+
         return bool(structured.get("item_transfers"))
 
     def validate_and_apply(self, narrator_note, ctx=None):
         """校验叙事输出并应用状态变更。
 
-        仅在检测到揭示或转移操作时触发 LLM 验证，否则直接应用。
-        验证通过后才执行揭示和物品转移操作。
+        叙述者的 revelation_decisions 和 item_transfers 只是提议。
+        当需要校验时（有揭示/转移操作或关键词预检命中），
+        验证 Agent 输出最终的权威版本并执行；否则直接应用提议。
 
         Args:
             narrator_note: 叙述者 Agent 的分析便签
             ctx: 当前场景上下文（用于 emergent 物品创建）
         """
-        # 快速路径：无揭示/转移操作时跳过 LLM 验证
-        if not self._needs_validation(narrator_note):
-            self._apply_revelations(narrator_note)
-            self._apply_item_transfers(narrator_note, ctx)
-            return
+        if self._needs_validation(narrator_note):
+            final = self._run_validator(narrator_note)
+        else:
+            final = narrator_note.structured
 
+        self._apply_revelations(final)
+        self._apply_item_transfers(final, ctx)
+
+    def _run_validator(self, narrator_note) -> dict:
+        """调用验证 Agent 并返回最终的 revelation_decisions 和 item_transfers。
+
+        验证 Agent 以叙述者的提议为基础，检查泄露、矛盾、揭示完整性
+        和转移完整性，修正后输出可直接执行的 dict。
+
+        Args:
+            narrator_note: 叙述者 Agent 的分析便签
+
+        Returns:
+            验证 Agent 输出的 structured dict，包含修正后的
+            revelation_decisions 和 item_transfers
+        """
         scene = self.state.scene
-
-        # 收集所有隐藏线索和物品的索引
         hidden_clues = scene.clues_hidden
         hidden_items = {
             iid: item for npc in scene.npcs.values() for iid, item in npc.items_hidden.items()
         }
-        scene_hidden = scene.scene_items_hidden
 
         valid_note = self.validator.execute(
             narrator_note,
@@ -249,29 +411,29 @@ class MovePipeline:
             hidden_items=hidden_items,
             visible_clues=scene.clues_visible,
             visible_items=self.state.character.items_visible if self.state.character else {},
-            scene_items_hidden=scene_hidden,
+            scene_items_hidden=scene.scene_items_hidden,
             scene_items_visible=scene.scene_items_visible,
             npcs=scene.npcs,
         )
 
-        # 校验不通过则跳过
-        if valid_note.structured.get("verdict") == "reject":
-            return
+        # 记录验证 Agent 发现的问题（用于开发调试）
+        issues = valid_note.structured.get("issues", [])
+        for issue in issues:
+            log_system(f"[验证警告] {issue.get('severity', '?')}: {issue.get('description', '?')}")
 
-        self._apply_revelations(narrator_note)
-        self._apply_item_transfers(narrator_note, ctx)
+        return valid_note.structured
 
-    def _apply_revelations(self, narrator_note):
-        """执行叙事中揭示的线索和物品。
+    def _apply_revelations(self, structured: dict):
+        """执行最终决策中的揭示操作。
 
-        从叙述者便签的 revelation_decisions 中提取揭示指令，
+        从 structured dict 的 revelation_decisions 中提取揭示指令，
         将隐藏的线索/物品从隐藏字典转移到可见字典。
 
         Args:
-            narrator_note: 叙述者 Agent 的分析便签
+            structured: 包含 revelation_decisions 的 dict
         """
         scene = self.state.scene
-        decisions = narrator_note.structured.get("revelation_decisions", {})
+        decisions = structured.get("revelation_decisions", {})
 
         for clue_id in decisions.get("reveal_clue_ids", []):
             if clue_id in scene.clues_hidden:
@@ -280,13 +442,11 @@ class MovePipeline:
 
         for item_id in decisions.get("reveal_item_ids", []):
             found = False
-            # 先在场景物品中查找
             if item_id in scene.scene_items_hidden:
                 item = scene.scene_items_hidden.pop(item_id)
                 scene.scene_items_visible[item_id] = item
                 found = True
             else:
-                # 再在 NPC 隐藏物品中查找
                 for npc in scene.npcs.values():
                     if item_id in npc.items_hidden:
                         item = npc.items_hidden.pop(item_id)
@@ -296,19 +456,19 @@ class MovePipeline:
             if not found:
                 log_system(f"[揭示执行] 未找到物品 '{item_id}'")
 
-    def _apply_item_transfers(self, narrator_note, ctx=None):
-        """执行叙事中的物品转移。
+    def _apply_item_transfers(self, structured: dict, ctx=None):
+        """执行最终决策中的物品转移。
 
         处理物品在不同位置之间的移动（场景 ↔ 角色 ↔ NPC），
         支持自动创建 emergent 物品（叙述者即兴引入的新物品）。
 
         Args:
-            narrator_note: 叙述者 Agent 的分析便签
+            structured: 包含 item_transfers 的 dict
             ctx: 当前场景上下文（用于 emergent 物品创建）
         """
         _scene = self.state.scene
-        transfers = narrator_note.structured.get("item_transfers", [])
-        location_updates = narrator_note.structured.get("location_text_updates", [])
+        transfers = structured.get("item_transfers", [])
+        location_updates = structured.get("location_text_updates", [])
 
         # 构建物品位置更新映射
         loc_map = {u["item_id"]: u["new_location"] for u in location_updates if isinstance(u, dict)}
