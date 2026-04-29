@@ -1,6 +1,7 @@
 import unittest
 
 from src.formatter import (
+    format_challenge_for_consequence,
     format_challenge_state,
     format_limit_gap,
     format_limit_progress,
@@ -163,6 +164,70 @@ class TestFormatLimitGap(unittest.TestCase):
         challenge = Challenge(name="空", description="无极限", limits=[])
         result = format_limit_gap(challenge)
         self.assertIn("(无极限)", result)
+
+
+class TestFormatChallengeForConsequence(unittest.TestCase):
+    """测试 format_challenge_for_consequence —— 后果 Agent 专用挑战视图。"""
+
+    def setUp(self):
+        self.challenge = Challenge(
+            name="Miko 与她的保镖",
+            description="中间人",
+            limits=[
+                Limit(name="说服或威胁", max_tier=3),
+                Limit(name="伤害或制服", max_tier=4),
+            ],
+            base_tags=[
+                PowerTag(name="精明的谈判者"),
+                PowerTag(name="两个专业保镖"),
+            ],
+            notes="Miko 重视情报，如果被威胁会触发警报",
+        )
+
+    def test_includes_threat_notes(self):
+        """便签以「威胁来源」标签呈现。"""
+        result = format_challenge_for_consequence(self.challenge)
+        self.assertIn("便签（威胁来源）:", result)
+        self.assertIn("Miko 重视情报", result)
+
+    def test_excludes_base_tags(self):
+        """不包含基础标签（后果 Agent 不需要角色力量/弱点标签）。"""
+        result = format_challenge_for_consequence(self.challenge)
+        self.assertNotIn("基础标签:", result)
+        self.assertNotIn("精明的谈判者", result)
+
+    def test_includes_limits_summary(self):
+        """极限信息以单行汇总呈现。"""
+        result = format_challenge_for_consequence(self.challenge)
+        self.assertIn("极限进度:", result)
+        self.assertIn("说服或威胁", result)
+        self.assertIn("伤害或制服", result)
+
+    def test_no_notes_fallback(self):
+        """无便签时显示推导提示。"""
+        challenge = Challenge(
+            name="简单挑战",
+            description="测试",
+            limits=[Limit(name="伤害", max_tier=3)],
+        )
+        result = format_challenge_for_consequence(challenge)
+        self.assertIn("无明确威胁描述", result)
+
+    def test_includes_challenge_name_and_desc(self):
+        """包含挑战名和描述。"""
+        result = format_challenge_for_consequence(self.challenge)
+        self.assertIn("挑战:", result)
+        self.assertIn("Miko 与她的保镖", result)
+        self.assertIn("描述:", result)
+        self.assertIn("中间人", result)
+
+    def test_includes_statuses_and_story_tags(self):
+        """包含当前状态和故事标签。"""
+        self.challenge.statuses["被说服"] = Status(name="被说服", current_tier=2, ticked_boxes={2})
+        self.challenge.story_tags["警报已触发"] = StoryTag(name="警报已触发")
+        result = format_challenge_for_consequence(self.challenge)
+        self.assertIn("被说服", result)
+        self.assertIn("警报已触发", result)
 
 
 if __name__ == "__main__":

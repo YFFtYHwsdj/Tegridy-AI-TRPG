@@ -126,6 +126,41 @@ def format_challenge_state(challenge) -> str:
     return "\n".join(lines)
 
 
+def format_challenge_for_consequence(challenge) -> str:
+    """格式化挑战信息，供后果 Agent 专用。
+
+    与 format_challenge_state 的区别：
+    - 将便签作为「威胁来源」强调呈现
+    - 不显示基础标签（后果 Agent 不需要角色的力量/弱点标签）
+    - 简化极限信息为一行的汇总
+
+    Args:
+        challenge: Challenge 对象
+
+    Returns:
+        格式化的多行文本块
+    """
+    lines = [
+        f"挑战: {challenge.name}",
+        f"描述: {challenge.description}",
+    ]
+    if challenge.notes:
+        lines.append(f"便签（威胁来源）: {challenge.notes}")
+    else:
+        lines.append("便签（威胁来源）: (无明确威胁描述，请从挑战性质推导)")
+
+    progress = challenge.get_limit_progress()
+    limits_str = (
+        ", ".join(format_limit_progress(limit, progress[limit.name]) for limit in challenge.limits)
+        if challenge.limits
+        else "(无极限)"
+    )
+    lines.append(f"极限进度: {limits_str}")
+    lines.append(f"故事标签: {format_story_tags(challenge.story_tags)}")
+    lines.append(f"当前状态: {format_statuses(challenge.statuses)}")
+    return "\n".join(lines)
+
+
 def format_limit_gap(challenge) -> str:
     """格式化极限差距信息 —— 显示还需多少级才能触发每个极限。
 
