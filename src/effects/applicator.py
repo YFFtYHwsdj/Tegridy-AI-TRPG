@@ -77,10 +77,10 @@ class EffectApplicator:
 
         # 优先级1: 关键字匹配
         if name_lower == "挑战":
-            log_system(f"[目标解析] 关键字匹配: '{target_name}' → 挑战")
+            log_system(f"关键字匹配: '{target_name}' → 挑战", level="debug")
             return challenge
         if name_lower in ("自身", "self"):
-            log_system(f"[目标解析] 关键字匹配: '{target_name}' → 角色")
+            log_system(f"关键字匹配: '{target_name}' → 角色", level="debug")
             return character
 
         char_name_lower = character.name.lower()
@@ -88,10 +88,10 @@ class EffectApplicator:
 
         # 优先级2: 名称精确匹配
         if name_lower == char_name_lower:
-            log_system(f"[目标解析] 精确匹配: '{target_name}' → 角色 '{character.name}'")
+            log_system(f"精确匹配: '{target_name}' → 角色 '{character.name}'", level="debug")
             return character
         if name_lower == chal_name_lower:
-            log_system(f"[目标解析] 精确匹配: '{target_name}' → 挑战 '{challenge.name}'")
+            log_system(f"精确匹配: '{target_name}' → 挑战 '{challenge.name}'", level="debug")
             return challenge
 
         # 优先级3: 模糊匹配（仅名称长度≥3时启用，避免短词误匹配）
@@ -105,14 +105,16 @@ class EffectApplicator:
 
             if char_qualifies and not chal_qualifies:
                 log_system(
-                    f"[目标解析] 模糊匹配: '{target_name}' → 角色 '{character.name}' "
-                    f"(in={char_match}, ratio={char_ratio:.0%})"
+                    f"模糊匹配: '{target_name}' → 角色 '{character.name}' "
+                    f"(in={char_match}, ratio={char_ratio:.0%})",
+                    level="debug",
                 )
                 return character
             if chal_qualifies and not char_qualifies:
                 log_system(
-                    f"[目标解析] 模糊匹配: '{target_name}' → 挑战 '{challenge.name}' "
-                    f"(in={chal_match}, ratio={chal_ratio:.0%})"
+                    f"模糊匹配: '{target_name}' → 挑战 '{challenge.name}' "
+                    f"(in={chal_match}, ratio={chal_ratio:.0%})",
+                    level="debug",
                 )
                 return challenge
             if char_qualifies and chal_qualifies:
@@ -120,23 +122,26 @@ class EffectApplicator:
                 if ratio_diff >= 0.1:
                     if char_ratio > chal_ratio:
                         log_system(
-                            f"[目标解析] 歧义消解(比): '{target_name}' → 角色 '{character.name}' "
-                            f"({char_ratio:.0%} vs 挑战 {chal_ratio:.0%})"
+                            f"歧义消解(比): '{target_name}' → 角色 '{character.name}' "
+                            f"({char_ratio:.0%} vs 挑战 {chal_ratio:.0%})",
+                            level="debug",
                         )
                         return character
                     else:
                         log_system(
-                            f"[目标解析] 歧义消解(比): '{target_name}' → 挑战 '{challenge.name}' "
-                            f"({chal_ratio:.0%} vs 角色 {char_ratio:.0%})"
+                            f"歧义消解(比): '{target_name}' → 挑战 '{challenge.name}' "
+                            f"({chal_ratio:.0%} vs 角色 {char_ratio:.0%})",
+                            level="debug",
                         )
                         return challenge
                 else:
                     log_system(
-                        f"[目标解析] 歧义(比例接近): '{target_name}' 同时匹配角色和挑战"
-                        f"(角色{char_ratio:.0%}, 挑战{chal_ratio:.0%}), 差距<10%, 无法判定"
+                        f"歧义(比例接近): '{target_name}' 同时匹配角色和挑战"
+                        f"(角色{char_ratio:.0%}, 挑战{chal_ratio:.0%}), 差距<10%, 无法判定",
+                        level="debug",
                     )
 
-        log_system(f"[目标解析] 无法匹配效果目标 '{target_name}', 已忽略")
+        log_system(f"无法匹配效果目标 '{target_name}', 已忽略", level="warning")
         return None
 
     @staticmethod
@@ -180,7 +185,7 @@ class EffectApplicator:
                     limit_category = eff.get("limit_category", "")
                     apply_status(target, label, tier, limit_category)
                     eff_type = eff.get("effect_type", "?")
-                    log_system(f"[效果应用] {eff_type}: {label}-{tier} → {target.name}")
+                    log_system(f"{eff_type}: {label}-{tier} → {target.name}", level="debug")
 
                 elif operation == "nudge_status":
                     status_to_nudge = eff.get("status_to_nudge", eff.get("label", ""))
@@ -189,7 +194,8 @@ class EffectApplicator:
                     result = nudge_status(target, status_to_nudge)
                     eff_type = eff.get("effect_type", "?")
                     log_system(
-                        f"[效果应用] {eff_type}: nudge {status_to_nudge} → 等级{result.current_tier}"
+                        f"{eff_type}: nudge {status_to_nudge} → 等级{result.current_tier}",
+                        level="debug",
                     )
 
                 elif operation == "reduce_status":
@@ -201,10 +207,11 @@ class EffectApplicator:
                     eff_type = eff.get("effect_type", "?")
                     if result:
                         log_system(
-                            f"[效果应用] {eff_type}: {status_to_reduce} 降低{reduce_by}级 → 剩余{result.current_tier}"
+                            f"{eff_type}: {status_to_reduce} 降低{reduce_by}级 → 剩余{result.current_tier}",
+                            level="debug",
                         )
                     else:
-                        log_system(f"[效果应用] {eff_type}: {status_to_reduce} 已完全移除")
+                        log_system(f"{eff_type}: {status_to_reduce} 已完全移除", level="debug")
 
                 elif operation == "add_story_tag":
                     name = eff.get("story_tag_name", "")
@@ -214,7 +221,7 @@ class EffectApplicator:
                     is_single_use = eff.get("is_single_use", False)
                     add_story_tag(target, name, description, is_single_use)
                     eff_type = eff.get("effect_type", "?")
-                    log_system(f"[效果应用] {eff_type}: 添加故事标签 [{name}] → {target.name}")
+                    log_system(f"{eff_type}: 添加故事标签 [{name}] → {target.name}", level="debug")
 
                 elif operation == "scratch_story_tag":
                     name = eff.get("story_tag_to_scratch", "")
@@ -223,25 +230,28 @@ class EffectApplicator:
                     result = remove_story_tag(target, name)
                     eff_type = eff.get("effect_type", "?")
                     if result:
-                        log_system(f"[效果应用] {eff_type}: 移除故事标签 [{name}]")
+                        log_system(f"{eff_type}: 移除故事标签 [{name}]", level="debug")
                     else:
-                        log_system(f"[效果应用] {eff_type}: 故事标签 [{name}] 不存在，已忽略")
+                        log_system(
+                            f"{eff_type}: 故事标签 [{name}] 不存在，已忽略",
+                            level="warning",
+                        )
 
                 elif operation == "discover":
                     # 纯叙事操作，仅记录日志
                     detail = eff.get("detail", "")
                     if detail:
-                        log_system(f"[效果应用] discover: {detail}")
+                        log_system(f"discover: {detail}", level="debug")
 
                 elif operation == "extra_feat":
                     # 纯叙事操作，仅记录日志
                     description = eff.get("description", "")
                     if description:
-                        log_system(f"[效果应用] extra_feat: {description}")
+                        log_system(f"extra_feat: {description}", level="debug")
 
             except Exception as e:
                 eff_type = eff.get("effect_type", "?")
-                msg = f"[效果应用错误] {eff_type} ({operation}): {e}"
-                log_system(msg)
+                msg = f"{eff_type} ({operation}): {e}"
+                log_system(msg, level="error")
                 errors.append(msg)
         return errors

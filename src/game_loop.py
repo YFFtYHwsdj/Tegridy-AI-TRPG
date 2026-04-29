@@ -11,6 +11,10 @@
 核心流程：
     玩家输入 → Move 判定 → 意图解析 → 结算模式选择
     → 流水线执行 → 效果落地 → 叙事输出 → 极限检查
+
+输出通道划分：
+    - 叙事文本、系统命令响应 → INFO（终端始终可见）
+    - 管道状态、结算模式、行动类型等内部追踪 → DEBUG（仅调试模式终端可见）
 """
 
 from src.agents import (
@@ -26,7 +30,7 @@ from src.effects.applicator import EffectApplicator
 from src.engine import check_limits
 from src.formatter import format_challenge_state
 from src.llm_client import LLMClient
-from src.logger import log_status_update, log_system
+from src.logger import get_logger, log_status_update, log_system, set_debug_mode
 from src.models import Character
 from src.pipeline.move_pipeline import MovePipeline
 from src.state.game_state import GameState
@@ -47,8 +51,11 @@ class GameLoop:
     def __init__(self, llm: LLMClient, debug_mode: bool = False):
         self.llm = llm
         self.state = GameState()
-        self.display = ConsoleDisplay(debug_mode=debug_mode)
+        self._log = get_logger()
+        self.display = ConsoleDisplay(self._log)
         self.pipeline = MovePipeline(llm, self.state, self.display)
+        self.debug_mode = debug_mode
+        set_debug_mode(debug_mode)
 
         # 创建各类 Agent 实例
         self.rhythm_agent = RhythmAgent(llm)
@@ -64,8 +71,9 @@ class GameLoop:
         Returns:
             切换后的调试模式状态
         """
-        self.display.debug_mode = not self.display.debug_mode
-        return self.display.debug_mode
+        self.debug_mode = not self.debug_mode
+        set_debug_mode(self.debug_mode)
+        return self.debug_mode
 
     def _handle_command(self, raw: str) -> str:
         """处理系统命令。
@@ -87,15 +95,15 @@ class GameLoop:
         if cmd == "/debug":
             state = self.toggle_debug()
             label = "ON" if state else "OFF"
-            print(f"  [系统] 调试模式已切换为: {label}")
+            self._log.info("  [系统] 调试模式已切换为: %s", label)
             return ""
         if cmd == "/help":
-            print("  [命令列表]")
-            print("    /quit, /exit  — 退出游戏")
-            print("    /debug        — 切换调试显示模式")
-            print("    /help         — 显示此帮助")
+            self._log.info("  [命令列表]")
+            self._log.info("    /quit, /exit  — 退出游戏")
+            self._log.info("    /debug        — 切换调试显示模式")
+            self._log.info("    /help         — 显示此帮助")
             return ""
-        print(f"  [系统] 未知命令: {cmd}。输入 /help 查看可用命令。")
+        self._log.info("  [系统] 未知命令: %s。输入 /help 查看可用命令。", cmd)
         return ""
 
     def setup(self, character: Character, scene: SceneState):
@@ -112,22 +120,26 @@ class GameLoop:
 
         challenge = self.state.scene.primary_challenge()
 
-        print("\n" + "═" * 50)
-        print("       :OTHERSCAPE · AI 主持 · 单场景 Demo")
-        print("═" * 50)
+        self._log.info("")
+        self._log.info("═" * 50)
+        self._log.info("       :OTHERSCAPE · AI 主持 · 单场景 Demo")
+        self._log.info("═" * 50)
 
         rhythm = self.rhythm_agent.execute(scene.scene_description)
         narrative = rhythm.structured.get("scene_establishment", "")
-        print(f"\n{narrative}")
+        self._log.info("")
+        self._log.info(narrative)
         self.state.append_narrative(narrative)
 
-        print(f"\n{'─' * 50}")
-        print("挑战状态:")
-        print(format_challenge_state(challenge))
-        print("─" * 50)
+        self._log.info("")
+        self._log.info("─" * 50)
+        self._log.info("挑战状态:")
+        self._log.info(format_challenge_state(challenge))
+        self._log.info("─" * 50)
 
         spotlight = rhythm.structured.get("spotlight_handoff", "你要做什么？")
-        print(f"\n{spotlight}")
+        self._log.info("")
+        self._log.info(spotlight)
 
     def process_action(self, player_input: str) -> str:
         """处理单次玩家行动。
@@ -154,7 +166,8 @@ class GameLoop:
         if not raw:
             return ""
 
-        print("\n" + "─" * 50)
+        self._log.info("")
+        self._log.info("─" * 50)
 
         ctx = self.state.make_context(raw)
 
@@ -165,7 +178,7 @@ class GameLoop:
         if not is_move:
             return self._handle_non_move(raw, ctx, gatekeeper_note)
 
-        print("  [管道开始 · 掷骰模式]")
+        self._log.debug("  [管道开始 · 掷骰模式]")
 
         # 第3层: 意图解析 + 结算模式判定
         intent_note = self.intent_agent.execute(raw, ctx)
@@ -174,7 +187,7 @@ class GameLoop:
         action_type = intent_note.structured.get("action_type", "unknown")
         action_summary = intent_note.structured.get("action_summary", "")
 
-        print(f"  行动类型: {action_type} | 行动: {action_summary}")
+        self._log.debug("  行动类型: %s | 行动: %s", action_type, action_summary)
 
         # 复合 action（如"先撬门，再偷文件"）→ 拆分流水线
         if is_split and isinstance(split_actions, list) and len(split_actions) >= 2:
@@ -183,7 +196,7 @@ class GameLoop:
         # 结算模式判定（detailed vs quick）
         resolution_note = self.resolution_agent.execute(intent_note, ctx)
         resolution_mode = resolution_note.structured.get("resolution_mode", "detailed")
-        print(f"  结算模式: {resolution_mode}")
+        self._log.debug("  结算模式: %s", resolution_mode)
 
         if resolution_mode == "quick":
             return self._process_move(intent_note, ctx, quick=True)
@@ -203,15 +216,16 @@ class GameLoop:
         Returns:
             叙事文本
         """
-        print("  [叙事模式]")
+        self._log.debug("  [叙事模式]")
 
         narrator_note = self.lite_narrator.execute(player_input, ctx, "")
-        print("─" * 50)
+        self._log.info("─" * 50)
 
         self.pipeline.validate_and_apply(narrator_note, ctx)
 
         narrative = narrator_note.structured.get("narrative", "")
-        print(f"\n{narrative}")
+        self._log.info("")
+        self._log.info(narrative)
         self.state.append_narrative(narrative)
 
         self.display.print_status(self.state)
@@ -250,14 +264,15 @@ class GameLoop:
             challenge,
         )
         if effect_errors:
-            log_system(f"[效果应用警告] 共 {len(effect_errors)} 个效果应用失败")
+            log_system(f"共 {len(effect_errors)} 个效果应用失败", level="warning")
 
         self._finalize_move()
 
-        print("─" * 50)
+        self._log.info("─" * 50)
 
         narrative = result.narrator_note.structured.get("narrative", "")
-        print(f"\n{narrative}")
+        self._log.info("")
+        self._log.info(narrative)
         self.state.append_narrative(narrative)
 
         self.display.print_status(self.state)
@@ -300,14 +315,15 @@ class GameLoop:
                 challenge,
             )
             if effect_errors:
-                log_system(f"[效果应用警告] 共 {len(effect_errors)} 个效果应用失败")
+                log_system(f"共 {len(effect_errors)} 个效果应用失败", level="warning")
 
             self._finalize_move()
 
-            print("─" * 50)
+            self._log.info("─" * 50)
 
             narrative = result.narrator_note.structured.get("narrative", "")
-            print(f"\n{narrative}")
+            self._log.info("")
+            self._log.info(narrative)
             self.state.append_narrative(narrative)
             narratives.append(narrative)
 
@@ -349,7 +365,8 @@ class GameLoop:
         challenge = self.state.scene.primary_challenge()
         assert challenge is not None
         limit_names = [lim.name for lim in triggered_limits]
-        print(f"\n  ⚡ 极限突破: {', '.join(limit_names)}!")
+        self._log.info("")
+        self._log.info("  ⚡ 极限突破: %s!", ", ".join(limit_names))
 
         ctx = self.state.make_context()
 
@@ -360,18 +377,21 @@ class GameLoop:
         )
         break_narrative = limit_break_note.structured.get("narrative", "")
         if break_narrative:
-            print("\n" + "─" * 50)
-            print(f"\n{break_narrative}")
+            self._log.info("")
+            self._log.info("─" * 50)
+            self._log.info("")
+            self._log.info(break_narrative)
             self.state.append_narrative(break_narrative)
 
         transformation = limit_break_note.structured.get("challenge_transformation", "")
         if transformation:
             challenge.transformation = transformation
-            print(f"\n  [场景转变] {transformation}")
+            self._log.info("")
+            self._log.info("  [场景转变] %s", transformation)
 
         scene_direction = limit_break_note.structured.get("scene_direction", "")
         if scene_direction:
-            print(f"  [走向] {scene_direction}")
+            self._log.info("  [走向] %s", scene_direction)
 
         challenge.mark_limits_broken(limit_names)
         log_status_update(challenge.name, challenge.statuses)

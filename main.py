@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 from src.game_loop import GameLoop
 from src.llm_client import LLMClient
-from src.logger import init_log
+from src.logger import get_logger, init_logging
 from src.preset_data import (
     DEMO_CHARACTER,
     build_demo_scene,
@@ -35,17 +35,20 @@ def main():
     model = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
 
     if not api_key:
+        # init_logging 之前还没有 logger，保留 print
         print("错误: 请在 .env 文件中设置 DEEPSEEK_API_KEY")
         sys.exit(1)
 
-    log_file = init_log(PROJECT_ROOT)
-    print(f"日志文件: {log_file}")
+    session_file, llm_file = init_logging(PROJECT_ROOT, debug_mode=True)
+    _log = get_logger()
+    _log.info("游戏日志: %s", session_file)
+    _log.info("LLM调用日志: %s", llm_file)
 
-    print("正在连接到 DeepSeek...")
+    _log.info("正在连接到 DeepSeek...")
     try:
         llm = LLMClient(api_key=api_key, base_url=base_url, model=model, thinking=False)
     except Exception as e:
-        print(f"连接失败: {e}")
+        _log.error("连接失败: %s", e)
         sys.exit(1)
 
     game = GameLoop(llm, debug_mode=True)
@@ -54,13 +57,15 @@ def main():
         scene=build_demo_scene(),
     )
 
-    print("\n输入你的行动（输入 /quit 退出，/help 查看命令）")
+    _log.info("")
+    _log.info("输入你的行动（输入 /quit 退出，/help 查看命令）")
 
     while True:
         try:
             player_input = input("\n> ").strip()
         except (EOFError, KeyboardInterrupt):
-            print("\n游戏结束。")
+            _log.info("")
+            _log.info("游戏结束。")
             break
 
         if not player_input:
@@ -68,7 +73,7 @@ def main():
 
         result = game.process_action(player_input)
         if result == "QUIT":
-            print("游戏结束。")
+            _log.info("游戏结束。")
             break
 
 

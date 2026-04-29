@@ -43,8 +43,11 @@ class BaseAgent(ABC):  # noqa: B024
         Returns:
             AgentNote: 包含推理过程和结构化数据的分析便签
         """
-        print(f"\n  [{self.agent_name}] 调用中...", end=" ", flush=True)
+        from src.logger import get_game_logger
+
+        _log = get_game_logger()
+        _log.debug("[%s] 调用中...", self.agent_name)
         raw, usage_info = self.llm.chat(self.system_prompt, user_message)
         log_call(self.agent_name, self.system_prompt, user_message, raw, usage_info)
-        print("完成")
+        _log.debug("[%s] 完成", self.agent_name)
         return parse_agent_output(raw)

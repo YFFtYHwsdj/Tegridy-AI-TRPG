@@ -93,7 +93,7 @@ def _recover_json(text: str) -> dict | None:
     fixed = re.sub(r",\s*([}\]])", r"\1", json_str)
     try:
         result = json.loads(fixed)
-        log_system(f"[JSON修复] 尾随逗号修复成功: {last_error}")
+        log_system(f"尾随逗号修复成功: {last_error}", level="debug")
         return result
     except json.JSONDecodeError:
         pass
@@ -103,13 +103,13 @@ def _recover_json(text: str) -> dict | None:
     if extracted is not None and extracted != json_str:
         try:
             result = json.loads(extracted)
-            log_system("[JSON修复] 平衡括号提取JSON成功")
+            log_system("平衡括号提取JSON成功", level="debug")
             return result
         except json.JSONDecodeError:
             fixed_extracted = re.sub(r",\s*([}\]])", r"\1", extracted)
             try:
                 result = json.loads(fixed_extracted)
-                log_system("[JSON修复] 平衡括号提取 + 尾随逗号修复成功")
+                log_system("平衡括号提取 + 尾随逗号修复成功", level="debug")
                 return result
             except json.JSONDecodeError:
                 pass
@@ -120,7 +120,7 @@ def _recover_json(text: str) -> dict | None:
         fixed_quotes = re.sub(r",\s*([}\]])", r"\1", fixed_quotes)
         try:
             result = json.loads(fixed_quotes)
-            log_system("[JSON修复] 单引号替换为双引号修复成功")
+            log_system("单引号替换为双引号修复成功", level="debug")
             return result
         except json.JSONDecodeError:
             pass
@@ -130,7 +130,7 @@ def _recover_json(text: str) -> dict | None:
     fixed_keys = re.sub(r",\s*([}\]])", r"\1", fixed_keys)
     try:
         result = json.loads(fixed_keys)
-        log_system("[JSON修复] 未加引号的键名修复成功")
+        log_system("未加引号的键名修复成功", level="debug")
         return result
     except json.JSONDecodeError:
         pass
@@ -176,7 +176,10 @@ def parse_agent_output(raw_output: str) -> AgentNote:
             structured = result
         else:
             snippet = structured_str[:200] + ("..." if len(structured_str) > 200 else "")
-            log_system(f"[JSON解析] 所有修复尝试均失败，回退为raw。 原始内容前200字符: {snippet}")
+            log_system(
+                f"所有修复尝试均失败，回退为raw。 原始内容前200字符: {snippet}",
+                level="warning",
+            )
             structured = {"raw": structured_str}
     else:
         # 叙述者等 Agent 可能在无揭示/转移时不输出 STRUCTURED，属正常情况

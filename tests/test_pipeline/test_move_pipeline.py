@@ -137,8 +137,12 @@ class TestMovePipelineSingleMove(unittest.TestCase):
 
         return pipeline
 
-    def test_calls_all_agents_in_order(self):
+    @patch("src.pipeline.move_pipeline.roll_dice")
+    def test_calls_all_agents_in_order(self, mock_roll_dice):
         """标准流水线按顺序调用各 Agent。"""
+        mock_roll_dice.return_value = RollResult(
+            power=1, dice=(4, 3), total=8, outcome="partial_success"
+        )
         mock_llm = MockLLMClient()
         state = make_test_game_state()
         pipeline = self._make_pipeline(state, mock_llm)

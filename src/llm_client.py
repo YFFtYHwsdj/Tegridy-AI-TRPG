@@ -108,11 +108,27 @@ class LLMClient:
                 APIError,
             ) as e:
                 if attempt < self.max_retries - 1:
-                    time.sleep(2**attempt)
+                    from src.logger import get_game_logger
+
+                    wait_s = 2**attempt
+                    get_game_logger().warning(
+                        "LLM重试 %d/%d (%s)，等待 %ds 后重试",
+                        attempt + 1,
+                        self.max_retries,
+                        type(e).__name__,
+                        wait_s,
+                    )
+                    time.sleep(wait_s)
                     continue
+                from src.logger import get_game_logger
+
+                get_game_logger().error("LLM调用失败（已重试%d次）: %s", self.max_retries, e)
                 raise LLMError(f"API 调用失败（已重试 {self.max_retries} 次）: {e}") from e
             except LLMError:
                 raise
             except Exception as e:
+                from src.logger import get_game_logger
+
+                get_game_logger().error("LLM调用未预期错误: %s", e)
                 raise LLMError(f"API 调用发生未预期错误: {e}") from e
         raise LLMError("API 调用失败：已达最大重试次数")

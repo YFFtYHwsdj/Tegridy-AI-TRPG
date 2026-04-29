@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from src.agents.base import BaseAgent
 from src.models import AgentNote
@@ -75,17 +75,21 @@ class TestBaseAgentCallLLM(unittest.TestCase):
 
         self.assertEqual(mock_llm.call_history[0]["temperature"], 0.3)
 
-    @patch("src.agents.base.print")
-    def test_prints_agent_name(self, mock_print):
-        """验证调用时打印 Agent 名称。"""
+    @patch("src.logger.get_game_logger")
+    def test_prints_agent_name(self, mock_get_logger):
+        """验证调用时通过日志记录 Agent 名称。"""
+        mock_logger = MagicMock()
+        mock_get_logger.return_value = mock_logger
         mock_llm = MockLLMClient(
             responses=[("=====REASONING=====\n测试\n=====STRUCTURED=====\n{}", {})]
         )
         agent = DummyAgent(mock_llm)
         agent._call_llm("输入")
 
-        printed = " ".join(str(call) for call in mock_print.call_args_list)
-        self.assertIn("DummyAgent", printed)
+        logged = " ".join(
+            str(call.args) for call in mock_logger.debug.call_args_list
+        )
+        self.assertIn("DummyAgent", logged)
 
     @patch("src.agents.base.log_call")
     def test_logs_call(self, mock_log_call):

@@ -419,7 +419,10 @@ class MovePipeline:
         # 记录验证 Agent 发现的问题（用于开发调试）
         issues = valid_note.structured.get("issues", [])
         for issue in issues:
-            log_system(f"[验证警告] {issue.get('severity', '?')}: {issue.get('description', '?')}")
+            log_system(
+                f"验证警告: {issue.get('severity', '?')}: {issue.get('description', '?')}",
+                level="warning",
+            )
 
         return valid_note.structured
 
@@ -454,7 +457,7 @@ class MovePipeline:
                         found = True
                         break
             if not found:
-                log_system(f"[揭示执行] 未找到物品 '{item_id}'")
+                log_system(f"未找到物品 '{item_id}'", level="warning")
 
     def _apply_item_transfers(self, structured: dict, ctx=None):
         """执行最终决策中的物品转移。
@@ -488,10 +491,10 @@ class MovePipeline:
                 # 物品不存在 → 尝试自动创建 emergent 物品
                 created = self._create_emergent_item(item_id, ctx)
                 if not created:
-                    log_system(f"[物品转移] 未找到且无法创建 '{item_id}' (from={from_loc})")
+                    log_system(f"未找到且无法创建 '{item_id}' (from={from_loc})", level="warning")
                     continue
                 item = created
-                log_system(f"[emergent物品] 转移时自动创建 '{item_id}'")
+                log_system(f"转移时自动创建 '{item_id}'", level="debug")
 
             # 更新物品的 location 文本
             if item_id in loc_map:

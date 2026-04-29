@@ -35,9 +35,9 @@ class TestGameLoopCommands(unittest.TestCase):
 
     def test_debug_command_toggles_mode(self):
         """/debug 切换调试模式。"""
-        initial = self.loop.display.debug_mode
+        initial = self.loop.debug_mode
         self.loop._handle_command("/debug")
-        self.assertEqual(self.loop.display.debug_mode, not initial)
+        self.assertEqual(self.loop.debug_mode, not initial)
 
     def test_help_command(self):
         """/help 显示帮助信息。"""
@@ -323,16 +323,16 @@ class TestGameLoopToggleDebug(unittest.TestCase):
 
     def test_toggle_debug_returns_new_state(self):
         """toggle_debug 返回切换后的状态。"""
-        initial = self.loop.display.debug_mode
+        initial = self.loop.debug_mode
         result = self.loop.toggle_debug()
         self.assertEqual(result, not initial)
 
     def test_double_toggle_restores(self):
         """两次切换恢复原始状态。"""
-        initial = self.loop.display.debug_mode
+        initial = self.loop.debug_mode
         self.loop.toggle_debug()
         self.loop.toggle_debug()
-        self.assertEqual(self.loop.display.debug_mode, initial)
+        self.assertEqual(self.loop.debug_mode, initial)
 
 
 if __name__ == "__main__":
