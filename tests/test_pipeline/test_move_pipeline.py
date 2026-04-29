@@ -186,7 +186,7 @@ class TestMovePipelineSingleMove(unittest.TestCase):
 
         pipeline.consequence_agent.execute.assert_called_once()
 
-    def test_applys_narrator_revelations_directly(self):
+    def test_applies_narrator_revelations_directly(self):
         """叙述者输出中的揭示决策被直接应用，不由 validator 中转。"""
         mock_llm = MockLLMClient()
         state = make_test_game_state()
@@ -308,7 +308,7 @@ class TestMovePipelineValidateAndApply(unittest.TestCase):
         mock_llm = MockLLMClient()
         return MovePipeline(mock_llm, state, MagicMock())
 
-    def test_applys_revelations_directly(self):
+    def test_applies_revelations_directly(self):
         """叙述者的 revelation_decisions 被直接执行：线索从 hidden 移动到 visible。"""
         state = make_test_game_state()
         pipeline = self._make_pipeline(state)

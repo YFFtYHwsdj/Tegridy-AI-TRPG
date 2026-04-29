@@ -202,8 +202,35 @@ class MovePipeline:
         """应用叙事输出中的揭示和物品转移。
 
         直接信任叙述者的 revelation_decisions 和 item_transfers，
-        不经过 LLM 校验。叙述者 Agent 在生成叙事时已遵循 _HIDDEN_NOTICE
-        约束，不应在低风险叙事中泄露隐藏信息。
+        不经过 LLM 校验。
+
+        设计决策——为何不在此处引入独立的验证器 Agent：
+
+        1. **叙述者的可靠性保障**：叙述者 Agent 的 system prompt 中注入了
+           _HIDDEN_NOTICE 约束，明确要求"标记为(隐藏)的线索、物品及其详情
+           尚未被玩家角色发现，叙事中不要直接提及。如果玩家的行动在逻辑上
+           自然应该触达它们，通过 revelation_decisions 标记揭示"。这意味着
+           叙述者在生成叙事时已经在同一推理上下文中完成了"是否应该揭示"
+           的判断，其 revelation_decisions 与该叙事之间保持内在一致性。
+
+        2. **风险场景**：
+           - 叙述者可能因为 LLM 幻觉而在叙事中**间接**透露隐藏信息（如
+             不通过 revelation_decisions 却在叙事文本中暗示密道存在）。
+             但这种泄露发生在前端的叙事文本中（玩家可直接读取），后端
+             的 revelation_decisions 只是将线索从 hidden→visible，属于
+             信息可见性变更而非信息泄露源头。
+           - 叙述者可能错误标记不相关的线索为已揭示。这会导致额外线索
+             意外暴露给玩家——但这类错误在直接信任模式下和经 LLM 验证
+             模式下出现的概率相似（验证器同样可能产生幻觉）。
+
+        3. **监控机制**：
+           - revelation_decisions 和 item_transfers 只执行纯数据操作
+             （字典 key 移动），不涉及 LLM 调用或随机性。
+           - 所有被揭示的线索/物品 ID 在 _apply_revelations 中会与游戏
+             状态中的实际 hidden 字典做交叉校验：若 ID 不存在于 hidden
+             字典中，操作静默跳过（不会导致崩溃或状态污染）。
+           - 对于未找到的物品 ID，_apply_item_transfers 会通过 log_system
+             记录 warning 级别日志，便于事后排查异常场景。
 
         Args:
             narrator_note: 叙述者 Agent 的分析便签
