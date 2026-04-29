@@ -86,9 +86,7 @@ class TestBaseAgentCallLLM(unittest.TestCase):
         agent = DummyAgent(mock_llm)
         agent._call_llm("输入")
 
-        logged = " ".join(
-            str(call.args) for call in mock_logger.debug.call_args_list
-        )
+        logged = " ".join(str(call.args) for call in mock_logger.debug.call_args_list)
         self.assertIn("DummyAgent", logged)
 
     @patch("src.agents.base.log_call")

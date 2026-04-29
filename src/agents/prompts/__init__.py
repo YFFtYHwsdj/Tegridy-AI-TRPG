@@ -9,7 +9,6 @@ from src.agents.prompts.narrator import LITE_NARRATOR_PROMPT, NARRATOR_PROMPT, Q
 from src.agents.prompts.resolution_mode import RESOLUTION_MODE_PROMPT
 from src.agents.prompts.rhythm import RHYTHM_SYSTEM_PROMPT
 from src.agents.prompts.tag_matcher import TAG_MATCHER_PROMPT
-from src.agents.prompts.validator import VALIDATOR_PROMPT
 
 __all__ = [
     "CONSEQUENCE_PROMPT",
@@ -26,5 +25,4 @@ __all__ = [
     "RESOLUTION_MODE_PROMPT",
     "RHYTHM_SYSTEM_PROMPT",
     "TAG_MATCHER_PROMPT",
-    "VALIDATOR_PROMPT",
 ]

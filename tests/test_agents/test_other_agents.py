@@ -1,4 +1,4 @@
-"""其他 Agent 测试 —— MoveGatekeeper、ResolutionMode、ContinuationCheck、LimitBreak、Validator、Rhythm、ItemCreator。
+"""其他 Agent 测试 —— MoveGatekeeper、ResolutionMode、ContinuationCheck、LimitBreak、Rhythm、ItemCreator。
 
 验证各 Agent 的 execute 方法正确组装 prompt 并调用 LLM。
 """
@@ -12,8 +12,6 @@ from src.agents.limit_break import LimitBreakAgent
 from src.agents.move_gatekeeper import MoveGatekeeperAgent
 from src.agents.resolution_mode import ResolutionModeAgent
 from src.agents.rhythm import RhythmAgent
-from src.agents.validator import ValidatorAgent
-from src.models import NPC, Clue
 from tests.helpers import (
     MockLLMClient,
     make_agent_note,
@@ -257,106 +255,6 @@ class TestLimitBreakAgentExecute(unittest.TestCase):
         user_msg = mock_llm.call_history[0]["user_message"]
         self.assertIn("说服或威胁", user_msg)
         self.assertIn("伤害或制服", user_msg)
-
-
-class TestValidatorAgentExecute(unittest.TestCase):
-    """测试 ValidatorAgent.execute。"""
-
-    def test_includes_narrative_text(self):
-        """user_message 包含需要验证的叙事文本。"""
-        mock_llm = MockLLMClient(
-            responses=[
-                (
-                    '=====REASONING=====\n验证\n=====STRUCTURED=====\n{"verdict": "accept"}',
-                    {},
-                )
-            ]
-        )
-        agent = ValidatorAgent(mock_llm)
-        narrator_note = make_agent_note(
-            structured={"narrative": "你发现了隐藏的门", "revelation_decisions": {}}
-        )
-
-        agent.execute(narrator_note, {}, {}, {}, {}, {}, {}, {})
-
-        self.assertIn("你发现了隐藏的门", mock_llm.call_history[0]["user_message"])
-
-    def test_includes_revelation_decisions(self):
-        """user_message 包含揭示决策。"""
-        mock_llm = MockLLMClient(
-            responses=[
-                (
-                    '=====REASONING=====\n验证\n=====STRUCTURED=====\n{"verdict": "accept"}',
-                    {},
-                )
-            ]
-        )
-        agent = ValidatorAgent(mock_llm)
-        narrator_note = make_agent_note(
-            structured={
-                "narrative": "...",
-                "revelation_decisions": {"reveal_clue_ids": ["clue_1"]},
-            }
-        )
-
-        agent.execute(narrator_note, {}, {}, {}, {}, {}, {}, {})
-
-        self.assertIn("clue_1", mock_llm.call_history[0]["user_message"])
-
-    def test_includes_hidden_clues(self):
-        """user_message 包含隐藏线索。"""
-        mock_llm = MockLLMClient(
-            responses=[
-                (
-                    '=====REASONING=====\n验证\n=====STRUCTURED=====\n{"verdict": "accept"}',
-                    {},
-                )
-            ]
-        )
-        agent = ValidatorAgent(mock_llm)
-        narrator_note = make_agent_note(structured={"narrative": "...", "revelation_decisions": {}})
-        hidden_clues = {"chip": Clue(clue_id="chip", name="芯片", description="加密芯片")}
-
-        agent.execute(narrator_note, hidden_clues, {}, {}, {}, {}, {}, {})
-
-        self.assertIn("加密芯片", mock_llm.call_history[0]["user_message"])
-
-    def test_includes_npc_knowledge(self):
-        """user_message 包含 NPC 知识范围。"""
-        mock_llm = MockLLMClient(
-            responses=[
-                (
-                    '=====REASONING=====\n验证\n=====STRUCTURED=====\n{"verdict": "accept"}',
-                    {},
-                )
-            ]
-        )
-        agent = ValidatorAgent(mock_llm)
-        narrator_note = make_agent_note(structured={"narrative": "...", "revelation_decisions": {}})
-        npcs = {"miko": NPC(npc_id="miko", name="Miko", known_clue_ids=["clue_1"])}
-
-        agent.execute(narrator_note, {}, {}, {}, {}, {}, {}, npcs)
-
-        self.assertIn("Miko", mock_llm.call_history[0]["user_message"])
-        self.assertIn("clue_1", mock_llm.call_history[0]["user_message"])
-
-    def test_with_empty_collections(self):
-        """空集合时显示占位符。"""
-        mock_llm = MockLLMClient(
-            responses=[
-                (
-                    '=====REASONING=====\n验证\n=====STRUCTURED=====\n{"verdict": "accept"}',
-                    {},
-                )
-            ]
-        )
-        agent = ValidatorAgent(mock_llm)
-        narrator_note = make_agent_note(structured={"narrative": "...", "revelation_decisions": {}})
-
-        agent.execute(narrator_note, {}, {}, {}, {}, {}, {}, {})
-
-        user_msg = mock_llm.call_history[0]["user_message"]
-        self.assertIn("无隐藏线索", user_msg)
 
 
 class TestRhythmAgentExecute(unittest.TestCase):

@@ -15,7 +15,6 @@ from src.agents.narrator import LiteNarratorAgent, NarratorAgent, QuickNarratorA
 from src.agents.resolution_mode import ResolutionModeAgent
 from src.agents.rhythm import RhythmAgent
 from src.agents.tag_matcher import TagMatcherAgent
-from src.agents.validator import ValidatorAgent
 
 AGENT_REGISTRY = {
     "rhythm": RhythmAgent,
@@ -28,7 +27,6 @@ AGENT_REGISTRY = {
     "narrator": NarratorAgent,
     "lite_narrator": LiteNarratorAgent,
     "quick_narrator": QuickNarratorAgent,
-    "validator": ValidatorAgent,
     "limit_break": LimitBreakAgent,
     "continuation_check": ContinuationCheckAgent,
     "resolution_mode": ResolutionModeAgent,
@@ -49,5 +47,4 @@ __all__ = [
     "ResolutionModeAgent",
     "RhythmAgent",
     "TagMatcherAgent",
-    "ValidatorAgent",
 ]
