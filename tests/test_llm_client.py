@@ -26,13 +26,14 @@ from src.llm_client import LLMClient, LLMError
 class TestLLMClientChat(unittest.TestCase):
     """测试 LLMClient.chat 的正常和异常路径。"""
 
-    def _make_client(self, max_retries: int = 3) -> LLMClient:
+    def _make_client(self, max_retries: int = 3, thinking: bool = False) -> LLMClient:
         """创建测试用的 LLMClient 实例。"""
         return LLMClient(
             api_key="test-key",
             base_url="https://test.example.com",
             model="test-model",
             max_retries=max_retries,
+            thinking=thinking,
         )
 
     def _make_mock_response(self, content: str | None = "hello") -> MagicMock:
@@ -67,7 +68,7 @@ class TestLLMClientChat(unittest.TestCase):
 
     @patch("src.llm_client.OpenAI")
     def test_chat_passes_correct_parameters(self, mock_openai_class: MagicMock):
-        """验证调用参数正确传递。"""
+        """验证调用参数正确传递，且默认关闭 thinking。"""
         mock_client = MagicMock()
         mock_openai_class.return_value = mock_client
         mock_client.chat.completions.create.return_value = self._make_mock_response()
@@ -83,6 +84,20 @@ class TestLLMClientChat(unittest.TestCase):
         self.assertEqual(messages[0]["content"], "system prompt")
         self.assertEqual(messages[1]["role"], "user")
         self.assertEqual(messages[1]["content"], "user message")
+        self.assertEqual(call_args.kwargs["extra_body"], {"thinking": {"type": "disabled"}})
+
+    @patch("src.llm_client.OpenAI")
+    def test_chat_thinking_enabled_no_extra_body(self, mock_openai_class: MagicMock):
+        """thinking=True 时不应传入 extra_body。"""
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_client.chat.completions.create.return_value = self._make_mock_response()
+
+        client = self._make_client(thinking=True)
+        client.chat("system prompt", "user message")
+
+        call_args = mock_client.chat.completions.create.call_args
+        self.assertNotIn("extra_body", call_args.kwargs)
 
     @patch("src.llm_client.OpenAI")
     @patch("src.llm_client.time.sleep")

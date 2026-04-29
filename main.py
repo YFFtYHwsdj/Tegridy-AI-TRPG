@@ -43,7 +43,7 @@ def main():
 
     print("正在连接到 DeepSeek...")
     try:
-        llm = LLMClient(api_key=api_key, base_url=base_url, model=model)
+        llm = LLMClient(api_key=api_key, base_url=base_url, model=model, thinking=False)
     except Exception as e:
         print(f"连接失败: {e}")
         sys.exit(1)

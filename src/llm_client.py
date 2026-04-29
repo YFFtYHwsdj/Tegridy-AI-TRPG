@@ -28,12 +28,21 @@ class LLMClient:
 
     封装 OpenAI-compatible 的 chat completion 调用，
     内置指数退避重试机制，自动记录 token 用量。
+    支持显式关闭 DeepSeek 思考模式（thinking）。
     """
 
-    def __init__(self, api_key: str, base_url: str, model: str, max_retries: int = 3):
+    def __init__(
+        self,
+        api_key: str,
+        base_url: str,
+        model: str,
+        max_retries: int = 3,
+        thinking: bool = False,
+    ):
         self.client = OpenAI(api_key=api_key, base_url=base_url)
         self.model = model
         self.max_retries = max_retries
+        self.thinking = thinking
 
     def chat(
         self, system_prompt: str, user_message: str, temperature: float = 0.3
@@ -56,14 +65,19 @@ class LLMClient:
         """
         for attempt in range(self.max_retries):
             try:
-                response = self.client.chat.completions.create(
-                    model=self.model,
-                    messages=[
+                kwargs = {
+                    "model": self.model,
+                    "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_message},
                     ],
-                    temperature=temperature,
-                )
+                    "temperature": temperature,
+                }
+                # DeepSeek 思考模式默认开启，显式关闭以节省 token 并避免与 temperature 冲突
+                if not self.thinking:
+                    kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
+
+                response = self.client.chat.completions.create(**kwargs)
                 content = response.choices[0].message.content
                 if content is None:
                     raise LLMError("API 返回了空内容")
