@@ -26,7 +26,8 @@ from src.agents import (
 from src.display.console import ConsoleDisplay
 from src.engine import calculate_power, roll_dice
 from src.llm_client import LLMClient
-from src.logger import log_roll, log_system
+from src.logger import log_roll
+from src.pipeline._item_manager import ItemManager
 from src.pipeline._tag_utils import extract_status_tiers, extract_tag_names
 from src.pipeline.pipeline_result import PipelineResult
 from src.state.game_state import GameState
@@ -79,6 +80,9 @@ class MovePipeline:
         self.narrator = NarratorAgent(llm)
         self.quick_narrator = QuickNarratorAgent(llm)
         self.continuation_check = ContinuationCheckAgent(llm)
+
+        # 物品与揭示管理器，处理流水线最后一阶段的叙事生效
+        self.item_manager = ItemManager(state, llm)
 
     def _run_tag_and_roll(self, intent_note, ctx, sub_action=None):
         """流水线阶段1: 标签匹配 + 掷骰。
@@ -201,235 +205,14 @@ class MovePipeline:
     def validate_and_apply(self, narrator_note, ctx=None):
         """应用叙事输出中的揭示和物品转移。
 
-        直接信任叙述者的 revelation_decisions 和 item_transfers，
-        不经过 LLM 校验。
-
-        设计决策——为何不在此处引入独立的验证器 Agent：
-
-        1. **叙述者的可靠性保障**：叙述者 Agent 的 system prompt 中注入了
-           _HIDDEN_NOTICE 约束，明确要求"标记为(隐藏)的线索、物品及其详情
-           尚未被玩家角色发现，叙事中不要直接提及。如果玩家的行动在逻辑上
-           自然应该触达它们，通过 revelation_decisions 标记揭示"。这意味着
-           叙述者在生成叙事时已经在同一推理上下文中完成了"是否应该揭示"
-           的判断，其 revelation_decisions 与该叙事之间保持内在一致性。
-
-        2. **风险场景**：
-           - 叙述者可能因为 LLM 幻觉而在叙事中**间接**透露隐藏信息（如
-             不通过 revelation_decisions 却在叙事文本中暗示密道存在）。
-             但这种泄露发生在前端的叙事文本中（玩家可直接读取），后端
-             的 revelation_decisions 只是将线索从 hidden→visible，属于
-             信息可见性变更而非信息泄露源头。
-           - 叙述者可能错误标记不相关的线索为已揭示。这会导致额外线索
-             意外暴露给玩家——但这类错误在直接信任模式下和经 LLM 验证
-             模式下出现的概率相似（验证器同样可能产生幻觉）。
-
-        3. **监控机制**：
-           - revelation_decisions 和 item_transfers 只执行纯数据操作
-             （字典 key 移动），不涉及 LLM 调用或随机性。
-           - 所有被揭示的线索/物品 ID 在 _apply_revelations 中会与游戏
-             状态中的实际 hidden 字典做交叉校验：若 ID 不存在于 hidden
-             字典中，操作静默跳过（不会导致崩溃或状态污染）。
-           - 对于未找到的物品 ID，_apply_item_transfers 会通过 log_system
-             记录 warning 级别日志，便于事后排查异常场景。
+        委托给 ItemManager 执行。ItemManager 直接信任叙述者的
+        revelation_decisions 和 item_transfers，不经过 LLM 校验。
 
         Args:
             narrator_note: 叙述者 Agent 的分析便签
             ctx: 当前场景上下文（用于 emergent 物品创建）
         """
-        self._apply_revelations(narrator_note.structured)
-        self._apply_item_transfers(narrator_note.structured, ctx)
-
-    def _apply_revelations(self, structured: dict):
-        """执行最终决策中的揭示操作。
-
-        从 structured dict 的 revelation_decisions 中提取揭示指令，
-        将隐藏的线索/物品从隐藏字典转移到可见字典。
-
-        Args:
-            structured: 包含 revelation_decisions 的 dict
-        """
-        scene = self.state.scene
-        decisions = structured.get("revelation_decisions", {})
-
-        for clue_id in decisions.get("reveal_clue_ids", []):
-            if clue_id in scene.clues_hidden:
-                clue = scene.clues_hidden.pop(clue_id)
-                scene.clues_visible[clue_id] = clue
-
-        for item_id in decisions.get("reveal_item_ids", []):
-            found = False
-            if item_id in scene.scene_items_hidden:
-                item = scene.scene_items_hidden.pop(item_id)
-                scene.scene_items_visible[item_id] = item
-                found = True
-            else:
-                for npc in scene.npcs.values():
-                    if item_id in npc.items_hidden:
-                        item = npc.items_hidden.pop(item_id)
-                        npc.items_visible[item_id] = item
-                        found = True
-                        break
-            if not found:
-                log_system(f"未找到物品 '{item_id}'", level="warning")
-
-    def _apply_item_transfers(self, structured: dict, ctx=None):
-        """执行最终决策中的物品转移。
-
-        处理物品在不同位置之间的移动（场景 ↔ 角色 ↔ NPC），
-        支持自动创建 emergent 物品（叙述者即兴引入的新物品）。
-
-        Args:
-            structured: 包含 item_transfers 的 dict
-            ctx: 当前场景上下文（用于 emergent 物品创建）
-        """
-        _scene = self.state.scene
-        transfers = structured.get("item_transfers", [])
-        location_updates = structured.get("location_text_updates", [])
-
-        # 构建物品位置更新映射
-        loc_map = {u["item_id"]: u["new_location"] for u in location_updates if isinstance(u, dict)}
-
-        for t in transfers:
-            if not isinstance(t, dict):
-                continue
-            item_id = t.get("item_id") or t.get("item", "")
-            from_loc = t.get("from", "")
-            to_loc = t.get("to", "")
-            if not item_id or not from_loc or not to_loc:
-                continue
-
-            # 从源位置取出物品
-            item = self._pop_item(item_id, from_loc)
-            if item is None:
-                # 物品不存在 → 尝试自动创建 emergent 物品
-                created = self._create_emergent_item(item_id, ctx)
-                if not created:
-                    log_system(f"未找到且无法创建 '{item_id}' (from={from_loc})", level="warning")
-                    continue
-                item = created
-                log_system(f"转移时自动创建 '{item_id}'", level="debug")
-
-            # 更新物品的 location 文本
-            if item_id in loc_map:
-                item.location = loc_map[item_id]
-
-            # 插入到目标位置
-            self._insert_item(item_id, item, to_loc)
-
-    def _create_emergent_item(self, item_name: str, ctx=None):
-        """创建 emergent 物品 —— 叙述者即兴引入的新物品。
-
-        LLM 叙述者可能在叙事中引入原数据中不存在的物品。
-        此时调用 ItemCreator Agent 根据上下文自动生成物品数据。
-
-        Args:
-            item_name: 物品名称
-            ctx: 当前场景上下文（用于 ItemCreatorAgent）
-
-        Returns:
-            新创建的 GameItem 对象，创建失败返回 None
-        """
-        from src.agents.item_creator import ItemCreatorAgent
-
-        if not hasattr(self, "item_creator"):
-            self.item_creator = ItemCreatorAgent(self.llm)
-
-        creator_note = self.item_creator.execute(item_name, ctx)
-        item_data = creator_note.structured
-        if not item_data:
-            return None
-
-        from src.models import GameItem, Tag
-
-        # 解析物品标签（支持 dict 和 str 两种格式）
-        tags = []
-        for t in item_data.get("tags", []):
-            if isinstance(t, dict):
-                tags.append(
-                    Tag(
-                        name=t.get("name", ""),
-                        tag_type=t.get("tag_type", "power"),
-                        description=t.get("description", ""),
-                    )
-                )
-            elif isinstance(t, str):
-                tags.append(Tag(name=t, tag_type="power"))
-
-        weakness = None
-        w = item_data.get("weakness")
-        if w and isinstance(w, dict):
-            weakness = Tag(
-                name=w.get("name", ""),
-                tag_type="weakness",
-                description=w.get("description", ""),
-            )
-
-        item_id = item_data.get("item_id") or item_name
-        return GameItem(
-            item_id=item_id,
-            name=item_name,
-            description=item_data.get("description", ""),
-            tags=tags,
-            weakness=weakness,
-            location=item_data.get("location", ""),
-        )
-
-    def _pop_item(self, item_id: str, location: str):
-        """从指定位置取出物品（从可见或隐藏字典中移除）。
-
-        支持的位置格式：
-            - "scene": 场景物品
-            - "character": 角色物品
-            - "npc.<npc_id>": 指定 NPC 的物品
-
-        Args:
-            item_id: 物品 ID
-            location: 位置标识符
-
-        Returns:
-            取出的物品对象，未找到返回 None
-        """
-        scene = self.state.scene
-        if location == "scene":
-            for d in (scene.scene_items_visible, scene.scene_items_hidden):
-                if item_id in d:
-                    return d.pop(item_id)
-        elif location == "character":
-            char = self.state.character
-            if char:
-                for d in (char.items_visible, char.items_hidden):
-                    if item_id in d:
-                        return d.pop(item_id)
-        elif location.startswith("npc."):
-            npc_id = location[4:]
-            npc = scene.npcs.get(npc_id)
-            if npc:
-                for d in (npc.items_visible, npc.items_hidden):
-                    if item_id in d:
-                        return d.pop(item_id)
-        return None
-
-    def _insert_item(self, item_id: str, item, location: str):
-        """将物品插入到指定位置的可见字典。
-
-        支持的位置格式同 _pop_item。
-
-        Args:
-            item_id: 物品 ID
-            item: 物品对象
-            location: 目标位置标识符
-        """
-        scene = self.state.scene
-        if location == "scene":
-            scene.scene_items_visible[item_id] = item
-        elif location == "character":
-            if self.state.character:
-                self.state.character.items_visible[item_id] = item
-        elif location.startswith("npc."):
-            npc_id = location[4:]
-            npc = scene.npcs.get(npc_id)
-            if npc:
-                npc.items_visible[item_id] = item
+        self.item_manager.validate_and_apply(narrator_note, ctx)
 
     def process_split_actions(self, intent_note, split_actions) -> list:
         """执行复合 action 的拆分流水线。

@@ -4,7 +4,7 @@
     - 标准/快速流水线的 Agent 调用顺序
     - 条件分支（后果生成、校验应用）
     - 拆分 action 的执行和继续性检查
-    - 揭示和物品转移的状态变更
+    - validate_and_apply 向 ItemManager 的委托
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import MagicMock, patch
 
-from src.models import Clue, GameItem, RollResult
+from src.models import RollResult
 from src.pipeline.move_pipeline import MovePipeline
 from src.pipeline.pipeline_result import PipelineResult
 from tests.helpers import (
@@ -132,6 +132,8 @@ class TestMovePipelineSingleMove(unittest.TestCase):
             structured={"narrative": "你迅速拔枪...", "revelation_decisions": {}}
         )
 
+        pipeline.item_manager = MagicMock()
+
         return pipeline
 
     @patch("src.pipeline.move_pipeline.roll_dice")
@@ -186,27 +188,17 @@ class TestMovePipelineSingleMove(unittest.TestCase):
 
         pipeline.consequence_agent.execute.assert_called_once()
 
-    def test_applies_narrator_revelations_directly(self):
-        """叙述者输出中的揭示决策被直接应用，不由 validator 中转。"""
+    def test_delegates_validate_and_apply_to_item_manager(self):
+        """流水线末端委托 item_manager 执行 validate_and_apply。"""
         mock_llm = MockLLMClient()
         state = make_test_game_state()
         pipeline = self._make_pipeline(state, mock_llm)
-
-        pipeline.narrator.execute.return_value = make_agent_note(
-            structured={
-                "narrative": "你发现了隐藏的线索",
-                "revelation_decisions": {"reveal_clue_ids": ["hidden_clue"]},
-            }
-        )
-        state.scene.clues_hidden["hidden_clue"] = Clue(clue_id="hidden_clue", name="隐藏线索")
 
         intent_note = make_agent_note(structured={"action_type": "combat"})
         ctx = state.make_context("我要拔枪")
         pipeline.run_single_move_pipeline(intent_note, ctx)
 
-        # 剧本的 revelation_decisions 被直接执行，线索从隐藏变为可见
-        self.assertNotIn("hidden_clue", state.scene.clues_hidden)
-        self.assertIn("hidden_clue", state.scene.clues_visible)
+        pipeline.item_manager.validate_and_apply.assert_called_once()
 
     @patch("src.pipeline.move_pipeline.roll_dice")
     def test_returns_pipeline_result(self, mock_roll_dice):
@@ -257,6 +249,8 @@ class TestMovePipelineQuickPipeline(unittest.TestCase):
             structured={"narrative": "你迅速拔枪...", "revelation_decisions": {}}
         )
 
+        pipeline.item_manager = MagicMock()
+
         return pipeline
 
     def test_skips_effect_agent(self):
@@ -300,76 +294,6 @@ class TestMovePipelineQuickPipeline(unittest.TestCase):
         pipeline.quick_narrator.execute.assert_called_once()
 
 
-class TestMovePipelineValidateAndApply(unittest.TestCase):
-    """测试 validate_and_apply 方法。"""
-
-    def _make_pipeline(self, state) -> MovePipeline:
-        """创建流水线，不需要 validator mock。"""
-        mock_llm = MockLLMClient()
-        return MovePipeline(mock_llm, state, MagicMock())
-
-    def test_applies_revelations_directly(self):
-        """叙述者的 revelation_decisions 被直接执行：线索从 hidden 移动到 visible。"""
-        state = make_test_game_state()
-        pipeline = self._make_pipeline(state)
-
-        state.scene.clues_hidden["hidden_clue"] = Clue(clue_id="hidden_clue", name="隐藏线索")
-
-        narrator_note = make_agent_note(
-            structured={
-                "narrative": "你发现了线索",
-                "revelation_decisions": {"reveal_clue_ids": ["hidden_clue"]},
-            }
-        )
-
-        pipeline.validate_and_apply(narrator_note)
-
-        self.assertNotIn("hidden_clue", state.scene.clues_hidden)
-        self.assertIn("hidden_clue", state.scene.clues_visible)
-
-    def test_apply_revelations_moves_scene_item(self):
-        """物品从 scene_items_hidden 移动到 visible。"""
-        state = make_test_game_state()
-        pipeline = self._make_pipeline(state)
-
-        state.scene.scene_items_hidden["medkit"] = GameItem(item_id="medkit", name="急救包")
-
-        narrator_note = make_agent_note(
-            structured={
-                "narrative": "你发现了急救包",
-                "revelation_decisions": {"reveal_item_ids": ["medkit"]},
-            }
-        )
-
-        pipeline.validate_and_apply(narrator_note)
-
-        self.assertNotIn("medkit", state.scene.scene_items_hidden)
-        self.assertIn("medkit", state.scene.scene_items_visible)
-
-    def test_apply_revelations_moves_npc_hidden_item(self):
-        """NPC 隐藏物品移动到可见。"""
-        state = make_test_game_state()
-        pipeline = self._make_pipeline(state)
-
-        from src.models import NPC
-
-        npc = NPC(npc_id="miko", name="Miko")
-        npc.items_hidden["key"] = GameItem(item_id="key", name="钥匙")
-        state.scene.npcs["miko"] = npc
-
-        narrator_note = make_agent_note(
-            structured={
-                "narrative": "你发现了钥匙",
-                "revelation_decisions": {"reveal_item_ids": ["key"]},
-            }
-        )
-
-        pipeline.validate_and_apply(narrator_note)
-
-        self.assertNotIn("key", npc.items_hidden)
-        self.assertIn("key", npc.items_visible)
-
-
 class TestMovePipelineSplitActions(unittest.TestCase):
     """测试 process_split_actions 拆分 action。"""
 
@@ -404,6 +328,8 @@ class TestMovePipelineSplitActions(unittest.TestCase):
         pipeline.continuation_check.execute.return_value = make_agent_note(
             structured={"can_continue": True}
         )
+
+        pipeline.item_manager = MagicMock()
 
         return pipeline
 
