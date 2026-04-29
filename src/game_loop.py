@@ -183,8 +183,7 @@ class GameLoop:
         # 结算模式判定（detailed vs quick）
         resolution_note = self.resolution_agent.execute(intent_note, ctx)
         resolution_mode = resolution_note.structured.get("resolution_mode", "detailed")
-        resolution_reason = resolution_note.structured.get("reason", "")
-        print(f"  结算模式: {resolution_mode} ({resolution_reason})")
+        print(f"  结算模式: {resolution_mode}")
 
         if resolution_mode == "quick":
             return self._process_move(intent_note, ctx, quick=True)
@@ -204,10 +203,9 @@ class GameLoop:
         Returns:
             叙事文本
         """
-        rationale = gatekeeper_note.structured.get("rationale", "")
-        print(f"  [叙事模式] {rationale}")
+        print("  [叙事模式]")
 
-        narrator_note = self.lite_narrator.execute(player_input, ctx, gatekeeper_note.reasoning)
+        narrator_note = self.lite_narrator.execute(player_input, ctx, "")
         print("─" * 50)
 
         self.pipeline.validate_and_apply(narrator_note, ctx)

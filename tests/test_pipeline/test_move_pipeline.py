@@ -185,8 +185,8 @@ class TestMovePipelineSingleMove(unittest.TestCase):
 
         pipeline.consequence_agent.execute.assert_called_once()
 
-    def test_calls_validator(self):
-        """验证 validate_and_apply 被调用。"""
+    def test_skips_validator_when_no_revelations(self):
+        """无揭示/转移时跳过 validator，直接应用。"""
         mock_llm = MockLLMClient()
         state = make_test_game_state()
         pipeline = self._make_pipeline(state, mock_llm)
@@ -195,10 +195,35 @@ class TestMovePipelineSingleMove(unittest.TestCase):
         ctx = state.make_context("我要拔枪")
         pipeline.run_single_move_pipeline(intent_note, ctx)
 
+        pipeline.validator.execute.assert_not_called()
+
+    def test_calls_validator_when_has_revelations(self):
+        """有揭示操作时调用 validator。"""
+        mock_llm = MockLLMClient()
+        state = make_test_game_state()
+        pipeline = self._make_pipeline(state, mock_llm)
+
+        # 让 narrator 返回有揭示的 note
+        pipeline.narrator.execute.return_value = make_agent_note(
+            structured={
+                "narrative": "你发现了线索",
+                "revelation_decisions": {"reveal_clue_ids": ["hidden_clue"]},
+            }
+        )
+        state.scene.clues_hidden["hidden_clue"] = Clue(clue_id="hidden_clue", name="隐藏线索")
+
+        intent_note = make_agent_note(structured={"action_type": "combat"})
+        ctx = state.make_context("我要拔枪")
+        pipeline.run_single_move_pipeline(intent_note, ctx)
+
         pipeline.validator.execute.assert_called_once()
 
-    def test_returns_pipeline_result(self):
+    @patch("src.pipeline.move_pipeline.roll_dice")
+    def test_returns_pipeline_result(self, mock_roll_dice):
         """返回包含所有阶段数据的 PipelineResult。"""
+        mock_roll_dice.return_value = RollResult(
+            power=1, dice=(3, 3), total=7, outcome="partial_success"
+        )
         mock_llm = MockLLMClient()
         state = make_test_game_state()
         pipeline = self._make_pipeline(state, mock_llm)

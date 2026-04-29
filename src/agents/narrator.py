@@ -67,16 +67,14 @@ class LiteNarratorAgent(BaseAgent):
         ctx: AgentContext,
         gatekeeper_reasoning: str,
     ) -> AgentNote:
+        gatekeeper_block = f"\n守门人判断: {gatekeeper_reasoning}\n" if gatekeeper_reasoning else ""
         user_msg = f"""{ctx.assets_block}
 {ctx.context_block}
 
 叙事历史:
 {ctx.narrative_block}
 
-{_HIDDEN_NOTICE}
-
-守门人判断: {gatekeeper_reasoning}
-
+{_HIDDEN_NOTICE}{gatekeeper_block}
 玩家输入（叙事性交互，不掷骰）: {player_input}
 
 请生成一段叙事回应，推动场景前进。

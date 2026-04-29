@@ -200,17 +200,40 @@ class MovePipeline:
             narrator_note=narrator_note,
         )
 
+    def _needs_validation(self, narrator_note) -> bool:
+        """判断是否需要触发 LLM 验证 Agent。
+
+        仅在叙述者标记了线索/物品揭示或物品转移时触发验证。
+        纯叙事（绝大多数情况）直接跳过，节省约 1500 token/次。
+
+        Args:
+            narrator_note: 叙述者 Agent 的分析便签
+
+        Returns:
+            是否需要 LLM 验证
+        """
+        structured = narrator_note.structured
+        decisions = structured.get("revelation_decisions", {})
+        if decisions.get("reveal_clue_ids") or decisions.get("reveal_item_ids"):
+            return True
+        return bool(structured.get("item_transfers"))
+
     def validate_and_apply(self, narrator_note, ctx=None):
         """校验叙事输出并应用状态变更。
 
-        将叙述者 Agent 产出的叙事文本交给校验器 Agent 审查，
-        确保其中揭示的线索/物品是合法的（确实隐藏中），
-        然后执行揭示和物品转移操作。
+        仅在检测到揭示或转移操作时触发 LLM 验证，否则直接应用。
+        验证通过后才执行揭示和物品转移操作。
 
         Args:
             narrator_note: 叙述者 Agent 的分析便签
             ctx: 当前场景上下文（用于 emergent 物品创建）
         """
+        # 快速路径：无揭示/转移操作时跳过 LLM 验证
+        if not self._needs_validation(narrator_note):
+            self._apply_revelations(narrator_note)
+            self._apply_item_transfers(narrator_note, ctx)
+            return
+
         scene = self.state.scene
 
         # 收集所有隐藏线索和物品的索引
