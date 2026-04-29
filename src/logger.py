@@ -5,8 +5,8 @@
     - aitrpg.llm  → logs/*_llm_calls.log  — LLM 完整调用（system prompt / user / response）
 
 控制台输出规则：
-    - aitrpg.game: 调试模式下输出 DEBUG+，正常模式下仅 INFO+
-    - aitrpg.llm:  仅摘要（INFO）输出到控制台，完整提示词和响应仅写入 llm_calls.log
+    - aitrpg.game: 调试模式下输出 DEBUG+，正常模式下仅 INFO+（含 LLM 调用摘要）
+    - aitrpg.llm:  仅写入 llm_calls.log 文件（含摘要和完整提示词/响应），不输出到控制台
 
 日志等级规范：
     DEBUG:   内部追踪（标签匹配、效果逐条执行、目标解析、JSON修复过程、Agent调用状态）
@@ -116,11 +116,8 @@ def init_logging(project_root: str, debug_mode: bool = False) -> tuple[str, str]
         )
         llm_logger.addHandler(llm_file)
 
-    # LLM 调用摘要 → 控制台（仅 INFO，完整内容不输出到终端）
-    llm_console = logging.StreamHandler()
-    llm_console.setLevel(logging.INFO)
-    llm_console.setFormatter(logging.Formatter("%(message)s"))
-    llm_logger.addHandler(llm_console)
+    # LLM 调用摘要由 aitrpg.game 的控制台 Handler 统一输出，无需独立 Console Handler
+    # （llm_logger 仅写入文件，避免终端重复打印）
 
     # 写入会话头
     game_logger.info("═" * 50)
@@ -211,7 +208,7 @@ def log_call(
 
     双通道分发：
     - aitrpg.game（INFO）: 仅调用摘要（Agent名 + token用量）—— 出现在终端和 session.log
-    - aitrpg.llm（INFO）:  同上摘要 —— 出现在终端和 llm_calls.log
+    - aitrpg.llm（INFO）:  同上摘要 —— 仅写入 llm_calls.log（文件）
     - aitrpg.llm（DEBUG）: 完整 system prompt / user message / response —— 仅 llm_calls.log
 
     对 DeepSeek 缓存命中场景，细分缓存命中量和未缓存量。
