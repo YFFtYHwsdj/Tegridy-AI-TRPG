@@ -58,10 +58,16 @@ def roll_dice(power: int) -> RollResult:
     d2 = random.randint(1, 6)
     total = d1 + d2 + power
 
-    if total >= 10:
+    # 蛇眼（双 1）总是失败，即使总值超过 6
+    if d1 == 1 and d2 == 1:
+        outcome = "failure"
+    elif total >= 10:
         outcome = "full_success"
     elif total >= 7:
         outcome = "partial_success"
+    # 箱车（双 6）总是完全成功，即使总值低于 10
+    elif d1 == 6 and d2 == 6:
+        outcome = "full_success"
     else:
         outcome = "failure"
 
