@@ -173,7 +173,7 @@ class GameLoop:
         Returns:
             StepResult: 本轮推进的完整结果
         """
-        result = self.process_action(player_input)
+        result, needs_director = self.process_action(player_input)
 
         # 退出请求
         if result == "QUIT":
@@ -184,22 +184,23 @@ class GameLoop:
             return StepResult(is_empty=True)
 
         # 有叙事产出 → 检查场景导演
-        ctx = self.state.make_context()
-        director_note = self.scene_director.execute(ctx, result)
-        if director_note.structured.get("scene_should_end", False):
-            reason = director_note.structured.get("reason", "")
-            self._transition_hint = director_note.structured.get("transition_hint", "")
-            self._log.info("")
-            self._log.info("  [场景导演] 场景结束: %s", reason)
+        if needs_director:
+            ctx = self.state.make_context()
+            director_note = self.scene_director.execute(ctx, result)
+            if director_note.structured.get("scene_should_end", False):
+                reason = director_note.structured.get("reason", "")
+                self._transition_hint = director_note.structured.get("transition_hint", "")
+                self._log.info("")
+                self._log.info("  [场景导演] 场景结束: %s", reason)
 
-            # 执行场景过渡
-            self._transition_scene()
+                # 执行场景过渡
+                self._transition_scene()
 
-            return StepResult(
-                narrative=result,
-                scene_changed=True,
-                scene_end_reason=reason,
-            )
+                return StepResult(
+                    narrative=result,
+                    scene_changed=True,
+                    scene_end_reason=reason,
+                )
 
         return StepResult(narrative=result)
 
@@ -295,7 +296,7 @@ class GameLoop:
 
     # ───────────────────── 行动处理 ─────────────────────
 
-    def process_action(self, player_input: str) -> str:
+    def process_action(self, player_input: str) -> tuple[str, bool]:
         """处理单次玩家行动。
 
         入口方法，负责三层路由：
@@ -309,16 +310,16 @@ class GameLoop:
             player_input: 玩家原始输入
 
         Returns:
-            叙事文本；"QUIT" 表示退出；"" 表示空输入或命令已处理
+            (叙事文本, 是否需要检查场景结束); "QUIT" 叙事表示退出; "" 表示空输入或命令已处理
         """
         raw = player_input.strip()
 
         # 第1层: 系统命令
         if raw.startswith("/"):
-            return self._handle_command(raw)
+            return self._handle_command(raw), False
 
         if not raw:
-            return ""
+            return "", False
 
         self._log.info("")
         self._log.info("─" * 50)
@@ -378,12 +379,13 @@ class GameLoop:
         self.pipeline.validate_and_apply(narrator_note, ctx)
 
         narrative = narrator_note.structured.get("narrative", "")
+        needs_director = narrator_note.structured.get("suggest_scene_end", False)
         self._log.info("")
         self._log.info(narrative)
         self.state.append_narrative(narrative)
 
         self.display.print_status(self.state)
-        return narrative
+        return narrative, needs_director
 
     def _process_move(self, intent_note, ctx, quick=False):
         """处理 Move 行动（需要掷骰的规则行动）。
@@ -424,7 +426,11 @@ class GameLoop:
 
         self._log.info("─" * 50)
 
-        narrative = result.narrator_note.structured.get("narrative", "")
+        narrative = ""
+        needs_director = False
+        if result.narrator_note:
+            narrative = result.narrator_note.structured.get("narrative", "")
+            needs_director = result.narrator_note.structured.get("suggest_scene_end", False)
         self._log.info("")
         self._log.info(narrative)
         self.state.append_narrative(narrative)
@@ -436,10 +442,11 @@ class GameLoop:
             triggered_limits = check_limits(challenge)
             if triggered_limits:
                 self._handle_limit_break(triggered_limits)
+                needs_director = True
 
-        return narrative
+        return narrative, needs_director
 
-    def _process_split_moves(self, intent_note, split_actions) -> str:
+    def _process_split_moves(self, intent_note, split_actions) -> tuple[str, bool]:
         """处理复合 action 的拆分流水线（统一叙事版）。
 
         对多个子 action 逐个执行解算流水线，每步显示解算信息并应用效果。
@@ -450,7 +457,7 @@ class GameLoop:
             split_actions: 子 action 列表
 
         Returns:
-            统一叙事文本
+            (统一叙事文本, 是否需要检查场景结束)
         """
         results = self.pipeline.process_split_actions(intent_note, split_actions)
 
@@ -479,12 +486,16 @@ class GameLoop:
 
         # 统一叙事输出（来自最后一个 result 的 narrator_note）
         narrative = ""
+        needs_director = False
         if results:
             last_result = results[-1]
             if last_result.narrator_note:
                 self.display.print_strategy(last_result.narrator_note)
                 self._log.info("─" * 50)
                 narrative = last_result.narrator_note.structured.get("narrative", "")
+                needs_director = last_result.narrator_note.structured.get(
+                    "suggest_scene_end", False
+                )
                 self._log.info("")
                 self._log.info(narrative)
                 self.state.append_narrative(narrative)
@@ -496,8 +507,9 @@ class GameLoop:
             triggered_limits = check_limits(challenge)
             if triggered_limits:
                 self._handle_limit_break(triggered_limits)
+                needs_director = True
 
-        return narrative
+        return narrative, needs_director
 
     def _finalize_move(self):
         """完成一次 Move 后的收尾工作。
@@ -595,7 +607,7 @@ class GameLoop:
             if not player_input:
                 continue
 
-            result = self.process_action(player_input)
+            result, needs_director = self.process_action(player_input)
             if result == "QUIT":
                 return True
 
@@ -604,15 +616,16 @@ class GameLoop:
                 continue
 
             # 每轮行动后询问场景导演是否该结束场景
-            ctx = self.state.make_context()
-            director_note = self.scene_director.execute(ctx, result)
-            if director_note.structured.get("scene_should_end", False):
-                self._transition_hint = director_note.structured.get("transition_hint", "")
-                self._log.info("")
-                self._log.info(
-                    "  [场景导演] 场景结束: %s", director_note.structured.get("reason", "")
-                )
-                break
+            if needs_director:
+                ctx = self.state.make_context()
+                director_note = self.scene_director.execute(ctx, result)
+                if director_note.structured.get("scene_should_end", False):
+                    self._transition_hint = director_note.structured.get("transition_hint", "")
+                    self._log.info("")
+                    self._log.info(
+                        "  [场景导演] 场景结束: %s", director_note.structured.get("reason", "")
+                    )
+                    break
 
         # 场景正常结束 → 执行过渡
         self._transition_scene()
