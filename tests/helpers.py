@@ -7,12 +7,13 @@
 from __future__ import annotations
 
 from src.context import AgentContext
+from src.llm_client import LLMClient
 from src.models import AgentNote, Challenge, Character, Limit, PowerTag, RollResult, WeaknessTag
 from src.state.game_state import GameState
 from src.state.scene_state import SceneState
 
 
-class MockLLMClient:
+class MockLLMClient(LLMClient):
     """模拟 LLM 客户端，返回预设响应。
 
     记录所有调用参数到 call_history，用于断言 prompt 组装是否正确。
@@ -28,12 +29,17 @@ class MockLLMClient:
         self.responses = responses or []
         self.call_history: list[dict] = []
         self.call_index = 0
+        self.model = "mock-model"
+        self.thinking = False
+        self.max_retries = 3
 
     def chat(
         self,
         system_prompt: str,
         user_message: str,
         temperature: float = 0.3,
+        model: str | None = None,
+        thinking: bool | None = None,
     ) -> tuple[str, dict]:
         """模拟 LLM 调用，返回预设响应。
 
@@ -41,6 +47,8 @@ class MockLLMClient:
             system_prompt: 系统提示词
             user_message: 用户消息
             temperature: 生成温度
+            model: 模型
+            thinking: 思考模式
 
         Returns:
             (响应文本, token用量信息) 元组
@@ -50,6 +58,8 @@ class MockLLMClient:
                 "system_prompt": system_prompt,
                 "user_message": user_message,
                 "temperature": temperature,
+                "model": model,
+                "thinking": thinking,
             }
         )
         if self.call_index < len(self.responses):

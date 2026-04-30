@@ -45,7 +45,12 @@ class LLMClient:
         self.thinking = thinking
 
     def chat(
-        self, system_prompt: str, user_message: str, temperature: float = 0.3
+        self,
+        system_prompt: str,
+        user_message: str,
+        temperature: float = 0.3,
+        model: str | None = None,
+        thinking: bool | None = None,
     ) -> tuple[str, dict]:
         """发起一次 chat completion 调用。
 
@@ -65,8 +70,11 @@ class LLMClient:
         """
         for attempt in range(self.max_retries):
             try:
+                target_model = model if model is not None else self.model
+                target_thinking = thinking if thinking is not None else self.thinking
+
                 kwargs = {
-                    "model": self.model,
+                    "model": target_model,
                     "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_message},
@@ -74,7 +82,7 @@ class LLMClient:
                     "temperature": temperature,
                 }
                 # DeepSeek 思考模式默认开启，显式关闭以节省 token 并避免与 temperature 冲突
-                if not self.thinking:
+                if not target_thinking:
                     kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
 
                 response = self.client.chat.completions.create(**kwargs)

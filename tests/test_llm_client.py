@@ -87,6 +87,25 @@ class TestLLMClientChat(unittest.TestCase):
         self.assertEqual(call_args.kwargs["extra_body"], {"thinking": {"type": "disabled"}})
 
     @patch("src.llm_client.OpenAI")
+    def test_chat_uses_passed_model_and_thinking_over_defaults(self, mock_openai_class: MagicMock):
+        """验证 chat 方法的参数能覆盖实例的默认模型和思考模式配置。"""
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_client.chat.completions.create.return_value = self._make_mock_response()
+
+        client = self._make_client(thinking=False)
+        client.chat(
+            "system prompt",
+            "user message",
+            model="override-model",
+            thinking=True,
+        )
+
+        call_args = mock_client.chat.completions.create.call_args
+        self.assertEqual(call_args.kwargs["model"], "override-model")
+        self.assertNotIn("extra_body", call_args.kwargs)
+
+    @patch("src.llm_client.OpenAI")
     def test_chat_thinking_enabled_no_extra_body(self, mock_openai_class: MagicMock):
         """thinking=True 时不应传入 extra_body。"""
         mock_client = MagicMock()

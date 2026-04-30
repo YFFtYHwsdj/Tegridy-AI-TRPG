@@ -24,6 +24,15 @@ class DummyAgent(BaseAgent):
     agent_name = "DummyAgent"
 
 
+class ConfiguredDummyAgent(BaseAgent):
+    """配置了模型和思考模式的子类。"""
+
+    system_prompt = "测试Agent"
+    agent_name = "ConfiguredAgent"
+    model = "deepseek-reasoner"
+    thinking = True
+
+
 class TestBaseAgentCallLLM(unittest.TestCase):
     """测试 BaseAgent._call_llm 的核心行为。"""
 
@@ -74,6 +83,19 @@ class TestBaseAgentCallLLM(unittest.TestCase):
         agent._call_llm("输入")
 
         self.assertEqual(mock_llm.call_history[0]["temperature"], 0.3)
+
+    def test_passes_subclass_model_and_thinking(self):
+        """验证子类覆盖的 model 和 thinking 配置被正确传递给 LLMClient。"""
+        mock_llm = MockLLMClient(
+            responses=[("=====REASONING=====\n测试\n=====STRUCTURED=====\n{}", {})]
+        )
+        agent = ConfiguredDummyAgent(mock_llm)
+        agent._call_llm("输入")
+
+        self.assertEqual(len(mock_llm.call_history), 1)
+        call_kwargs = mock_llm.call_history[0]
+        self.assertEqual(call_kwargs["model"], "deepseek-reasoner")
+        self.assertEqual(call_kwargs["thinking"], True)
 
     @patch("src.logger.get_game_logger")
     def test_prints_agent_name(self, mock_get_logger):

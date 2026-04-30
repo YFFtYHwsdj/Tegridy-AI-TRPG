@@ -23,11 +23,14 @@ class BaseAgent(ABC):  # noqa: B024
 
     每个具体 Agent 的模板方法模式：
         - 子类设置 system_prompt 和 agent_name
+        - (可选) 子类设置 model 和 thinking 以覆盖全局默认模型配置
         - _call_llm() 发送 user_message 并解析返回的 AgentNote
     """
 
     system_prompt: str = ""
     agent_name: str = "BaseAgent"
+    model: str | None = None
+    thinking: bool | None = None
 
     def __init__(self, llm: LLMClient):
         self.llm = llm
@@ -47,7 +50,12 @@ class BaseAgent(ABC):  # noqa: B024
 
         _log = get_game_logger()
         _log.debug("[%s] 调用中...", self.agent_name)
-        raw, usage_info = self.llm.chat(self.system_prompt, user_message)
+        raw, usage_info = self.llm.chat(
+            self.system_prompt,
+            user_message,
+            model=self.model,
+            thinking=self.thinking,
+        )
         log_call(self.agent_name, self.system_prompt, user_message, raw, usage_info)
         _log.debug("[%s] 完成", self.agent_name)
         return parse_agent_output(raw)
