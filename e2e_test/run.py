@@ -47,8 +47,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--max-scenes",
         type=int,
-        default=10,
-        help="最大场景切换次数 (默认: 10)",
+        default=15,
+        help="最大场景切换次数 (默认: 15)",
     )
     parser.add_argument(
         "--player-history",
