@@ -21,6 +21,7 @@ _REVELATION_RULES_FULL = """=== 线索与物品揭示 ===
 
 _STRUCTURED_FORMAT = """=====STRUCTURED=====
 {
+  "suggest_scene_end": false, // 如果当前场景的主要冲突已解决，或者剧情自然导向了转移（下一步去哪），请设为 true。否则为 false。
   "scene_update": "场景状态变化的简要说明（给后续 Agent 参考）",
   "revelation_decisions": {
     "reveal_clue_ids": [],

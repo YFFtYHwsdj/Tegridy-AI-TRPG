@@ -156,12 +156,12 @@ class TestGameLoopProcessAction(unittest.TestCase):
     def test_empty_input_returns_empty(self):
         """空输入返回空字符串。"""
         result = self.loop.process_action("")
-        self.assertEqual(result, "")
+        self.assertEqual(result, ("", False))
 
     def test_command_routing(self):
         """以 / 开头的输入走命令处理。"""
         result = self.loop.process_action("/quit")
-        self.assertEqual(result, "QUIT")
+        self.assertEqual(result, ("QUIT", False))
 
     def test_non_move_calls_lite_narrator(self):
         """守门人判定非 Move 时调用 LiteNarratorAgent。"""

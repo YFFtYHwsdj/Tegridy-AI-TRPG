@@ -85,7 +85,11 @@ class TestGameLoopStep(unittest.TestCase):
             structured={"is_move": False, "rationale": "纯叙事"},
         )
         self.loop.lite_narrator.execute.return_value = MagicMock(
-            structured={"narrative": "你环顾四周...", "revelation_decisions": {}}
+            structured={
+                "narrative": "你环顾四周...",
+                "revelation_decisions": {},
+                "suggest_scene_end": True,
+            }
         )
         # 场景导演判定不结束
         self.loop.scene_director.execute.return_value = MagicMock(
@@ -108,7 +112,11 @@ class TestGameLoopStep(unittest.TestCase):
             structured={"is_move": False},
         )
         self.loop.lite_narrator.execute.return_value = MagicMock(
-            structured={"narrative": "你完成了任务...", "revelation_decisions": {}}
+            structured={
+                "narrative": "你完成了任务...",
+                "revelation_decisions": {},
+                "suggest_scene_end": True,
+            }
         )
         # 场景导演判定结束
         self.loop.scene_director.execute.return_value = MagicMock(
@@ -154,7 +162,11 @@ class TestGameLoopStep(unittest.TestCase):
             effect_note=MagicMock(structured={"effects": []}),
             consequence_note=None,
             narrator_note=MagicMock(
-                structured={"narrative": "你拔出了枪...", "revelation_decisions": {}}
+                structured={
+                    "narrative": "你拔出了枪...",
+                    "revelation_decisions": {},
+                    "suggest_scene_end": True,
+                }
             ),
         )
         # 场景导演判定不结束
