@@ -13,10 +13,16 @@
     → SceneCreator 创作下一场景 → transition_to 切换状态
     → RhythmAgent 开场新场景
 
+公开 API：
+    step(player_input) → StepResult：单步推进，封装行动处理 + 场景导演判定 +
+        场景切换为原子操作。适用于自动化测试、Web UI 等非终端前端。
+
 输出通道划分：
     - 叙事文本、系统命令响应 → INFO（终端始终可见）
     - 管道状态、结算模式、行动类型等内部追踪 → DEBUG（仅调试模式终端可见）
 """
+
+from dataclasses import dataclass
 
 from src.agents import (
     CompressorAgent,
@@ -40,6 +46,28 @@ from src.models import Character
 from src.pipeline.move_pipeline import MovePipeline
 from src.state.game_state import GameState
 from src.state.scene_state import SceneState
+
+
+@dataclass
+class StepResult:
+    """单步推进结果 —— step() 方法的返回值。
+
+    封装一次 step() 调用的完整结果，供调用方（如 AutoRunner）
+    判断游戏进展和终止条件。
+
+    Attributes:
+        narrative: 本轮产出的叙事文本（空字符串表示命令或空输入）
+        is_quit: 玩家是否请求退出（/quit, /exit）
+        scene_changed: 本轮是否触发了场景切换
+        scene_end_reason: 场景导演给出的结束原因（仅 scene_changed=True 时有值）
+        is_empty: 是否为空输入或已处理的命令（无叙事产出）
+    """
+
+    narrative: str = ""
+    is_quit: bool = False
+    scene_changed: bool = False
+    scene_end_reason: str = ""
+    is_empty: bool = False
 
 
 class GameLoop:
@@ -121,6 +149,57 @@ class GameLoop:
             return ""
         self._log.info("  [系统] 未知命令: %s。输入 /help 查看可用命令。", cmd)
         return ""
+
+    # ───────────────────── 单步推进 API ─────────────────────
+
+    def step(self, player_input: str) -> StepResult:
+        """单步推进游戏 —— 处理一次玩家输入并检查场景结束条件。
+
+        将 process_action() + 场景导演判定 + 场景切换封装为一个原子操作。
+        适用于自动化测试、Web UI 等非终端前端，无需 input() 阻塞。
+
+        调用前必须先调用 setup() 初始化首个场景。
+
+        流程：
+            1. process_action(player_input) → 叙事文本
+            2. 如果产出了叙事，询问场景导演是否该结束场景
+            3. 如果场景应结束，执行场景过渡
+
+        Args:
+            player_input: 玩家输入文本
+
+        Returns:
+            StepResult: 本轮推进的完整结果
+        """
+        result = self.process_action(player_input)
+
+        # 退出请求
+        if result == "QUIT":
+            return StepResult(is_quit=True)
+
+        # 空输入或命令 —— 无叙事产出，不触发场景导演
+        if not result:
+            return StepResult(is_empty=True)
+
+        # 有叙事产出 → 检查场景导演
+        ctx = self.state.make_context()
+        director_note = self.scene_director.execute(ctx, result)
+        if director_note.structured.get("scene_should_end", False):
+            reason = director_note.structured.get("reason", "")
+            self._transition_hint = director_note.structured.get("transition_hint", "")
+            self._log.info("")
+            self._log.info("  [场景导演] 场景结束: %s", reason)
+
+            # 执行场景过渡
+            self._transition_scene()
+
+            return StepResult(
+                narrative=result,
+                scene_changed=True,
+                scene_end_reason=reason,
+            )
+
+        return StepResult(narrative=result)
 
     # ───────────────────── 场景管理 ─────────────────────
 
