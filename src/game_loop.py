@@ -441,7 +441,9 @@ class GameLoop:
         if challenge is not None:
             triggered_limits = check_limits(challenge)
             if triggered_limits:
-                self._handle_limit_break(triggered_limits)
+                break_narrative = self._handle_limit_break(triggered_limits)
+                if break_narrative:
+                    narrative += "\n\n" + break_narrative
                 needs_director = True
 
         return narrative, needs_director
@@ -506,7 +508,9 @@ class GameLoop:
         if challenge is not None:
             triggered_limits = check_limits(challenge)
             if triggered_limits:
-                self._handle_limit_break(triggered_limits)
+                break_narrative = self._handle_limit_break(triggered_limits)
+                if break_narrative:
+                    narrative += "\n\n" + break_narrative
                 needs_director = True
 
         return narrative, needs_director
@@ -564,6 +568,7 @@ class GameLoop:
 
         challenge.mark_limits_broken(limit_names)
         log_status_update(challenge.name, challenge.statuses)
+        return break_narrative
 
     # ───────────────────── 主循环 ─────────────────────
 

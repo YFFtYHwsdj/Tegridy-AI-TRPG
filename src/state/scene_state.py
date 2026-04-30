@@ -139,7 +139,10 @@ class SceneState:
 
         progress = challenge.get_limit_progress()
         limits = ", ".join(
-            format_limit_progress(limit, progress[limit.name]) for limit in challenge.limits
+            format_limit_progress(
+                limit, progress[limit.name], limit.name in challenge.broken_limits
+            )
+            for limit in challenge.limits
         )
         if not limits:
             limits = "（无极限设置）"

@@ -80,7 +80,7 @@ def format_story_tags(story_tags: dict) -> str:
     return "\n".join(lines)
 
 
-def format_limit_progress(limit, current: int) -> str:
+def format_limit_progress(limit, current: int, is_broken: bool = False) -> str:
     """格式化极限进度条。
 
     使用 █ 和 ░ 字符渲染进度条。
@@ -89,12 +89,14 @@ def format_limit_progress(limit, current: int) -> str:
     Args:
         limit: Limit 对象
         current: 当前进度值
+        is_broken: 是否已经突破
 
     Returns:
         单行格式化文本
     """
     prog = "/".join("█" * current + "░" * (limit.max_tier - current))
-    return f"{limit.name}: [{prog}] {current}/{limit.max_tier}"
+    broken_str = " (已突破!)" if is_broken else ""
+    return f"{limit.name}: [{prog}] {current}/{limit.max_tier}{broken_str}"
 
 
 def format_challenge_state(challenge) -> str:
@@ -118,7 +120,8 @@ def format_challenge_state(challenge) -> str:
     progress = challenge.get_limit_progress()
     for limit in challenge.limits:
         current = progress[limit.name]
-        lines.append(f"  - {format_limit_progress(limit, current)}")
+        is_broken = limit.name in challenge.broken_limits
+        lines.append(f"  - {format_limit_progress(limit, current, is_broken)}")
     if challenge.base_tags:
         lines.append(f"基础标签: {', '.join(t.name for t in challenge.base_tags)}")
     lines.append(f"故事标签: {format_story_tags(challenge.story_tags)}")
@@ -151,7 +154,12 @@ def format_challenge_for_consequence(challenge) -> str:
 
     progress = challenge.get_limit_progress()
     limits_str = (
-        ", ".join(format_limit_progress(limit, progress[limit.name]) for limit in challenge.limits)
+        ", ".join(
+            format_limit_progress(
+                limit, progress[limit.name], limit.name in challenge.broken_limits
+            )
+            for limit in challenge.limits
+        )
         if challenge.limits
         else "(无极限)"
     )
