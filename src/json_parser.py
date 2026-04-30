@@ -160,9 +160,11 @@ def parse_agent_output(raw_output: str) -> AgentNote:
     reasoning = ""
     structured = {}
 
-    # 提取 REASONING 段落
+    # 提取 REASONING 或 MC_THINKING 段落
     reasoning_match = re.search(
-        r"=====REASONING=====\s*(.*?)\s*=====(?:NARRATIVE|STRUCTURED)=====", raw_output, re.DOTALL
+        r"=====(?:REASONING|MC_THINKING)=====\s*(.*?)\s*=====(?:NARRATIVE|STRUCTURED)=====",
+        raw_output,
+        re.DOTALL,
     )
     if reasoning_match:
         reasoning = reasoning_match.group(1).strip()
