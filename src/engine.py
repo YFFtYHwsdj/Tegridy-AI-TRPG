@@ -10,6 +10,8 @@
     nudge（轻推）: 状态自然恶化一级，来自 Otherscape 机制
 """
 
+from __future__ import annotations
+
 import logging
 import random
 

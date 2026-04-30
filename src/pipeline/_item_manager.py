@@ -12,9 +12,14 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from src.llm_client import LLMClient
 from src.logger import log_system
 from src.state.game_state import GameState
+
+if TYPE_CHECKING:
+    from src.context import AgentContext
 
 
 class ItemManager:
@@ -29,7 +34,7 @@ class ItemManager:
         self.state = state
         self.llm = llm
 
-    def validate_and_apply(self, narrator_note, ctx=None):
+    def validate_and_apply(self, narrator_note, ctx: AgentContext | None = None):
         """应用叙事输出中的揭示和物品转移。
 
         MovePipeline 的入口委托方法，保持与原有接口兼容。
@@ -74,7 +79,7 @@ class ItemManager:
             if not found:
                 log_system(f"未找到物品 '{item_id}'", level="warning")
 
-    def apply_item_transfers(self, structured: dict, ctx=None):
+    def apply_item_transfers(self, structured: dict, ctx: AgentContext | None = None):
         """执行最终决策中的物品转移。
 
         处理物品在不同位置之间的移动（场景 ↔ 角色 ↔ NPC），
@@ -113,7 +118,7 @@ class ItemManager:
 
             self.insert_item(item_id, item, to_loc)
 
-    def create_emergent_item(self, item_name: str, ctx=None):
+    def create_emergent_item(self, item_name: str, ctx: AgentContext | None = None):
         """创建 emergent 物品 —— 叙述者即兴引入的新物品。
 
         LLM 叙述者可能在叙事中引入原数据中不存在的物品。
@@ -127,6 +132,10 @@ class ItemManager:
             新创建的 GameItem 对象，创建失败返回 None
         """
         from src.agents.item_creator import ItemCreatorAgent
+
+        # ctx 为 None 时无法提供场景上下文给 ItemCreator，直接放弃创建
+        if ctx is None:
+            return None
 
         if not hasattr(self, "item_creator"):
             self.item_creator = ItemCreatorAgent(self.llm)

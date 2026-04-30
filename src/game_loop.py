@@ -22,6 +22,8 @@
     - 管道状态、结算模式、行动类型等内部追踪 → DEBUG（仅调试模式终端可见）
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 
 from src.agents import (
