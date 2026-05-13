@@ -16,12 +16,11 @@ import json
 from typing import Any
 
 from src.agents import (
-    ConsequenceAgent,
     ContinuationCheckAgent,
-    EffectActualizationAgent,
     NarratorAgent,
-    QuickConsequenceAgent,
+    OutcomeAgent,
     QuickNarratorAgent,
+    QuickOutcomeAgent,
     TagMatcherAgent,
 )
 from src.display.console import ConsoleDisplay
@@ -75,9 +74,8 @@ class MovePipeline:
 
         # 创建所有 Agent 实例
         self.tag_agent = TagMatcherAgent(llm)
-        self.effect_agent = EffectActualizationAgent(llm)
-        self.consequence_agent = ConsequenceAgent(llm)
-        self.quick_consequence_agent = QuickConsequenceAgent(llm)
+        self.outcome_agent = OutcomeAgent(llm)
+        self.quick_outcome_agent = QuickOutcomeAgent(llm)
         self.narrator = NarratorAgent(llm)
         self.quick_narrator = QuickNarratorAgent(llm)
         self.continuation_check = ContinuationCheckAgent(llm)
@@ -148,21 +146,15 @@ class MovePipeline:
         """
         tag_note, roll = self._run_tag_and_roll(intent_note, ctx, sub_action)
 
-        effect_note = self.effect_agent.execute(
+        outcome_note = self.outcome_agent.execute(
             intent_note, tag_note, roll, ctx, sub_action=sub_action
         )
 
-        # 仅在未完全成功时生成后果（部分成功和失败都有代价）
-        consequence_note = None
-        if roll.outcome in ("partial_success", "failure"):
-            consequence_note = self.consequence_agent.execute(intent_note, effect_note, roll, ctx)
-
         narrator_note = self.narrator.execute(
             intent_note,
-            effect_note,
+            outcome_note,
             roll,
             ctx,
-            consequence_note=consequence_note,
         )
 
         self.validate_and_apply(narrator_note, ctx)
@@ -170,8 +162,7 @@ class MovePipeline:
         return PipelineResult(
             tag_note=tag_note,
             roll=roll,
-            effect_note=effect_note,
-            consequence_note=consequence_note,
+            outcome_note=outcome_note,
             narrator_note=narrator_note,
         )
 
@@ -190,15 +181,13 @@ class MovePipeline:
         """
         tag_note, roll = self._run_tag_and_roll(intent_note, ctx)
 
-        consequence_note = None
-        if roll.outcome in ("partial_success", "failure"):
-            consequence_note = self.quick_consequence_agent.execute(intent_note, roll, ctx)
+        outcome_note = self.quick_outcome_agent.execute(intent_note, roll, ctx)
 
         narrator_note = self.quick_narrator.execute(
             intent_note,
+            outcome_note,
             roll,
             ctx,
-            consequence_note=consequence_note,
         )
 
         self.validate_and_apply(narrator_note, ctx)
@@ -206,8 +195,7 @@ class MovePipeline:
         return PipelineResult(
             tag_note=tag_note,
             roll=roll,
-            effect_note=None,
-            consequence_note=consequence_note,
+            outcome_note=outcome_note,
             narrator_note=narrator_note,
         )
 
@@ -228,20 +216,14 @@ class MovePipeline:
         """
         tag_note, roll = self._run_tag_and_roll(intent_note, ctx, sub_action)
 
-        effect_note = self.effect_agent.execute(
+        outcome_note = self.outcome_agent.execute(
             intent_note, tag_note, roll, ctx, sub_action=sub_action
         )
-
-        # 仅在未完全成功时生成后果
-        consequence_note = None
-        if roll.outcome in ("partial_success", "failure"):
-            consequence_note = self.consequence_agent.execute(intent_note, effect_note, roll, ctx)
 
         return PipelineResult(
             tag_note=tag_note,
             roll=roll,
-            effect_note=effect_note,
-            consequence_note=consequence_note,
+            outcome_note=outcome_note,
             # narrator_note 留空，由调用方统一处理
         )
 
@@ -319,11 +301,11 @@ class MovePipeline:
             # 保存当前步的结果供下一步的继续性检查使用
             prev_roll = result.roll
             prev_effects = (
-                result.effect_note.structured.get("effects", []) if result.effect_note else []
+                result.outcome_note.structured.get("effects", []) if result.outcome_note else []
             )
             prev_cons = (
-                result.consequence_note.structured.get("consequences", [])
-                if result.consequence_note
+                result.outcome_note.structured.get("consequences", [])
+                if result.outcome_note
                 else []
             )
 
@@ -336,17 +318,19 @@ class MovePipeline:
                     f"{roll.dice[0]}+{roll.dice[1]}+{roll.power}={roll.total} ({roll.outcome})"
                 )
                 effects_json = json.dumps(
-                    result.effect_note.structured.get("effects", []) if result.effect_note else [],
+                    result.outcome_note.structured.get("effects", [])
+                    if result.outcome_note
+                    else [],
                     ensure_ascii=False,
                 )
                 narrative_hints = (
-                    result.effect_note.structured.get("narrative_hints", "")
-                    if result.effect_note
+                    result.outcome_note.structured.get("narrative_hints", "")
+                    if result.outcome_note
                     else ""
                 )
                 consequences_json = json.dumps(
-                    result.consequence_note.structured.get("consequences", [])
-                    if result.consequence_note
+                    result.outcome_note.structured.get("consequences", [])
+                    if result.outcome_note
                     else [],
                     ensure_ascii=False,
                 )

@@ -61,35 +61,37 @@ class ConsoleDisplay:
             roll.outcome,
         )
 
-    def print_effects(self, effect_note):
-        """打印效果推演结果。
+    def print_outcome(self, outcome_note, quick=False):
+        """打印结算推演结果（效果与后果）。
 
         Args:
-            effect_note: 效果推演 Agent 的分析便签
-        """
-        if effect_note is None:
-            return
-        effects = effect_note.structured.get("effects", [])
-        if effects:
-            eff_summary = ", ".join(
-                f"{e.get('label', '?')} ({e.get('effect_type', '?')} {e.get('tier', '?')})"
-                for e in effects
-            )
-            self._log.debug("  实际效果: %s", eff_summary)
-        else:
-            self._log.debug("  实际效果: 无")
-
-    def print_effects_or_quick_note(self, effect_note, quick=False):
-        """根据模式打印效果或快速结算提示。
-
-        Args:
-            effect_note: 效果推演便签（标准模式）或 None（快速模式）
+            outcome_note: 结算推演 Agent 的分析便签
             quick: 是否为快速结算模式
         """
+        if outcome_note is None:
+            return
+
+        # 打印效果
         if quick:
-            self._log.debug("  实际效果: 无（快速结算不花费力量）")
-        elif effect_note is not None:
-            self.print_effects(effect_note)
+            self._log.debug("  🌟 效果: 无（快速结算不花费力量）")
+        else:
+            effects = outcome_note.structured.get("effects", [])
+            if effects:
+                eff_summary = ", ".join(
+                    f"{e.get('label', '?')} ({e.get('effect_type', '?')} {e.get('tier', '?')})"
+                    for e in effects
+                )
+                self._log.debug("  🌟 效果: %s", eff_summary)
+            else:
+                self._log.debug("  🌟 效果: 无")
+
+        # 打印后果
+        cons_list = outcome_note.structured.get("consequences", [])
+        if cons_list:
+            cons_summary = ", ".join(
+                c.get("threat_manifested") or c.get("description", "?") for c in cons_list
+            )
+            self._log.debug("  ⚠️ 后果: %s", cons_summary)
 
     def print_strategy(self, narrator_note):
         """打印叙述者的叙事策略摘要。
@@ -100,22 +102,6 @@ class ConsoleDisplay:
         strategy = narrator_note.reasoning[:60]
         if strategy:
             self._log.debug("  叙事策略: %s", strategy)
-
-    def print_consequences(self, consequence_note):
-        """打印后果摘要。
-
-        Args:
-            consequence_note: 后果 Agent 的分析便签
-        """
-        if not consequence_note:
-            return
-        cons_list = consequence_note.structured.get("consequences", [])
-        if not cons_list:
-            return
-        cons_summary = ", ".join(
-            c.get("threat_manifested") or c.get("description", "?") for c in cons_list
-        )
-        self._log.debug("  后果: %s", cons_summary)
 
     def print_status(self, state):
         """打印当前游戏状态快照。

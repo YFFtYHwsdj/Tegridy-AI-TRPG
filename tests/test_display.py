@@ -39,8 +39,7 @@ class TestConsoleDisplayOutput(unittest.TestCase):
         """所有方法始终调用 logger.debug（由 handler 等级控制终端可见性）。"""
         with patch.object(self.logger, "debug") as mock_debug:
             self.display.print_tag_and_roll(MagicMock(), MagicMock())
-            self.display.print_effects(MagicMock())
-            self.display.print_consequences(MagicMock())
+            self.display.print_outcome(MagicMock())
             self.display.print_strategy(MagicMock())
             self.display.print_status(self._make_state_mock())
 
@@ -105,18 +104,18 @@ class TestConsoleDisplayOutput(unittest.TestCase):
         self.assertIn("partial_success", output)
 
 
-class TestConsoleDisplayEffects(unittest.TestCase):
-    """测试 print_effects 输出。"""
+class TestConsoleDisplayOutcome(unittest.TestCase):
+    """测试 print_outcome 输出。"""
 
     def setUp(self):
         self.logger = logging.getLogger("aitrpg.game")
         self.display = ConsoleDisplay(self.logger)
 
-    def test_outputs_effect_summary(self):
-        """输出效果摘要。"""
+    def test_outputs_outcome_summary(self):
+        """输出效果和后果摘要。"""
         with patch.object(self.logger, "debug") as mock_debug:
-            effect_note = AgentNote(
-                reasoning="效果",
+            outcome_note = AgentNote(
+                reasoning="结算推演",
                 structured={
                     "effects": [
                         {
@@ -125,76 +124,23 @@ class TestConsoleDisplayEffects(unittest.TestCase):
                             "effect_type": "attack",
                             "tier": 2,
                         },
-                    ]
+                    ],
+                    "consequences": [
+                        {"threat_manifested": "保镖介入", "narrative_description": "保镖向前一步"},
+                    ],
                 },
             )
-            self.display.print_effects(effect_note)
+            self.display.print_outcome(outcome_note)
 
         output = _collect_debug_output(mock_debug)
         self.assertIn("受伤", output)
         self.assertIn("attack", output)
-
-    def test_none_effect_note(self):
-        """effect_note 为 None 时不报错。"""
-        with patch.object(self.logger, "debug"):
-            self.display.print_effects(None)
-
-
-class TestConsoleDisplayEffectsOrQuick(unittest.TestCase):
-    """测试 print_effects_or_quick_note 输出。"""
-
-    def setUp(self):
-        self.logger = logging.getLogger("aitrpg.game")
-        self.display = ConsoleDisplay(self.logger)
-
-    def test_quick_mode_shows_quick_message(self):
-        """快速模式下显示快速结算提示。"""
-        with patch.object(self.logger, "debug") as mock_debug:
-            self.display.print_effects_or_quick_note(None, quick=True)
-
-        output = _collect_debug_output(mock_debug)
-        self.assertIn("快速结算", output)
-
-    def test_standard_mode_shows_effects(self):
-        """标准模式下显示效果。"""
-        with patch.object(self.logger, "debug") as mock_debug:
-            effect_note = AgentNote(
-                reasoning="效果",
-                structured={"effects": [{"operation": "inflict_status", "label": "受伤"}]},
-            )
-            self.display.print_effects_or_quick_note(effect_note, quick=False)
-
-        output = _collect_debug_output(mock_debug)
-        self.assertIn("受伤", output)
-
-
-class TestConsoleDisplayConsequences(unittest.TestCase):
-    """测试 print_consequences 输出。"""
-
-    def setUp(self):
-        self.logger = logging.getLogger("aitrpg.game")
-        self.display = ConsoleDisplay(self.logger)
-
-    def test_outputs_consequence_summary(self):
-        """输出后果摘要。"""
-        with patch.object(self.logger, "debug") as mock_debug:
-            consequence_note = AgentNote(
-                reasoning="后果",
-                structured={
-                    "consequences": [
-                        {"threat_manifested": "保镖介入", "narrative_description": "保镖向前一步"},
-                    ]
-                },
-            )
-            self.display.print_consequences(consequence_note)
-
-        output = _collect_debug_output(mock_debug)
         self.assertIn("保镖介入", output)
 
-    def test_none_consequence_note(self):
-        """consequence_note 为 None 时不报错。"""
+    def test_none_outcome_note(self):
+        """outcome_note 为 None 时不报错。"""
         with patch.object(self.logger, "debug"):
-            self.display.print_consequences(None)
+            self.display.print_outcome(None)
 
 
 class TestConsoleDisplayStrategy(unittest.TestCase):

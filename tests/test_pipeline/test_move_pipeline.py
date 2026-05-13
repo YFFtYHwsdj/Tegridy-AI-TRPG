@@ -113,18 +113,15 @@ class TestMovePipelineSingleMove(unittest.TestCase):
             }
         )
 
-        pipeline.effect_agent = MagicMock()
-        pipeline.effect_agent.execute.return_value = make_agent_note(
+        pipeline.outcome_agent = MagicMock()
+        pipeline.outcome_agent.execute.return_value = make_agent_note(
             structured={
                 "effects": [
                     {"operation": "inflict_status", "target": "挑战", "label": "受伤", "tier": 2}
-                ]
+                ],
+                "consequences": [{"threat_manifested": "保镖介入"}],
+                "narrative_hints": "测试叙事提示",
             }
-        )
-
-        pipeline.consequence_agent = MagicMock()
-        pipeline.consequence_agent.execute.return_value = make_agent_note(
-            structured={"consequences": [{"threat_manifested": "保镖介入"}]}
         )
 
         pipeline.narrator = MagicMock()
@@ -151,8 +148,7 @@ class TestMovePipelineSingleMove(unittest.TestCase):
         pipeline.run_single_move_pipeline(intent_note, ctx)
 
         pipeline.tag_agent.execute.assert_called_once()
-        pipeline.effect_agent.execute.assert_called_once()
-        pipeline.consequence_agent.execute.assert_called_once()
+        pipeline.outcome_agent.execute.assert_called_once()
         pipeline.narrator.execute.assert_called_once()
 
     @patch("src.pipeline.move_pipeline.roll_dice")
@@ -170,7 +166,7 @@ class TestMovePipelineSingleMove(unittest.TestCase):
         result = pipeline.run_single_move_pipeline(intent_note, ctx)
 
         self.assertEqual(result.roll.outcome, "full_success")
-        pipeline.consequence_agent.execute.assert_not_called()
+        pipeline.outcome_agent.execute.assert_called_once()
 
     @patch("src.pipeline.move_pipeline.roll_dice")
     def test_calls_consequence_on_partial_success(self, mock_roll_dice):
@@ -186,7 +182,7 @@ class TestMovePipelineSingleMove(unittest.TestCase):
         ctx = state.make_context("我要拔枪")
         pipeline.run_single_move_pipeline(intent_note, ctx)
 
-        pipeline.consequence_agent.execute.assert_called_once()
+        pipeline.outcome_agent.execute.assert_called_once()
 
     def test_delegates_validate_and_apply_to_item_manager(self):
         """流水线末端委托 item_manager 执行 validate_and_apply。"""
@@ -217,8 +213,7 @@ class TestMovePipelineSingleMove(unittest.TestCase):
         self.assertIsInstance(result, PipelineResult)
         self.assertIsNotNone(result.tag_note)
         self.assertIsNotNone(result.roll)
-        self.assertIsNotNone(result.effect_note)
-        self.assertIsNotNone(result.consequence_note)
+        self.assertIsNotNone(result.outcome_note)
         self.assertIsNotNone(result.narrator_note)
 
 
@@ -239,8 +234,8 @@ class TestMovePipelineQuickPipeline(unittest.TestCase):
             }
         )
 
-        pipeline.quick_consequence_agent = MagicMock()
-        pipeline.quick_consequence_agent.execute.return_value = make_agent_note(
+        pipeline.quick_outcome_agent = MagicMock()
+        pipeline.quick_outcome_agent.execute.return_value = make_agent_note(
             structured={"consequences": [{"threat_manifested": "保镖介入"}]}
         )
 
@@ -252,18 +247,7 @@ class TestMovePipelineQuickPipeline(unittest.TestCase):
         pipeline.item_manager = MagicMock()
 
         return pipeline
-
-    def test_skips_effect_agent(self):
-        """快速流水线不调用 EffectActualizationAgent。"""
-        mock_llm = MockLLMClient()
-        state = make_test_game_state()
-        pipeline = self._make_pipeline(state, mock_llm)
-
-        intent_note = make_agent_note(structured={"action_type": "combat"})
-        ctx = state.make_context("我要拔枪")
-        result = pipeline.run_quick_pipeline(intent_note, ctx)
-
-        self.assertIsNone(result.effect_note)
+        return pipeline
 
     @patch("src.pipeline.move_pipeline.roll_dice")
     def test_uses_quick_consequence(self, mock_roll_dice):
@@ -279,7 +263,7 @@ class TestMovePipelineQuickPipeline(unittest.TestCase):
         ctx = state.make_context("我要拔枪")
         pipeline.run_quick_pipeline(intent_note, ctx)
 
-        pipeline.quick_consequence_agent.execute.assert_called_once()
+        pipeline.quick_outcome_agent.execute.assert_called_once()
 
     def test_uses_quick_narrator(self):
         """快速流水线使用 QuickNarratorAgent。"""
@@ -311,17 +295,13 @@ class TestMovePipelineSplitActions(unittest.TestCase):
             }
         )
 
-        pipeline.effect_agent = MagicMock()
-        pipeline.effect_agent.execute.return_value = make_agent_note(
+        pipeline.outcome_agent = MagicMock()
+        pipeline.outcome_agent.execute.return_value = make_agent_note(
             structured={
                 "effects": [{"label": "受伤", "effect_type": "attack", "tier": 1}],
                 "narrative_hints": "测试叙事提示",
+                "consequences": [],
             }
-        )
-
-        pipeline.consequence_agent = MagicMock()
-        pipeline.consequence_agent.execute.return_value = make_agent_note(
-            structured={"consequences": []}
         )
 
         # 统一叙述者 mock
@@ -356,9 +336,9 @@ class TestMovePipelineSplitActions(unittest.TestCase):
         results = pipeline.process_split_actions(intent_note, split_actions)
 
         self.assertEqual(len(results), 2)
-        # 每个子行动各调用一次 tag_agent 和 effect_agent
+        # 每个子行动各调用一次 tag_agent 和 outcome_agent
         self.assertEqual(pipeline.tag_agent.execute.call_count, 2)
-        self.assertEqual(pipeline.effect_agent.execute.call_count, 2)
+        self.assertEqual(pipeline.outcome_agent.execute.call_count, 2)
 
     def test_narrator_called_once_with_execute_split(self):
         """统一叙述者 execute_split 只调用 1 次（而非 N 次 execute）。"""

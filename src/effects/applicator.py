@@ -23,19 +23,16 @@ class EffectApplicator:
 
     @staticmethod
     def apply_results(
-        effect_note: AgentNote | None,
-        consequence_note: AgentNote | None,
+        outcome_note: AgentNote | None,
         character: Character | None,
         challenge: Challenge | None,
     ) -> list[str]:
         """应用效果推演和后果的全部效果到游戏状态。
 
-        先处理效果推演 Agent 的效果列表，再处理后果 Agent 的后果列表。
-        每个后果条目内部可能包含嵌套的效果列表。
+        处理 Outcome Agent 的分析便签中的 effects 和 consequences。
 
         Args:
-            effect_note: 效果推演 Agent 的分析便签
-            consequence_note: 后果 Agent 的分析便签
+            outcome_note: 结算推演 Agent 的分析便签
             character: 当前玩家角色
             challenge: 当前挑战
 
@@ -43,20 +40,17 @@ class EffectApplicator:
             执行过程中产生的错误信息列表（空列表表示全部成功）
         """
         errors: list[str] = []
-        if character is None or challenge is None:
+        if character is None or challenge is None or outcome_note is None:
             return errors
 
-        effects = effect_note.structured.get("effects", []) if effect_note is not None else []
+        effects = outcome_note.structured.get("effects", [])
         errors.extend(EffectApplicator._apply_effect_list(effects, character, challenge))
 
-        if consequence_note:
-            consequences = consequence_note.structured.get("consequences", [])
-            for cons in consequences:
-                errors.extend(
-                    EffectApplicator._apply_effect_list(
-                        cons.get("effects", []), character, challenge
-                    )
-                )
+        consequences = outcome_note.structured.get("consequences", [])
+        for cons in consequences:
+            errors.extend(
+                EffectApplicator._apply_effect_list(cons.get("effects", []), character, challenge)
+            )
 
         return errors
 

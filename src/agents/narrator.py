@@ -19,18 +19,11 @@ class NarratorAgent(BaseAgent):
     def execute(
         self,
         intent_note: AgentNote,
-        effect_note: AgentNote,
+        outcome_note: AgentNote,
         roll_result: RollResult,
         ctx: AgentContext,
-        consequence_note: AgentNote | None = None,
     ) -> AgentNote:
         roll_summary = f"{roll_result.dice[0]}+{roll_result.dice[1]}+{roll_result.power}={roll_result.total} ({roll_result.outcome})"
-
-        cons_reasoning = ""
-        cons_structured = {}
-        if consequence_note:
-            cons_reasoning = consequence_note.reasoning
-            cons_structured = consequence_note.structured
 
         user_msg = f"""{ctx.assets_block}
 {ctx.context_block}
@@ -40,12 +33,10 @@ class NarratorAgent(BaseAgent):
 
 {_HIDDEN_NOTICE}
 
-效果推演推理: {effect_note.reasoning}
-效果: {json.dumps(effect_note.structured.get("effects", []), ensure_ascii=False)}
-叙事提示: {effect_note.structured.get("narrative_hints", "")}
-
-后果推理: {cons_reasoning}
-后果: {json.dumps(cons_structured.get("consequences", []), ensure_ascii=False)}
+结算推演推理: {outcome_note.reasoning}
+效果: {json.dumps(outcome_note.structured.get("effects", []), ensure_ascii=False)}
+叙事提示: {outcome_note.structured.get("narrative_hints", "")}
+后果: {json.dumps(outcome_note.structured.get("consequences", []), ensure_ascii=False)}
 
 ---
 玩家行动: {ctx.player_input}
@@ -145,17 +136,11 @@ class QuickNarratorAgent(BaseAgent):
     def execute(
         self,
         intent_note: AgentNote,
+        outcome_note: AgentNote,
         roll_result: RollResult,
         ctx: AgentContext,
-        consequence_note: AgentNote | None = None,
     ) -> AgentNote:
         roll_summary = f"{roll_result.dice[0]}+{roll_result.dice[1]}+{roll_result.power}={roll_result.total} ({roll_result.outcome})"
-
-        cons_reasoning = ""
-        cons_structured = {}
-        if consequence_note:
-            cons_reasoning = consequence_note.reasoning
-            cons_structured = consequence_note.structured
 
         user_msg = f"""{ctx.assets_block}
 {ctx.context_block}
@@ -167,8 +152,8 @@ class QuickNarratorAgent(BaseAgent):
 
 意图: {intent_note.structured.get("action_summary", "")}
 
-后果推理: {cons_reasoning}
-后果: {json.dumps(cons_structured.get("consequences", []), ensure_ascii=False)}
+结算推演推理: {outcome_note.reasoning}
+后果: {json.dumps(outcome_note.structured.get("consequences", []), ensure_ascii=False)}
 
 ---
 玩家行动: {ctx.player_input}

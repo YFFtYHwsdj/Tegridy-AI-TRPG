@@ -217,17 +217,12 @@ class TestApplyResults(unittest.TestCase):
         )
 
     def test_apply_effects_and_consequences(self):
-        effect_note = AgentNote(
-            reasoning="效果推演",
+        outcome_note = AgentNote(
+            reasoning="效果推演与后果",
             structured={
                 "effects": [
                     {"operation": "inflict_status", "target": "自身", "label": "受伤", "tier": 2},
-                ]
-            },
-        )
-        consequence_note = AgentNote(
-            reasoning="后果",
-            structured={
+                ],
                 "consequences": [
                     {
                         "threat_manifested": "保镖介入",
@@ -239,12 +234,10 @@ class TestApplyResults(unittest.TestCase):
                             }
                         ],
                     }
-                ]
+                ],
             },
         )
-        errors = EffectApplicator.apply_results(
-            effect_note, consequence_note, self.character, self.challenge
-        )
+        errors = EffectApplicator.apply_results(outcome_note, self.character, self.challenge)
         self.assertEqual(errors, [])
         self.assertIn("受伤", self.character.statuses)
         self.assertEqual(self.character.statuses["受伤"].current_tier, 2)
@@ -252,11 +245,11 @@ class TestApplyResults(unittest.TestCase):
         self.assertEqual(self.challenge.statuses["被激怒"].current_tier, 1)
 
     def test_no_character(self):
-        errors = EffectApplicator.apply_results(None, None, None, self.challenge)
+        errors = EffectApplicator.apply_results(None, None, self.challenge)
         self.assertEqual(errors, [])
 
     def test_none_notes(self):
-        errors = EffectApplicator.apply_results(None, None, self.character, self.challenge)
+        errors = EffectApplicator.apply_results(None, self.character, self.challenge)
         self.assertEqual(errors, [])
 
 

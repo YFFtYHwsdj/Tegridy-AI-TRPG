@@ -27,10 +27,10 @@ class TestNarratorAgentExecute(unittest.TestCase):
         agent = NarratorAgent(mock_llm)
         ctx = make_test_context()
         intent_note = make_agent_note(structured={"action_summary": "拔枪"})
-        effect_note = make_agent_note(structured={"effects": []})
+        outcome_note = make_agent_note(structured={"effects": []})
         roll = make_roll_result(outcome="partial_success")
 
-        agent.execute(intent_note, effect_note, roll, ctx)
+        agent.execute(intent_note, outcome_note, roll, ctx)
 
         self.assertIn("隐藏", mock_llm.call_history[0]["user_message"])
 
@@ -47,22 +47,22 @@ class TestNarratorAgentExecute(unittest.TestCase):
         agent = NarratorAgent(mock_llm)
         ctx = make_test_context()
         intent_note = make_agent_note(structured={"action_summary": "拔枪"})
-        effect_note = make_agent_note(
-            structured={"effects": [{"operation": "inflict_status", "label": "受伤"}]}
+        outcome_note = make_agent_note(
+            structured={
+                "effects": [{"operation": "inflict_status", "label": "受伤"}],
+                "consequences": [{"threat_manifested": "保镖介入"}],
+            }
         )
         roll = make_roll_result(outcome="partial_success")
-        consequence_note = make_agent_note(
-            structured={"consequences": [{"threat_manifested": "保镖介入"}]}
-        )
 
-        agent.execute(intent_note, effect_note, roll, ctx, consequence_note=consequence_note)
+        agent.execute(intent_note, outcome_note, roll, ctx)
 
         user_msg = mock_llm.call_history[0]["user_message"]
         self.assertIn("inflict_status", user_msg)
         self.assertIn("保镖介入", user_msg)
 
-    def test_without_consequence_note(self):
-        """consequence_note 为 None 时后果部分为空。"""
+    def test_without_consequences(self):
+        """没有后果时 consequences 部分为空。"""
         mock_llm = MockLLMClient(
             responses=[
                 (
@@ -74,14 +74,14 @@ class TestNarratorAgentExecute(unittest.TestCase):
         agent = NarratorAgent(mock_llm)
         ctx = make_test_context()
         intent_note = make_agent_note(structured={"action_summary": "拔枪"})
-        effect_note = make_agent_note(structured={"effects": []})
+        outcome_note = make_agent_note(structured={"effects": [], "consequences": []})
         roll = make_roll_result(outcome="full_success")
 
-        agent.execute(intent_note, effect_note, roll, ctx, consequence_note=None)
+        agent.execute(intent_note, outcome_note, roll, ctx)
 
         user_msg = mock_llm.call_history[0]["user_message"]
-        # 后果推理应为空字符串，但字段存在
-        self.assertIn("后果推理", user_msg)
+        # 后果应为空数组
+        self.assertIn("后果: []", user_msg)
 
     def test_includes_roll_summary(self):
         """user_message 包含掷骰摘要。"""
@@ -96,10 +96,10 @@ class TestNarratorAgentExecute(unittest.TestCase):
         agent = NarratorAgent(mock_llm)
         ctx = make_test_context()
         intent_note = make_agent_note(structured={"action_summary": "拔枪"})
-        effect_note = make_agent_note(structured={"effects": []})
+        outcome_note = make_agent_note(structured={"effects": []})
         roll = make_roll_result(outcome="partial_success", power=1, dice=(4, 3))
 
-        agent.execute(intent_note, effect_note, roll, ctx)
+        agent.execute(intent_note, outcome_note, roll, ctx)
 
         self.assertIn("4+3+1=8", mock_llm.call_history[0]["user_message"])
 
@@ -117,10 +117,10 @@ class TestNarratorAgentExecute(unittest.TestCase):
         ctx = make_test_context()
         ctx.player_input = "我要拔枪"
         intent_note = make_agent_note(structured={"action_summary": "拔枪"})
-        effect_note = make_agent_note(structured={"effects": []})
+        outcome_note = make_agent_note(structured={"effects": []})
         roll = make_roll_result(outcome="partial_success")
 
-        agent.execute(intent_note, effect_note, roll, ctx)
+        agent.execute(intent_note, outcome_note, roll, ctx)
 
         self.assertIn("我要拔枪", mock_llm.call_history[0]["user_message"])
 
@@ -138,10 +138,10 @@ class TestNarratorAgentExecute(unittest.TestCase):
         agent = NarratorAgent(mock_llm)
         ctx = make_test_context()
         intent_note = make_agent_note(structured={"action_summary": "拔枪"})
-        effect_note = make_agent_note(structured={"effects": []})
+        outcome_note = make_agent_note(structured={"effects": []})
         roll = make_roll_result(outcome="partial_success")
 
-        result = agent.execute(intent_note, effect_note, roll, ctx)
+        result = agent.execute(intent_note, outcome_note, roll, ctx)
 
         self.assertEqual(result.structured["narrative"], "你迅速拔枪...")
 
@@ -217,9 +217,10 @@ class TestQuickNarratorAgentExecute(unittest.TestCase):
         agent = QuickNarratorAgent(mock_llm)
         ctx = make_test_context()
         intent_note = make_agent_note(structured={"action_summary": "拔枪"})
+        outcome_note = make_agent_note(structured={"effects": []})
         roll = make_roll_result(outcome="partial_success")
 
-        agent.execute(intent_note, roll, ctx)
+        agent.execute(intent_note, outcome_note, roll, ctx)
 
         user_msg = mock_llm.call_history[0]["user_message"]
         self.assertNotIn("效果推演", user_msg)
@@ -237,13 +238,14 @@ class TestQuickNarratorAgentExecute(unittest.TestCase):
         agent = QuickNarratorAgent(mock_llm)
         ctx = make_test_context()
         intent_note = make_agent_note(structured={"action_summary": "拔枪"})
+        outcome_note = make_agent_note(structured={"effects": []})
         roll = make_roll_result(outcome="partial_success", power=1, dice=(3, 4))
 
-        agent.execute(intent_note, roll, ctx)
+        agent.execute(intent_note, outcome_note, roll, ctx)
 
         self.assertIn("3+4+1=8", mock_llm.call_history[0]["user_message"])
 
-    def test_with_consequence_note(self):
+    def test_with_consequences(self):
         """包含后果时后果信息被传入。"""
         mock_llm = MockLLMClient(
             responses=[
@@ -257,11 +259,11 @@ class TestQuickNarratorAgentExecute(unittest.TestCase):
         ctx = make_test_context()
         intent_note = make_agent_note(structured={"action_summary": "拔枪"})
         roll = make_roll_result(outcome="partial_success")
-        consequence_note = make_agent_note(
+        outcome_note = make_agent_note(
             structured={"consequences": [{"threat_manifested": "保镖介入"}]}
         )
 
-        agent.execute(intent_note, roll, ctx, consequence_note=consequence_note)
+        agent.execute(intent_note, outcome_note, roll, ctx)
 
         self.assertIn("保镖介入", mock_llm.call_history[0]["user_message"])
 

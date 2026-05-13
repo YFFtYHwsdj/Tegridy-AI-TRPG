@@ -407,15 +407,13 @@ class GameLoop:
 
         # 显示流水线各阶段信息
         self.display.print_tag_and_roll(result.tag_note, result.roll)
-        self.display.print_effects_or_quick_note(result.effect_note, quick=quick)
-        self.display.print_consequences(result.consequence_note)
+        self.display.print_outcome(result.outcome_note, quick=quick)
         self.display.print_strategy(result.narrator_note)
 
         # 将 Agent 产出的效果应用到游戏状态
         challenge = self.state.scene.primary_challenge()
         effect_errors = EffectApplicator.apply_results(
-            result.effect_note,
-            result.consequence_note,
+            result.outcome_note,
             self.state.character,
             challenge,
         )
@@ -466,13 +464,11 @@ class GameLoop:
         # 逐个子行动显示解算信息并应用效果
         for result in results:
             self.display.print_tag_and_roll(result.tag_note, result.roll)
-            self.display.print_effects(result.effect_note)
-            self.display.print_consequences(result.consequence_note)
+            self.display.print_outcome(result.outcome_note)
 
             challenge = self.state.scene.primary_challenge()
             effect_errors = EffectApplicator.apply_results(
-                result.effect_note,
-                result.consequence_note,
+                result.outcome_note,
                 self.state.character,
                 challenge,
             )
