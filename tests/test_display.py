@@ -205,11 +205,11 @@ class TestConsoleDisplayStrategy(unittest.TestCase):
         self.display = ConsoleDisplay(self.logger)
 
     def test_outputs_narrator_strategy(self):
-        """输出叙事策略。"""
+        """输出叙事策略（从 reasoning 字段截取）。"""
         with patch.object(self.logger, "debug") as mock_debug:
             narrator_note = AgentNote(
-                reasoning="聚焦紧张对峙氛围",
-                structured={"scene_update": "气氛紧张"},
+                reasoning="聚焦紧张对峙氛围，渲染环境压迫感",
+                structured={},
             )
             self.display.print_strategy(narrator_note)
 

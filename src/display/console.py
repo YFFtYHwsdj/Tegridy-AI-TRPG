@@ -92,12 +92,12 @@ class ConsoleDisplay:
             self.print_effects(effect_note)
 
     def print_strategy(self, narrator_note):
-        """打印叙述者的叙事策略。
+        """打印叙述者的叙事策略摘要。
 
         Args:
             narrator_note: 叙述者 Agent 的分析便签
         """
-        strategy = narrator_note.structured.get("scene_update") or narrator_note.reasoning[:60]
+        strategy = narrator_note.reasoning[:60]
         if strategy:
             self._log.debug("  叙事策略: %s", strategy)
 
