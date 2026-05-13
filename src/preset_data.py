@@ -2,19 +2,16 @@
 
 提供赛博朋克风格的单场景 Demo 数据，包含：
     - DEMO_CHARACTER: 玩家角色 Kael（前公司安保干员）
-    - DEMO_CHALLENGE: 主挑战 Miko（情报中间人 + 两个保镖）
     - build_demo_scene(): 构建包含 NPC、物品、线索的完整场景
 """
 
-from src.models import NPC, Character, Clue, GameItem, PowerTag, WeaknessTag
+from src.models import NPC, Character, Clue, GameItem, PowerTag, StoryTag, WeaknessTag
 from src.state.scene_state import SceneState
 
 DEMO_SCENE_DESCRIPTION = """
-赛博朋克世界《异景》。巨型都市底层的一家嘈杂酒吧"最后一杯"。
-霓虹招牌在雨中闪烁，门内传来低沉的贝斯声和廉价合成酒精的气味。
+赛博朋克世界《异景》。下着酸雨的阴暗死胡同，旁边是散发着馊味的合成面条摊，霓虹招牌在雨中闪烁短路。
 
-Kael 追踪一个名叫 Miko 的中间人来到这里。她手上有 Kael 的雇主需要的情报。
-但 Miko 从来不做亏本买卖，而且她身边总有两个魁梧的保镖。
+Kael 刚刚完成了一单看似简单的“跑腿”任务，手里提着一个生物锁死的手提箱。但接头人没有出现，反而是三个带着廉价义体武器的底层帮派混混堵住了胡同口。对方显然是提前收到了风声，专门来抢箱子的。
 """
 
 DEMO_CHARACTER = Character(
@@ -35,111 +32,85 @@ DEMO_CHARACTER = Character(
 def build_demo_scene() -> SceneState:
     """构建 Demo 场景。
 
-    创建包含 Miko 挑战、NPC（Miko + 两个保镖）、
-    可见/隐藏物品和隐藏线索的完整 SceneState。
+    创建包含三个帮派混混 NPC、可见/隐藏物品和隐藏线索的完整 SceneState。
 
     Returns:
         完整的 SceneState 对象
     """
     scene = SceneState(scene_description=DEMO_SCENE_DESCRIPTION)
 
-    scene.scene_items_visible["datapad_bar"] = GameItem(
-        item_id="datapad_bar",
-        name="Miko的数据板",
-        description="纤薄的全息数据板，屏幕上是密文滚动的情报摘要。搁在吧台上，微微发光。",
-        location="吧台台面上",
-        tags=[PowerTag("情报来源", "可能包含Miko正在浏览的交易信息")],
+    # 场景全局故事标签
+    scene.story_tags["acid_rain"] = StoryTag(name="酸雨", description="持续伤害，降低能见度")
+    scene.story_tags["narrow_alley"] = StoryTag(
+        name="狭窄地形", description="限制了大型武器和闪避空间"
     )
 
-    scene.scene_items_visible["weapon_locker"] = GameItem(
-        item_id="weapon_locker",
-        name="应急武器柜",
-        description="酒吧后墙的金属柜，生物识别锁。传闻老板在里面存了应对麻烦的'最终方案'。",
-        location="酒吧后墙",
-        tags=[PowerTag("应急武器", "内含一把霰弹枪——如果能打开的话")],
+    scene.scene_items_visible["briefcase"] = GameItem(
+        item_id="briefcase",
+        name="生物锁手提箱",
+        description="Kael 护送的任务物品。带有未知的生物识别锁，材质极其坚固。",
+        location="Kael 手中",
+        tags=[PowerTag("坚固防弹", "关键时刻或许可以用来挡子弹")],
     )
 
-    scene.scene_items_hidden["medkit_bar"] = GameItem(
-        item_id="medkit_bar",
-        name="军规急救包",
-        description="军规级自凝血注射器和创伤敷料，装在防水尼龙袋里。可能是某个退伍佣兵遗忘的。",
-        location="吧台下方暗格深处",
-        tags=[PowerTag("急救包", "一次性的紧急治疗用具")],
+    scene.scene_items_visible["noodle_pot"] = GameItem(
+        item_id="noodle_pot",
+        name="翻滚的合成面条汤锅",
+        description="旁边面条摊上正在沸腾的汤锅，散发着劣质香精和高温蒸汽。",
+        location="巷口面条摊",
+        tags=[PowerTag("高温烫伤", "如果泼在人身上会造成严重的痛苦")],
     )
 
-    scene.clues_hidden["comm_log"] = Clue(
-        clue_id="comm_log",
-        name="保镖通讯记录",
-        description="退役伤痛干员腕部终端上的未加密短讯——后巷有一辆装甲车待命，预计15分钟后到达。这是交易失败的后备方案。",
+    scene.scene_items_hidden["sewer_grate"] = GameItem(
+        item_id="sewer_grate",
+        name="松动的下水道格栅",
+        description="被垃圾掩盖的下水道入口，格栅已经生锈松动。可以作为紧急逃生路线。",
+        location="垃圾箱后面",
+        tags=[PowerTag("隐蔽逃生路线", "通向错综复杂的地下管网")],
     )
 
-    scene.clues_hidden["miko_motive"] = Clue(
-        clue_id="miko_motive",
-        name="Miko的真正动机",
-        description="Miko其实在找机会背叛赤色数据。Kael的出现对她来说是一个完美的掩护——她需要一个外部力量来分散帮派的注意力。芯片里的情报只是诱饵。",
+    scene.clues_hidden["gang_tattoo"] = Clue(
+        clue_id="gang_tattoo",
+        name="铁锈犬帮派纹身",
+        description="这几个混混脖子后方有微小的'铁锈犬'电子纹身。这是一个活跃在几个街区外的暴力帮派，绝不会无缘无故跑到这里来抢劫。有人雇了他们。",
     )
 
-    miko_npc = NPC(
-        npc_id="miko",
-        name="Miko",
-        description="赤色数据的资深情报中间人。合成皮夹克，细长电子烟，从不先亮牌。",
+    scene.clues_hidden["tracker_signal"] = Clue(
+        clue_id="tracker_signal",
+        name="微弱的追踪频段",
+        description="Kael 的终端捕捉到了附近有一个微弱的未注册追踪信号。信号源就在手提箱的夹层里——他被雇主（或者接头人）定位并出卖了。",
+    )
+
+    leader = NPC(
+        npc_id="thug_leader",
+        name="剃刀帮众",
+        description="带头的混混，双臂改造了便宜但致命的螳螂刀。态度极其嚣张。",
         tags=[
-            PowerTag("精明的谈判者", "从不让步，善于在对话中设置陷阱"),
-            PowerTag("帮派情报网", "在帮派内部消息灵通"),
+            PowerTag("螳螂刀", "近战极具杀伤力，能切开防弹衣"),
         ],
-        known_clue_ids=["comm_log", "miko_motive"],
-        known_item_ids=["chip_encrypted", "miko_communicator"],
-        items_visible={
-            "miko_communicator": GameItem(
-                item_id="miko_communicator",
-                name="加密通讯器",
-                description="系在腰带上的军用级加密通讯器。红色指示灯有节奏地闪烁——随时在线。",
-                location="Miko腰带上的皮套内",
-                tags=[PowerTag("加密通讯", "可联系帮派内线")],
-            ),
-        },
-        items_hidden={
-            "chip_encrypted": GameItem(
-                item_id="chip_encrypted",
-                name="加密数据芯片",
-                description="一枚微型芯片，刻有赤色数据的密级标记。藏在Miko合成皮夹克内侧的暗袋里。",
-                location="Miko合成皮夹克内侧暗袋",
-                tags=[PowerTag("关键情报", "包含赤色数据对Kael雇主的追踪记录——有人在出卖他")],
-            ),
-        },
+        known_clue_ids=["gang_tattoo"],
     )
-    scene.npcs["miko"] = miko_npc
+    scene.npcs["thug_leader"] = leader
 
-    guard_left = NPC(
-        npc_id="bodyguard_left",
-        name="退役伤痛干员",
-        description="颅骨上有散热槽的退伍干员。反应速度比大多数人拔枪更快。沉默而专注，眼神像扫描仪一样来回切割。",
+    shooter = NPC(
+        npc_id="thug_shooter",
+        name="持枪混混",
+        description="紧张兮兮的年轻混混，手里拿着一把自制的动能手枪，枪口指着 Kael 晃来晃去。",
         tags=[
-            PowerTag("赛博反射", "神经加速植入物赋予超人的反应速度"),
+            PowerTag("自制火器", "威力不俗，但有卡壳甚至炸膛的风险"),
         ],
-        known_clue_ids=["comm_log"],
-        known_item_ids=["guard_sidearm"],
-        items_visible={
-            "guard_sidearm": GameItem(
-                item_id="guard_sidearm",
-                name="伤痛干员的配枪",
-                description="定制的重型手枪，枪口补偿器暗示着使用者的射击习惯。快拔枪套固定在右腿外侧。",
-                location="右侧大腿快拔枪套",
-                tags=[PowerTag("重火力", "高制止力的定制弹药")],
-            ),
-        },
     )
-    scene.npcs["bodyguard_left"] = guard_left
+    scene.npcs["thug_shooter"] = shooter
 
-    guard_right = NPC(
-        npc_id="bodyguard_right",
-        name="液压巨汉",
-        description="脖颈嵌着液压管的沉默巨人。据说能用单手捏碎赛博改造过的颅骨。从不主动开口。",
+    brute = NPC(
+        npc_id="thug_brute",
+        name="义体肌肉男",
+        description="赤裸上身的壮汉，植入了劣质的皮下装甲和液压肌肉。动作迟缓但力量惊人。",
         tags=[
-            PowerTag("超人类力量", "液压增强肌肉纤维提供惊人的物理破坏力"),
+            PowerTag("皮下装甲", "能抵挡小口径子弹和轻微利器切割"),
+            PowerTag("液压巨力", "被他抓到会被碾碎骨头"),
         ],
-        known_item_ids=["weapon_locker"],
     )
-    scene.npcs["bodyguard_right"] = guard_right
+    scene.npcs["thug_brute"] = brute
 
     return scene
