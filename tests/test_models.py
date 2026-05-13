@@ -3,15 +3,12 @@ import unittest
 from src.models import (
     NPC,
     AgentNote,
-    Challenge,
     Character,
     Clue,
     ConsequenceEntry,
     EffectEntry,
     GameItem,
-    Limit,
     PowerTag,
-    RollResult,
     Status,
     StoryTag,
     WeaknessTag,
@@ -46,7 +43,6 @@ class TestStatus(unittest.TestCase):
         self.assertEqual(s.name, "受伤")
         self.assertEqual(s.current_tier, 0)
         self.assertEqual(s.ticked_boxes, set())
-        self.assertEqual(s.limit_category, "")
 
 
 class TestStoryTag(unittest.TestCase):
@@ -68,125 +64,6 @@ class TestStoryTag(unittest.TestCase):
     def test_consumable(self):
         st = StoryTag(name="急救包", is_consumable=True)
         self.assertTrue(st.is_consumable)
-
-
-class TestLimit(unittest.TestCase):
-    def test_valid_limit(self):
-        lim = Limit(name="伤害", max_tier=3)
-        self.assertEqual(lim.name, "伤害")
-        self.assertEqual(lim.max_tier, 3)
-        self.assertFalse(lim.is_progress)
-
-    def test_is_progress(self):
-        lim = Limit(name="穿越", max_tier=4, is_progress=True)
-        self.assertTrue(lim.is_progress)
-
-    def test_max_tier_too_low_raises(self):
-        with self.assertRaises(ValueError):
-            Limit(name="bad", max_tier=0)
-
-    def test_max_tier_too_high_raises(self):
-        with self.assertRaises(ValueError):
-            Limit(name="bad", max_tier=7)
-
-
-class TestRollResult(unittest.TestCase):
-    def test_full_success(self):
-        r = RollResult(power=2, dice=(5, 4), total=11, outcome="full_success")
-        self.assertEqual(r.total, 11)
-        self.assertEqual(r.outcome, "full_success")
-
-    def test_invalid_outcome_raises(self):
-        with self.assertRaises(ValueError):
-            RollResult(power=0, dice=(3, 3), total=6, outcome="critical_success")
-
-
-class TestChallenge(unittest.TestCase):
-    def setUp(self):
-        self.challenge = Challenge(
-            name="Miko 与她的保镖",
-            description="中间人",
-            limits=[
-                Limit(name="说服或威胁", max_tier=3),
-                Limit(name="伤害或制服", max_tier=4),
-            ],
-            notes="Miko 重视情报",
-        )
-
-    def test_get_matching_statuses_empty(self):
-        self.assertEqual(self.challenge.get_matching_statuses("说服或威胁"), [])
-
-    def test_get_matching_statuses_finds_match(self):
-        s = Status(name="被说服", current_tier=2, ticked_boxes={2}, limit_category="说服或威胁")
-        self.challenge.statuses["被说服"] = s
-        results = self.challenge.get_matching_statuses("说服或威胁")
-        self.assertEqual(len(results), 1)
-        self.assertEqual(results[0].name, "被说服")
-
-    def test_get_matching_statuses_partial_match(self):
-        s = Status(name="被说服", current_tier=2, ticked_boxes={2}, limit_category="说服")
-        self.challenge.statuses["被说服"] = s
-        results = self.challenge.get_matching_statuses("说服或威胁")
-        self.assertEqual(len(results), 1)
-
-    def test_check_limits_no_trigger(self):
-        s = Status(name="被说服", current_tier=2, ticked_boxes={2}, limit_category="说服或威胁")
-        self.challenge.statuses["被说服"] = s
-        self.assertEqual(self.challenge.check_limits(), [])
-
-    def test_check_limits_triggered(self):
-        s = Status(name="被说服", current_tier=3, ticked_boxes={3}, limit_category="说服或威胁")
-        self.challenge.statuses["被说服"] = s
-        triggered = self.challenge.check_limits()
-        self.assertEqual(len(triggered), 1)
-        self.assertEqual(triggered[0].name, "说服或威胁")
-
-    def test_get_limit_progress_empty(self):
-        self.assertEqual(
-            self.challenge.get_limit_progress(),
-            {"说服或威胁": 0, "伤害或制服": 0},
-        )
-
-    def test_get_limit_progress_with_statuses(self):
-        self.challenge.statuses["被说服"] = Status(
-            name="被说服", current_tier=2, ticked_boxes={2}, limit_category="说服或威胁"
-        )
-        self.challenge.statuses["受伤"] = Status(
-            name="受伤", current_tier=1, ticked_boxes={1}, limit_category="伤害或制服"
-        )
-        self.assertEqual(
-            self.challenge.get_limit_progress(),
-            {"说服或威胁": 2, "伤害或制服": 1},
-        )
-
-    def test_get_matching_statuses_no_limit_category(self):
-        s = Status(name="受伤", current_tier=2, ticked_boxes={2})
-        self.challenge.statuses["受伤"] = s
-        self.assertEqual(self.challenge.get_matching_statuses("伤害或制服"), [])
-
-    def test_broken_limits_default_empty(self):
-        self.assertEqual(self.challenge.broken_limits, set())
-
-    def test_mark_limits_broken(self):
-        s = Status(name="被说服", current_tier=3, ticked_boxes={3}, limit_category="说服或威胁")
-        self.challenge.statuses["被说服"] = s
-        triggered = self.challenge.check_limits()
-        self.assertEqual(len(triggered), 1)
-        self.challenge.mark_limits_broken([triggered[0].name])
-        self.assertIn("说服或威胁", self.challenge.broken_limits)
-        self.assertEqual(self.challenge.check_limits(), [])
-
-    def test_already_broken_limit_not_triggered(self):
-        s = Status(name="被说服", current_tier=3, ticked_boxes={3}, limit_category="说服或威胁")
-        self.challenge.statuses["被说服"] = s
-        self.challenge.mark_limits_broken(["说服或威胁"])
-        self.assertEqual(self.challenge.check_limits(), [])
-
-    def test_transformation_default_empty(self):
-        self.assertEqual(self.challenge.transformation, "")
-
-    def test_story_tags_default_empty(self):
-        self.assertEqual(self.challenge.story_tags, {})
 
 
 class TestCharacter(unittest.TestCase):

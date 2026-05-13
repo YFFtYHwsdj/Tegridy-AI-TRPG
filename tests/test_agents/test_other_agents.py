@@ -8,14 +8,12 @@ from __future__ import annotations
 import unittest
 
 from src.agents.continuation_check import ContinuationCheckAgent
-from src.agents.limit_break import LimitBreakAgent
 from src.agents.move_gatekeeper import MoveGatekeeperAgent
 from src.agents.resolution_mode import ResolutionModeAgent
 from src.agents.rhythm import RhythmAgent
 from tests.helpers import (
     MockLLMClient,
     make_agent_note,
-    make_test_challenge,
     make_test_context,
 )
 
@@ -192,67 +190,6 @@ class TestContinuationCheckAgentExecute(unittest.TestCase):
         result = agent.execute(next_sub, ctx, "")
 
         self.assertTrue(result.structured["can_continue"])
-
-
-class TestLimitBreakAgentExecute(unittest.TestCase):
-    """测试 LimitBreakAgent.execute。"""
-
-    def test_includes_limit_progress(self):
-        """user_message 包含突破极限的当前进度。"""
-        mock_llm = MockLLMClient(
-            responses=[
-                (
-                    '{"reasoning": "极限突破", "narrative": "..."}',
-                    {},
-                )
-            ]
-        )
-        agent = LimitBreakAgent(mock_llm)
-        ctx = make_test_context()
-        challenge = make_test_challenge()
-
-        agent.execute(["说服或威胁"], challenge, ctx)
-
-        self.assertIn("说服或威胁", mock_llm.call_history[0]["user_message"])
-        self.assertIn("极限突破", mock_llm.call_history[0]["user_message"])
-
-    def test_includes_challenge_state(self):
-        """user_message 包含挑战完整状态。"""
-        mock_llm = MockLLMClient(
-            responses=[
-                (
-                    '{"reasoning": "极限突破", "narrative": "..."}',
-                    {},
-                )
-            ]
-        )
-        agent = LimitBreakAgent(mock_llm)
-        ctx = make_test_context()
-        challenge = make_test_challenge()
-
-        agent.execute(["说服或威胁"], challenge, ctx)
-
-        self.assertIn("Miko 与她的保镖", mock_llm.call_history[0]["user_message"])
-
-    def test_with_multiple_limits(self):
-        """多个极限同时突破时全部列出。"""
-        mock_llm = MockLLMClient(
-            responses=[
-                (
-                    '{"reasoning": "极限突破", "narrative": "..."}',
-                    {},
-                )
-            ]
-        )
-        agent = LimitBreakAgent(mock_llm)
-        ctx = make_test_context()
-        challenge = make_test_challenge()
-
-        agent.execute(["说服或威胁", "伤害或制服"], challenge, ctx)
-
-        user_msg = mock_llm.call_history[0]["user_message"]
-        self.assertIn("说服或威胁", user_msg)
-        self.assertIn("伤害或制服", user_msg)
 
 
 class TestRhythmAgentExecute(unittest.TestCase):

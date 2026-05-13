@@ -6,7 +6,7 @@ import json
 import unittest
 
 from src.agents.compressor import CompressorAgent
-from src.models import Challenge, Limit
+from src.models import NPC
 from src.state.scene_state import SceneState
 from tests.helpers import MockLLMClient
 
@@ -32,12 +32,11 @@ class TestCompressorAgentExecute(unittest.TestCase):
         scene = SceneState(
             scene_description="赛博朋克酒吧「最后一杯」",
         )
-        challenge = Challenge(
+        npc = NPC(
             name="Miko 与她的保镖",
             description="帮派中间人",
-            limits=[Limit(name="说服或威胁", max_tier=3)],
         )
-        scene.add_challenge(challenge)
+        scene.npcs[npc.npc_id] = npc
         scene.append_narrative("Kael走进了昏暗的酒吧。")
         scene.append_narrative("Miko在吧台尽头等着他，两个保镖如影随形。")
         scene.append_narrative("Kael亮出了证据，Miko的脸色变了。")

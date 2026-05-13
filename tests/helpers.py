@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from src.context import AgentContext
 from src.llm_client import LLMClient
-from src.models import AgentNote, Challenge, Character, Limit, PowerTag, RollResult, WeaknessTag
+from src.models import AgentNote, Character, PowerTag, RollResult, WeaknessTag
 from src.state.game_state import GameState
 from src.state.scene_state import SceneState
 
@@ -104,26 +104,6 @@ def make_test_character() -> Character:
     )
 
 
-def make_test_challenge() -> Challenge:
-    """创建标准测试挑战（Miko）。
-
-    Returns:
-        带有典型极限和标签的 Challenge 实例
-    """
-    return Challenge(
-        name="Miko 与她的保镖",
-        description="帮派中间人",
-        limits=[
-            Limit(name="说服或威胁", max_tier=3),
-            Limit(name="伤害或制服", max_tier=4),
-        ],
-        base_tags=[
-            PowerTag(name="精明的谈判者"),
-            PowerTag(name="两个专业保镖"),
-        ],
-    )
-
-
 def make_test_scene() -> SceneState:
     """创建标准测试场景。
 
@@ -142,8 +122,6 @@ def make_test_game_state() -> GameState:
     state = GameState()
     character = make_test_character()
     scene = make_test_scene()
-    challenge = make_test_challenge()
-    scene.add_challenge(challenge)
     state.setup(character, scene)
     return state
 
@@ -155,13 +133,11 @@ def make_test_context() -> AgentContext:
         包含角色和挑战引用的 AgentContext 实例
     """
     character = make_test_character()
-    challenge = make_test_challenge()
     return AgentContext(
         assets_block="=== 场景资产 ===\n场景人物: Miko",
         context_block="=== 上下文 ===\n当前场景: 赛博朋克酒吧",
         narrative_block="=== 叙事历史 ===\n[1] 你走进了酒吧",
         character=character,
-        challenge=challenge,
         player_input="我要拔枪",
     )
 

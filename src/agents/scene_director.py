@@ -13,7 +13,6 @@ from __future__ import annotations
 from src.agents.base import BaseAgent
 from src.agents.prompts import SCENE_DIRECTOR_PROMPT
 from src.context import AgentContext
-from src.formatter import format_challenge_state
 from src.models import AgentNote
 
 
@@ -40,9 +39,6 @@ class SceneDirectorAgent(BaseAgent):
                 - reason (str): 一句话理由
                 - transition_hint (str): 过渡建议（结束时有值，否则空字符串）
         """
-        challenge_block = ""
-        if ctx.challenge is not None:
-            challenge_block = "\n" + format_challenge_state(ctx.challenge)
 
         narrative_section = ""
         if last_narrative:
@@ -57,7 +53,7 @@ class SceneDirectorAgent(BaseAgent):
 
 当前场景叙事历史:
 {ctx.narrative_block}
-{challenge_block}{narrative_section}
+{narrative_section}
 
 ---
 请判断当前场景是否应该结束。"""

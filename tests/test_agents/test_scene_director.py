@@ -84,8 +84,8 @@ class TestSceneDirectorAgentExecute(unittest.TestCase):
         self.assertIsNotNone(result)
         self.assertFalse(result.structured["scene_should_end"])
 
-    def test_includes_challenge_state(self):
-        """user_message 应包含挑战状态。"""
+    def test_includes_npc_state(self):
+        """user_message 应包含 NPC 状态。"""
         mock_llm = MockLLMClient(responses=[(self._make_response(False), {})])
         agent = SceneDirectorAgent(mock_llm)
         ctx = make_test_context()
@@ -93,7 +93,7 @@ class TestSceneDirectorAgentExecute(unittest.TestCase):
         agent.execute(ctx, "叙事")
 
         user_msg = mock_llm.call_history[0]["user_message"]
-        self.assertIn("Miko 与她的保镖", user_msg)
+        self.assertIn("Miko", user_msg)
 
     def test_global_block_passed_to_user_message(self):
         """global_block 应出现在 user_message 中。"""

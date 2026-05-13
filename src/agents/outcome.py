@@ -7,9 +7,6 @@ from src.agents.base import BaseAgent
 from src.agents.prompts import OUTCOME_PROMPT, QUICK_OUTCOME_PROMPT
 from src.context import AgentContext
 from src.formatter import (
-    format_challenge_for_consequence,
-    format_challenge_state,
-    format_limit_gap,
     format_role_tags,
     format_statuses,
     format_story_tags,
@@ -37,12 +34,6 @@ class OutcomeAgent(BaseAgent):
         roll_info = f"power={roll_result.power}, dice={roll_result.dice}, total={roll_result.total}, outcome={roll_result.outcome}"
 
         action_type, action_summary, split_info = resolve_sub_action_info(intent_note, sub_action)
-
-        challenge_state = format_challenge_state(ctx.challenge) if ctx.challenge else "(无)"
-        challenge_limit_gap = format_limit_gap(ctx.challenge) if ctx.challenge else "  (无极限)"
-        challenge_threat = (
-            format_challenge_for_consequence(ctx.challenge) if ctx.challenge else "(无挑战)"
-        )
 
         user_msg = f"""{ctx.assets_block}
 {ctx.context_block}
@@ -73,11 +64,7 @@ class OutcomeAgent(BaseAgent):
   matched_power_tags: {json.dumps(tag_note.structured.get("matched_power_tags", []), ensure_ascii=False)}
   matched_weakness_tags: {json.dumps(tag_note.structured.get("matched_weakness_tags", []), ensure_ascii=False)}
 
-挑战: {challenge_state}
-挑战极限与状态差距:
-{challenge_limit_gap}
 
-{challenge_threat}
 
 ---
 掷骰结果: {roll_info}

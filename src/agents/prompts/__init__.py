@@ -2,7 +2,6 @@ from src.agents.prompts.compressor import COMPRESSOR_PROMPT
 from src.agents.prompts.continuation_check import CONTINUATION_CHECK_PROMPT
 from src.agents.prompts.intent import INTENT_PROMPT
 from src.agents.prompts.item_creator import ITEM_CREATOR_PROMPT
-from src.agents.prompts.limit_break import LIMIT_BREAK_PROMPT
 from src.agents.prompts.move_gatekeeper import MOVE_GATEKEEPER_PROMPT
 from src.agents.prompts.narrator import LITE_NARRATOR_PROMPT, NARRATOR_PROMPT, QUICK_NARRATOR_PROMPT
 from src.agents.prompts.outcome import OUTCOME_PROMPT, QUICK_OUTCOME_PROMPT
@@ -17,7 +16,6 @@ __all__ = [
     "CONTINUATION_CHECK_PROMPT",
     "INTENT_PROMPT",
     "ITEM_CREATOR_PROMPT",
-    "LIMIT_BREAK_PROMPT",
     "LITE_NARRATOR_PROMPT",
     "MOVE_GATEKEEPER_PROMPT",
     "NARRATOR_PROMPT",

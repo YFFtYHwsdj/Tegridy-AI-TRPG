@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from src.engine import add_story_tag, apply_status, nudge_status, reduce_status, remove_story_tag
 from src.logger import log_system
-from src.models import AgentNote, Challenge, Character
+from src.models import NPC, AgentNote, Character
+from src.state.scene_state import SceneState
 
 
 class EffectApplicator:
@@ -25,7 +26,7 @@ class EffectApplicator:
     def apply_results(
         outcome_note: AgentNote | None,
         character: Character | None,
-        challenge: Challenge | None,
+        scene: SceneState | None,
     ) -> list[str]:
         """应用效果推演和后果的全部效果到游戏状态。
 
@@ -34,35 +35,34 @@ class EffectApplicator:
         Args:
             outcome_note: 结算推演 Agent 的分析便签
             character: 当前玩家角色
-            challenge: 当前挑战
+            scene: 当前场景状态
 
         Returns:
             执行过程中产生的错误信息列表（空列表表示全部成功）
         """
         errors: list[str] = []
-        if character is None or challenge is None or outcome_note is None:
+        if character is None or scene is None or outcome_note is None:
             return errors
 
         effects = outcome_note.structured.get("effects", [])
-        errors.extend(EffectApplicator._apply_effect_list(effects, character, challenge))
+        errors.extend(EffectApplicator._apply_effect_list(effects, character, scene))
 
         consequences = outcome_note.structured.get("consequences", [])
         for cons in consequences:
             errors.extend(
-                EffectApplicator._apply_effect_list(cons.get("effects", []), character, challenge)
+                EffectApplicator._apply_effect_list(cons.get("effects", []), character, scene)
             )
 
         return errors
 
     @staticmethod
-    def _resolve_target(target_name: str, character: Character, challenge: Challenge):
-        """将效果目标名称解析为角色或挑战对象。
+    def _resolve_target(target_name: str, character: Character, scene: SceneState):
+        """将效果目标名称解析为角色或场景中的NPC对象。
 
         匹配策略（按优先级）：
-        1. 关键字精确匹配: "挑战" → challenge, "自身"/"self" → character
-        2. 名称精确匹配: 目标名 == 角色名或挑战名
-        3. 模糊匹配(长度>=3): 子串包含 + 长度占比>=60%,
-           歧义时取占比高者(差距>=10%), 否则无法判定返回 None
+        1. 关键字精确匹配: "自身"/"self" → character
+        2. 名称精确匹配: 目标名 == 角色名或某个 NPC 名
+        3. 模糊匹配(长度>=3): 子串包含。如果目标不存在则返回 None，交由纯叙事处理。
         未匹配返回 None。
         """
         if not target_name:
@@ -70,77 +70,55 @@ class EffectApplicator:
         name_lower = target_name.lower().strip()
 
         # 优先级1: 关键字匹配
-        if name_lower == "挑战":
-            log_system(f"关键字匹配: '{target_name}' → 挑战", level="debug")
-            return challenge
-        if name_lower in ("自身", "self"):
+        if name_lower in ("自身", "self", "自身(玩家)", "自己"):
             log_system(f"关键字匹配: '{target_name}' → 角色", level="debug")
             return character
 
         char_name_lower = character.name.lower()
-        chal_name_lower = challenge.name.lower()
-
-        # 优先级2: 名称精确匹配
         if name_lower == char_name_lower:
             log_system(f"精确匹配: '{target_name}' → 角色 '{character.name}'", level="debug")
             return character
-        if name_lower == chal_name_lower:
-            log_system(f"精确匹配: '{target_name}' → 挑战 '{challenge.name}'", level="debug")
-            return challenge
 
-        # 优先级3: 模糊匹配（仅名称长度≥3时启用，避免短词误匹配）
+        # 环境/场景匹配
+        if name_lower in ("场景", "环境", "scene", "environment"):
+            log_system(f"关键字匹配: '{target_name}' → 环境/场景", level="debug")
+            return scene
+
+        # 遍历 NPC 精确匹配
+        for npc in scene.npcs.values():
+            if name_lower == npc.name.lower():
+                log_system(f"精确匹配: '{target_name}' → NPC '{npc.name}'", level="debug")
+                return npc
+
+        # 模糊匹配
         if len(name_lower) >= 3:
-            char_match = name_lower in char_name_lower
-            chal_match = name_lower in chal_name_lower
-            char_ratio = len(name_lower) / max(len(char_name_lower), 1)
-            chal_ratio = len(name_lower) / max(len(chal_name_lower), 1)
-            char_qualifies = char_match and char_ratio >= 0.6
-            chal_qualifies = chal_match and chal_ratio >= 0.6
+            matches = []
+            if name_lower in char_name_lower:
+                matches.append(character)
 
-            if char_qualifies and not chal_qualifies:
-                log_system(
-                    f"模糊匹配: '{target_name}' → 角色 '{character.name}' "
-                    f"(in={char_match}, ratio={char_ratio:.0%})",
-                    level="debug",
-                )
-                return character
-            if chal_qualifies and not char_qualifies:
-                log_system(
-                    f"模糊匹配: '{target_name}' → 挑战 '{challenge.name}' "
-                    f"(in={chal_match}, ratio={chal_ratio:.0%})",
-                    level="debug",
-                )
-                return challenge
-            if char_qualifies and chal_qualifies:
-                ratio_diff = abs(char_ratio - chal_ratio)
-                if ratio_diff >= 0.1:
-                    if char_ratio > chal_ratio:
-                        log_system(
-                            f"歧义消解(比): '{target_name}' → 角色 '{character.name}' "
-                            f"({char_ratio:.0%} vs 挑战 {chal_ratio:.0%})",
-                            level="debug",
-                        )
-                        return character
-                    else:
-                        log_system(
-                            f"歧义消解(比): '{target_name}' → 挑战 '{challenge.name}' "
-                            f"({chal_ratio:.0%} vs 角色 {char_ratio:.0%})",
-                            level="debug",
-                        )
-                        return challenge
-                else:
-                    log_system(
-                        f"歧义(比例接近): '{target_name}' 同时匹配角色和挑战"
-                        f"(角色{char_ratio:.0%}, 挑战{chal_ratio:.0%}), 差距<10%, 无法判定",
-                        level="debug",
-                    )
+            for npc in scene.npcs.values():
+                if name_lower in npc.name.lower() or npc.name.lower() in name_lower:
+                    matches.append(npc)
 
-        log_system(f"无法匹配效果目标 '{target_name}', 已忽略", level="warning")
+            if len(matches) == 1:
+                log_system(f"模糊匹配: '{target_name}' → '{matches[0].name}'", level="debug")
+                return matches[0]
+            elif len(matches) > 1:
+                log_system(
+                    f"模糊匹配: '{target_name}' 存在歧义，匹配到 {len(matches)} 个目标",
+                    level="warning",
+                )
+                return None
+
+        log_system(
+            f"目标 '{target_name}' 可能是环境阻力或非生命物体，已忽略其数据绑定，将交由叙述者处理",
+            level="debug",
+        )
         return None
 
     @staticmethod
     def _apply_effect_list(
-        eff_list: list[dict], character: Character, challenge: Challenge
+        eff_list: list[dict], character: Character, scene: SceneState
     ) -> list[str]:
         """遍历并执行效果列表中的每个效果条目。
 
@@ -156,7 +134,7 @@ class EffectApplicator:
         Args:
             eff_list: 效果条目列表，每个条目为 dict
             character: 当前玩家角色
-            challenge: 当前挑战
+            scene: 当前场景状态
 
         Returns:
             错误信息列表
@@ -164,7 +142,7 @@ class EffectApplicator:
         errors: list[str] = []
         for eff in eff_list:
             operation = eff.get("operation", "inflict_status")
-            target = EffectApplicator._resolve_target(eff.get("target", ""), character, challenge)
+            target = EffectApplicator._resolve_target(eff.get("target", ""), character, scene)
             if target is None:
                 target_name = eff.get("target", "?")
                 errors.append(f"无法解析效果目标 '{target_name}' ({operation})")
@@ -176,8 +154,11 @@ class EffectApplicator:
                     tier = eff.get("tier", 0)
                     if not label or tier <= 0:
                         continue
-                    limit_category = eff.get("limit_category", "")
-                    apply_status(target, label, tier, limit_category)
+                    if not isinstance(target, (Character, NPC)):
+                        raise TypeError(
+                            f"{operation} requires Character or NPC target, got {type(target).__name__}"
+                        )
+                    apply_status(target, label, tier)
                     eff_type = eff.get("effect_type", "?")
                     log_system(f"{eff_type}: {label}-{tier} → {target.name}", level="debug")
 
@@ -185,6 +166,10 @@ class EffectApplicator:
                     status_to_nudge = eff.get("status_to_nudge", eff.get("label", ""))
                     if not status_to_nudge:
                         continue
+                    if not isinstance(target, (Character, NPC)):
+                        raise TypeError(
+                            f"{operation} requires Character or NPC target, got {type(target).__name__}"
+                        )
                     result = nudge_status(target, status_to_nudge)
                     eff_type = eff.get("effect_type", "?")
                     log_system(
@@ -197,6 +182,10 @@ class EffectApplicator:
                     reduce_by = eff.get("reduce_by", 1)
                     if not status_to_reduce or reduce_by <= 0:
                         continue
+                    if not isinstance(target, (Character, NPC)):
+                        raise TypeError(
+                            f"{operation} requires Character or NPC target, got {type(target).__name__}"
+                        )
                     result = reduce_status(target, status_to_reduce, reduce_by)
                     eff_type = eff.get("effect_type", "?")
                     if result:
@@ -213,14 +202,25 @@ class EffectApplicator:
                     if not name:
                         continue
                     is_single_use = eff.get("is_single_use", False)
+                    if not isinstance(target, (Character, SceneState)):
+                        raise TypeError(
+                            f"{operation} requires Character or SceneState target, got {type(target).__name__}"
+                        )
                     add_story_tag(target, name, description, is_single_use)
                     eff_type = eff.get("effect_type", "?")
-                    log_system(f"{eff_type}: 添加故事标签 [{name}] → {target.name}", level="debug")
+                    log_system(
+                        f"{eff_type}: 添加故事标签 [{name}] → {getattr(target, 'name', '环境')}",
+                        level="debug",
+                    )
 
                 elif operation == "scratch_story_tag":
                     name = eff.get("story_tag_to_scratch", "")
                     if not name:
                         continue
+                    if not isinstance(target, (Character, SceneState)):
+                        raise TypeError(
+                            f"{operation} requires Character or SceneState target, got {type(target).__name__}"
+                        )
                     result = remove_story_tag(target, name)
                     eff_type = eff.get("effect_type", "?")
                     if result:

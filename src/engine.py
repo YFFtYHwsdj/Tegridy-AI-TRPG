@@ -15,25 +15,26 @@ from __future__ import annotations
 import logging
 import random
 
-from src.models import Challenge, Character, PowerTag, RollResult, Status, StoryTag, WeaknessTag
+from src.models import NPC, Character, PowerTag, RollResult, Status, StoryTag, WeaknessTag
+from src.state.scene_state import SceneState
 
 logger = logging.getLogger("aitrpg.game")
 
 
 def resolve_matched_tags(
     character: Character,
-    challenge: Challenge | None,
+    npcs: dict[str, NPC] | None,
     matched_power_names: list[str],
     matched_weakness_names: list[str],
 ) -> tuple[list[PowerTag], list[WeaknessTag]]:
     """将 TagMatcher 输出的标签名解析为强类型 Tag 对象。
 
-    从角色和挑战的标签列表中查找匹配项。同时起到验证作用——
+    从角色和场景NPC的标签列表中查找匹配项。同时起到验证作用——
     LLM 返回的不存在的标签名会被静默过滤。
 
     Args:
         character: 当前角色
-        challenge: 当前挑战（可为 None）
+        npcs: 场景中的NPC字典（可为 None）
         matched_power_names: TagMatcher 匹配的力量标签名
         matched_weakness_names: TagMatcher 匹配的弱点标签名
 
@@ -42,8 +43,9 @@ def resolve_matched_tags(
     """
     all_power: list[PowerTag] = list(character.power_tags)
     all_weakness: list[WeaknessTag] = list(character.weakness_tags)
-    if challenge:
-        all_power.extend(challenge.base_tags)
+    if npcs:
+        for npc in npcs.values():
+            all_power.extend(npc.tags)
 
     name_set_power = set(matched_power_names)
     name_set_weakness = set(matched_weakness_names)
@@ -121,10 +123,9 @@ def roll_dice(power: int) -> RollResult:
 
 
 def apply_status(
-    entity: Character | Challenge,
+    entity: Character | NPC,
     status_name: str,
     tier: int,
-    limit_category: str = "",
 ) -> Status:
     """向实体施加或叠加一个状态，支持 tick 溢出机制。
 
@@ -135,27 +136,24 @@ def apply_status(
     例如：已有 tier 2 被勾选，再次施加 tier 2 → 自动填充到 tier 3（如果空着）。
 
     Args:
-        entity: 目标角色或挑战
+        entity: 目标角色或NPC
         status_name: 状态名称（如"受伤"、"恐惧"）
         tier: 要施加的状态等级 (1-6)
-        limit_category: 关联的极限类别名（用于挑战的状态追踪），可选
 
     Returns:
         Status: 施加后的状态对象（原地修改）
 
     Raises:
-        TypeError: entity 不是 Character 或 Challenge
+        TypeError: entity 不是 Character 或 NPC
         ValueError: tier 不在 1-6 范围内
     """
-    if not isinstance(entity, (Character, Challenge)):
-        raise TypeError(f"entity must be Character or Challenge, got {type(entity).__name__}")
+    if not isinstance(entity, (Character, NPC)):
+        raise TypeError(f"entity must be Character or NPC, got {type(entity).__name__}")
     if tier < 1 or tier > 6:
         raise ValueError(f"tier must be between 1 and 6, got {tier}")
 
     if status_name not in entity.statuses:
-        entity.statuses[status_name] = Status(name=status_name, limit_category=limit_category)
-    elif limit_category and not entity.statuses[status_name].limit_category:
-        entity.statuses[status_name].limit_category = limit_category
+        entity.statuses[status_name] = Status(name=status_name)
 
     status = entity.statuses[status_name]
 
@@ -173,7 +171,7 @@ def apply_status(
 
 
 def remove_status(
-    entity: Character | Challenge,
+    entity: Character | NPC,
     status_name: str,
     tier: int,
 ) -> Status | None:
@@ -183,7 +181,7 @@ def remove_status(
     如果状态所有 tier 都被移除，则从实体上删除该状态。
 
     Args:
-        entity: 目标角色或挑战
+        entity: 目标角色或NPC
         status_name: 状态名称
         tier: 要移除的起始等级（从此 tier 向下搜索已勾选的 box）
 
@@ -211,22 +209,8 @@ def remove_status(
     return status
 
 
-def check_limits(challenge: Challenge) -> list:
-    """检查挑战是否触发了任何极限条件。
-
-    便利封装，直接委托给 Challenge.check_limits()。
-
-    Args:
-        challenge: 要检查的挑战对象
-
-    Returns:
-        list: 被触发的 Limit 对象列表
-    """
-    return challenge.check_limits()
-
-
 def reduce_status(
-    entity: Character | Challenge,
+    entity: Character | NPC,
     status_name: str,
     reduce_by: int,
 ) -> Status | None:
@@ -237,7 +221,7 @@ def reduce_status(
     如果在此过程中状态被完全清空，立即返回 None。
 
     Args:
-        entity: 目标角色或挑战
+        entity: 目标角色或NPC
         status_name: 状态名称
         reduce_by: 要减少的等级数（≥1）
 
@@ -245,10 +229,10 @@ def reduce_status(
         减少后的 Status 对象；如果状态被清空则返回 None
 
     Raises:
-        TypeError: entity 不是 Character 或 Challenge
+        TypeError: entity 不是 Character 或 NPC
     """
-    if not isinstance(entity, (Character, Challenge)):
-        raise TypeError(f"entity must be Character or Challenge, got {type(entity).__name__}")
+    if not isinstance(entity, (Character, NPC)):
+        raise TypeError(f"entity must be Character or NPC, got {type(entity).__name__}")
     if reduce_by < 1:
         return None
 
@@ -282,7 +266,7 @@ def reduce_status(
 
 
 def add_story_tag(
-    entity: Character | Challenge,
+    entity: Character | SceneState,
     name: str,
     description: str = "",
     is_single_use: bool = False,
@@ -294,7 +278,7 @@ def add_story_tag(
     但可能被 Agent 在效果推演中引用。
 
     Args:
-        entity: 目标角色或挑战
+        entity: 目标角色或SceneState
         name: 标签名称
         description: 标签描述，可选
         is_single_use: 是否为一次性标签（用完即销毁）
@@ -303,38 +287,38 @@ def add_story_tag(
         StoryTag: 新创建的标签对象
 
     Raises:
-        TypeError: entity 不是 Character 或 Challenge
+        TypeError: entity 不是 Character 或 NPC
     """
-    if not isinstance(entity, (Character, Challenge)):
-        raise TypeError(f"entity must be Character or Challenge, got {type(entity).__name__}")
+    if not isinstance(entity, (Character, SceneState)):
+        raise TypeError(f"entity must be Character or SceneState, got {type(entity).__name__}")
     tag = StoryTag(name=name, description=description, is_single_use=is_single_use)
     entity.story_tags[name] = tag
     return tag
 
 
 def remove_story_tag(
-    entity: Character | Challenge,
+    entity: Character | SceneState,
     name: str,
 ) -> StoryTag | None:
     """从实体移除一个叙事标签。
 
     Args:
-        entity: 目标角色或挑战
+        entity: 目标角色或SceneState
         name: 要移除的标签名称
 
     Returns:
         被移除的 StoryTag 对象；如果标签不存在则返回 None
 
     Raises:
-        TypeError: entity 不是 Character 或 Challenge
+        TypeError: entity 不是 Character 或 NPC
     """
-    if not isinstance(entity, (Character, Challenge)):
-        raise TypeError(f"entity must be Character or Challenge, got {type(entity).__name__}")
+    if not isinstance(entity, (Character, SceneState)):
+        raise TypeError(f"entity must be Character or SceneState, got {type(entity).__name__}")
     return entity.story_tags.pop(name, None)
 
 
 def nudge_status(
-    entity: Character | Challenge,
+    entity: Character | NPC,
     status_name: str,
 ) -> Status:
     """将状态恶化一级（nudge）。
@@ -346,17 +330,17 @@ def nudge_status(
     如果状态已达 tier 6（最高级），不做任何操作。
 
     Args:
-        entity: 目标角色或挑战
+        entity: 目标角色或NPC
         status_name: 状态名称
 
     Returns:
         Status: 恶化后的状态对象
 
     Raises:
-        TypeError: entity 不是 Character 或 Challenge
+        TypeError: entity 不是 Character 或 NPC
     """
-    if not isinstance(entity, (Character, Challenge)):
-        raise TypeError(f"entity must be Character or Challenge, got {type(entity).__name__}")
+    if not isinstance(entity, (Character, NPC)):
+        raise TypeError(f"entity must be Character or NPC, got {type(entity).__name__}")
 
     if status_name not in entity.statuses:
         entity.statuses[status_name] = Status(name=status_name, current_tier=1, ticked_boxes={1})

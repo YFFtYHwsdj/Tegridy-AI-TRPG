@@ -71,14 +71,13 @@ class TestGameLoopSetup(unittest.TestCase):
         """setup 正确设置角色和场景。"""
         character = make_test_character()
         scene = make_test_scene()
-        from src.models import Challenge, Limit
+        from src.models import NPC
 
-        challenge = Challenge(
+        challenge = NPC(
             name="测试挑战",
             description="测试",
-            limits=[Limit(name="伤害", max_tier=3)],
         )
-        scene.add_challenge(challenge)
+        scene.npcs[challenge.npc_id] = challenge
 
         with patch("builtins.print"):
             self.loop.setup(character, scene)
@@ -90,14 +89,13 @@ class TestGameLoopSetup(unittest.TestCase):
         """setup 调用 RhythmAgent 生成开场叙事。"""
         character = make_test_character()
         scene = make_test_scene()
-        from src.models import Challenge, Limit
+        from src.models import NPC
 
-        challenge = Challenge(
+        challenge = NPC(
             name="测试挑战",
             description="测试",
-            limits=[Limit(name="伤害", max_tier=3)],
         )
-        scene.add_challenge(challenge)
+        scene.npcs[challenge.npc_id] = challenge
 
         with patch("builtins.print"):
             self.loop.setup(character, scene)
@@ -108,14 +106,13 @@ class TestGameLoopSetup(unittest.TestCase):
         """开场叙事被追加到场景历史。"""
         character = make_test_character()
         scene = make_test_scene()
-        from src.models import Challenge, Limit
+        from src.models import NPC
 
-        challenge = Challenge(
+        challenge = NPC(
             name="测试挑战",
             description="测试",
-            limits=[Limit(name="伤害", max_tier=3)],
         )
-        scene.add_challenge(challenge)
+        scene.npcs[challenge.npc_id] = challenge
 
         with patch("builtins.print"):
             self.loop.setup(character, scene)
@@ -133,14 +130,13 @@ class TestGameLoopProcessAction(unittest.TestCase):
         # 初始化游戏状态
         character = make_test_character()
         scene = make_test_scene()
-        from src.models import Challenge, Limit
+        from src.models import NPC
 
-        challenge = Challenge(
+        challenge = NPC(
             name="测试挑战",
             description="测试",
-            limits=[Limit(name="伤害", max_tier=3)],
         )
-        scene.add_challenge(challenge)
+        scene.npcs[challenge.npc_id] = challenge
         self.loop.setup(character, scene)
 
         # Mock 各 Agent
@@ -148,7 +144,7 @@ class TestGameLoopProcessAction(unittest.TestCase):
         self.loop.intent_agent = MagicMock()
         self.loop.resolution_agent = MagicMock()
         self.loop.lite_narrator = MagicMock()
-        self.loop.limit_break_agent = MagicMock()
+        self.loop.lite_narrator = MagicMock()
 
         # Mock Pipeline
         self.loop.pipeline = MagicMock()

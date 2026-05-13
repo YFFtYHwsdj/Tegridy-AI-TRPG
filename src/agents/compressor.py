@@ -43,13 +43,11 @@ class CompressorAgent(BaseAgent):
 
         # 简洁的场景资产概览——不需要完整 assets block，只需要名称列表
         npc_names = [npc.name for npc in scene.npcs.values()]
-        challenge_names = list(scene.active_challenges.keys())
 
         user_msg = f"""场景描述:
 {scene.scene_description}
 
 场景中的NPC: {", ".join(npc_names) if npc_names else "（无）"}
-场景中的挑战: {", ".join(challenge_names) if challenge_names else "（无）"}
 
 完整叙事历史:
 {narrative_text}

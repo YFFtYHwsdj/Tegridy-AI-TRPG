@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 
-from src.formatter import format_limit_progress, format_statuses, format_story_tags
+from src.formatter import format_statuses, format_story_tags
 from src.pipeline._tag_utils import extract_status_names, extract_tag_names
 
 
@@ -113,9 +113,6 @@ class ConsoleDisplay:
         """
         if state.character is None:
             return
-        challenge = state.scene.primary_challenge()
-        if challenge is None:
-            return
         self._log.debug("")
         self._log.debug("  [角色: %s]", state.character.name)
         self._log.debug("  状态: %s", format_statuses(state.character.statuses))
@@ -125,20 +122,18 @@ class ConsoleDisplay:
             item_names = ", ".join(item.name for item in char_items.values())
             self._log.debug("  持有: %s", item_names)
 
-        scene = state.scene
-        scene_items = scene.scene_items_visible
-        if scene_items:
-            item_names = ", ".join(f"{item.name}({item.location})" for item in scene_items.values())
-            self._log.debug("  场景物品: %s", item_names)
+        self._log.debug("")
+        self._log.debug("  [场景环境]")
+        if state.scene.story_tags:
+            self._log.debug("  故事标签: %s", format_story_tags(state.scene.story_tags))
+        else:
+            self._log.debug("  故事标签: （无）")
 
         self._log.debug("")
-        self._log.debug("  [挑战: %s]", challenge.name)
-        progress = challenge.get_limit_progress()
-        for limit in challenge.limits:
-            current = progress[limit.name]
-            self._log.debug("  %s", format_limit_progress(limit, current))
-        self._log.debug("  故事标签: %s", format_story_tags(challenge.story_tags))
-        self._log.debug("  状态: %s", format_statuses(challenge.statuses))
+        self._log.debug("  [场景NPC]")
+        for npc in state.scene.npcs.values():
+            self._log.debug("  - %s:", npc.name)
+            self._log.debug("    状态: %s", format_statuses(npc.statuses))
 
     def print_split_action_header(self, count: int):
         """打印复合 action 拆分提示。

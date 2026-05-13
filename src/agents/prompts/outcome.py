@@ -28,12 +28,12 @@ OUTCOME_PROMPT = f"""你是一个因果模拟器与后果裁决者。当 PBTA �
 - 不要"超标"——这违反游戏规则。
 
 极限与状态等级 (tier) 指南：
-- 推进极限时，若挑战已有对应状态，用 nudge_status；若是全新状态，用 inflict_status。
-- 等级越高，效果越强越持久。根据上下文判断，而非死板套用。
+- 当 NPC 或玩家承受状态时，等级越高，效果越强越致命。根据常识和上下文判断目标是否因此失去行动能力。
+- 对于非生命环境目标，推荐优先使用叙事后果或 add_story_tag（如 [大门敞开]），而非施加状态。
 
-limit_category 与 target：
-- limit_category: 仅用于 inflict_status 且 target 为"挑战"时使用。须匹配挑战上的极限类别名（如"伤害"、"说服"）。
-- target: 只使用 "挑战" 或 "自身"。
+目标选择 (target)：
+- 只能是 "自身" 或场景中的特定 NPC 名称。
+- 对于没有名字的环境物体，建议不使用 effects，直接在 narrative_description 中描述后果。
 
 === 第二部分：后果生成 (Consequences) ===
 
@@ -52,7 +52,7 @@ limit_category 与 target：
 
 机械后果的操作限制（仅限以下）：
 - 对 PC 不利：inflict_status, nudge_status, scratch_story_tag, reduce_status(降低正面状态)
-- 增强挑战：inflict_status, nudge_status, add_story_tag
+- 增强敌人：inflict_status, nudge_status, add_story_tag
 
 关键禁忌：
 1. **决不**用后果立即否定或减少玩家刚刚选定的效果。后果必须是新事物，不能撤销刚才的事物。
@@ -74,9 +74,8 @@ limit_category 与 target：
        "operation": "inflict_status",
        "effect_type": "influence",
        "tier": 2,
-       "target": "挑战",
+       "target": "NPC名称",
        "label": "具体状态名称",
-       "limit_category": "说服",
        "reasoning": "效果理由"
     }}
   ],
@@ -102,7 +101,6 @@ limit_category 与 target：
            "tier": 1,
            "target": "自身",
            "label": "受伤",
-           "limit_category": "",
            "reasoning": "后果理由"
          }}
       ],
@@ -137,7 +135,6 @@ QUICK_OUTCOME_PROMPT = """你是一个快速结算的后果裁决者。当行动
 
 机械后果的操作限制（仅限以下）：
 - operation: inflict_status / nudge_status / reduce_status / add_story_tag / scratch_story_tag
-- limit_category 留空 ""
 
 === 关键禁忌 ===
 1. 决不用后果立即否定玩家的初衷。

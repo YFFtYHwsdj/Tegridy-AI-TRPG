@@ -1,6 +1,6 @@
 import unittest
 
-from src.models import NPC, Challenge, Clue, GameItem, Limit
+from src.models import NPC, Clue, GameItem
 from src.state.scene_state import SceneState
 
 
@@ -13,7 +13,6 @@ class TestSceneState(unittest.TestCase):
         self.assertEqual(scene.clues_visible, {})
         self.assertEqual(scene.clues_hidden, {})
         self.assertEqual(scene.npcs, {})
-        self.assertEqual(scene.active_challenges, {})
         self.assertEqual(scene.narrative_history, [])
         self.assertEqual(scene.compression, "")
 
@@ -32,27 +31,6 @@ class TestSceneState(unittest.TestCase):
         for i in range(100):
             scene.append_narrative(f"事件{i}")
         self.assertEqual(len(scene.narrative_history), 100)
-
-    def test_add_and_get_challenge(self):
-        scene = SceneState()
-        chal = Challenge(name="Miko", description="中间人", limits=[Limit("说服", 3)])
-        scene.add_challenge(chal)
-        self.assertIn("Miko", scene.active_challenges)
-        self.assertIs(scene.get_challenge("Miko"), chal)
-
-    def test_get_challenge_nonexistent(self):
-        scene = SceneState()
-        self.assertIsNone(scene.get_challenge("不存在"))
-
-    def test_multiple_challenges(self):
-        scene = SceneState()
-        chal1 = Challenge(name="Miko", description="中间人")
-        chal2 = Challenge(name="保镖", description="护卫")
-        scene.add_challenge(chal1)
-        scene.add_challenge(chal2)
-        self.assertEqual(len(scene.active_challenges), 2)
-        self.assertIs(scene.get_challenge("Miko"), chal1)
-        self.assertIs(scene.get_challenge("保镖"), chal2)
 
     def test_scene_items_visible(self):
         item = GameItem(item_id="data_pad", name="数据板", location="吧台")

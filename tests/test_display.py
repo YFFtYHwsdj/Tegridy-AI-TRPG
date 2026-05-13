@@ -12,7 +12,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from src.display.console import ConsoleDisplay
-from src.models import AgentNote, Challenge, Limit, RollResult, Status, StoryTag
+from src.models import AgentNote, RollResult, Status, StoryTag
 
 
 def _collect_debug_output(mock_debug) -> str:
@@ -55,13 +55,12 @@ class TestConsoleDisplayOutput(unittest.TestCase):
         character.items_visible = {}
         state.character = character
 
-        challenge = Challenge(
-            name="测试挑战",
-            description="测试",
-            limits=[Limit(name="伤害", max_tier=3)],
-        )
+        npc = MagicMock()
+        npc.name = "测试NPC"
+        npc.statuses = {}
+        npc.story_tags = {}
         scene = MagicMock()
-        scene.primary_challenge.return_value = challenge
+        scene.npcs = {npc.name: npc}
         scene.scene_items_visible = {}
         state.scene = scene
         return state
@@ -180,17 +179,13 @@ class TestConsoleDisplayStatus(unittest.TestCase):
         character.name = kwargs.get("name", "Kael")
         state.character = character
 
-        challenge = Challenge(
-            name="测试挑战",
-            description="测试",
-            limits=[Limit(name="伤害", max_tier=3)],
-        )
-        # 可选：在挑战上设置状态和标签
-        challenge.statuses = kwargs.get("challenge_statuses", {})
-        challenge.story_tags = kwargs.get("challenge_tags", {})
+        npc = MagicMock()
+        npc.name = "测试NPC"
+        npc.statuses = kwargs.get("challenge_statuses", {})
+        npc.story_tags = kwargs.get("challenge_tags", {})
 
         scene = MagicMock()
-        scene.primary_challenge.return_value = challenge
+        scene.npcs = {npc.name: npc}
         scene.scene_items_visible = {}
         state.scene = scene
         return state

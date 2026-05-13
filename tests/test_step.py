@@ -38,14 +38,13 @@ class TestGameLoopStep(unittest.TestCase):
         # 初始化游戏状态
         character = make_test_character()
         scene = make_test_scene()
-        from src.models import Challenge, Limit
+        from src.models import NPC
 
-        challenge = Challenge(
+        challenge = NPC(
             name="测试挑战",
             description="测试",
-            limits=[Limit(name="伤害", max_tier=3)],
         )
-        scene.add_challenge(challenge)
+        scene.npcs[challenge.npc_id] = challenge
         self.loop.setup(character, scene)
 
         # Mock 各 Agent
@@ -53,7 +52,6 @@ class TestGameLoopStep(unittest.TestCase):
         self.loop.intent_agent = MagicMock()
         self.loop.resolution_agent = MagicMock()
         self.loop.lite_narrator = MagicMock()
-        self.loop.limit_break_agent = MagicMock()
         self.loop.scene_director = MagicMock()
 
         # Mock Pipeline

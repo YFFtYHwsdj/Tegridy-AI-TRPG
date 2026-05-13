@@ -4,7 +4,6 @@ from src.engine import (
     add_story_tag,
     apply_status,
     calculate_power,
-    check_limits,
     nudge_status,
     reduce_status,
     remove_status,
@@ -12,7 +11,8 @@ from src.engine import (
     resolve_matched_tags,
     roll_dice,
 )
-from src.models import Challenge, Character, Limit, PowerTag, RollResult, WeaknessTag
+from src.models import NPC, Character, PowerTag, RollResult, WeaknessTag
+from src.state.scene_state import SceneState
 
 
 class TestCalculatePower(unittest.TestCase):
@@ -69,34 +69,39 @@ class TestResolveMatchedTags(unittest.TestCase):
                 WeaknessTag(name="信用破产"),
             ],
         )
-        self.challenge = Challenge(
+        self.challenge = NPC(
             name="Miko",
             description="中间人",
-            limits=[],
-            base_tags=[PowerTag(name="主场优势")],
+            tags=[PowerTag(name="主场优势")],
         )
 
     def test_resolve_power_from_character(self):
-        power, weakness = resolve_matched_tags(self.character, self.challenge, ["快速拔枪"], [])
+        power, weakness = resolve_matched_tags(
+            self.character, {"m": self.challenge}, ["快速拔枪"], []
+        )
         self.assertEqual(len(power), 1)
         self.assertEqual(power[0].name, "快速拔枪")
         self.assertEqual(len(weakness), 0)
 
     def test_resolve_weakness_from_character(self):
-        power, weakness = resolve_matched_tags(self.character, self.challenge, [], ["信用破产"])
+        power, weakness = resolve_matched_tags(
+            self.character, {"m": self.challenge}, [], ["信用破产"]
+        )
         self.assertEqual(len(power), 0)
         self.assertEqual(len(weakness), 1)
         self.assertEqual(weakness[0].name, "信用破产")
 
     def test_resolve_power_from_challenge_base_tags(self):
-        power, weakness = resolve_matched_tags(self.character, self.challenge, ["主场优势"], [])
+        power, weakness = resolve_matched_tags(
+            self.character, {"m": self.challenge}, ["主场优势"], []
+        )
         self.assertEqual(len(power), 1)
         self.assertEqual(power[0].name, "主场优势")
         self.assertEqual(len(weakness), 0)
 
     def test_resolve_unknown_name_filtered(self):
         power, weakness = resolve_matched_tags(
-            self.character, self.challenge, ["不存在的能力"], ["不存在的弱点"]
+            self.character, {"m": self.challenge}, ["不存在的能力"], ["不存在的弱点"]
         )
         self.assertEqual(len(power), 0)
         self.assertEqual(len(weakness), 0)
@@ -109,7 +114,7 @@ class TestResolveMatchedTags(unittest.TestCase):
     def test_resolve_multiple_from_all_sources(self):
         power, weakness = resolve_matched_tags(
             self.character,
-            self.challenge,
+            {"m": self.challenge},
             ["快速拔枪", "前公司安保", "主场优势"],
             ["信用破产"],
         )
@@ -205,30 +210,19 @@ class TestApplyStatus(unittest.TestCase):
         self.assertNotIn(7, s.ticked_boxes)
         self.assertEqual(s.current_tier, 6)
 
-    def test_limit_category_set_on_create(self):
-        s = apply_status(self.character, "被说服", 2, limit_category="说服")
-        self.assertEqual(s.limit_category, "说服")
-
-    def test_limit_category_not_overwritten(self):
-        apply_status(self.character, "被说服", 1, limit_category="first")
-        apply_status(self.character, "被说服", 2)
-        self.assertEqual(self.character.statuses["被说服"].limit_category, "first")
-
     def test_tier_out_of_range_raises(self):
         with self.assertRaises(ValueError):
             apply_status(self.character, "受伤", 0)
         with self.assertRaises(ValueError):
             apply_status(self.character, "受伤", 7)
 
-    def test_applies_to_challenge(self):
-        challenge = Challenge(
+    def test_applies_to_npc(self):
+        challenge = NPC(
             name="敌人",
             description="test",
-            limits=[Limit(name="伤害", max_tier=4)],
         )
-        s = apply_status(challenge, "流血", 2, limit_category="伤害")
+        s = apply_status(challenge, "流血", 2)
         self.assertIn("流血", challenge.statuses)
-        self.assertEqual(s.limit_category, "伤害")
         self.assertEqual(s.current_tier, 2)
 
     def test_noncontiguous_ticked_boxes(self):
@@ -267,39 +261,6 @@ class TestRemoveStatus(unittest.TestCase):
         s = remove_status(self.character, "受伤", 5)
         self.assertIsNone(s)
         self.assertNotIn("受伤", self.character.statuses)
-
-
-class TestCheckLimits(unittest.TestCase):
-    def setUp(self):
-        self.challenge = Challenge(
-            name="敌人",
-            description="test",
-            limits=[
-                Limit(name="说服或威胁", max_tier=3),
-                Limit(name="伤害或制服", max_tier=4),
-            ],
-        )
-
-    def test_no_triggered_limits(self):
-        self.assertEqual(check_limits(self.challenge), [])
-
-    def test_limit_triggered(self):
-        apply_status(self.challenge, "被说服", 3, limit_category="说服或威胁")
-        triggered = check_limits(self.challenge)
-        self.assertEqual(len(triggered), 1)
-        self.assertEqual(triggered[0].name, "说服或威胁")
-
-    def test_limit_not_triggered_below_max(self):
-        apply_status(self.challenge, "被说服", 2, limit_category="说服或威胁")
-        self.assertEqual(check_limits(self.challenge), [])
-
-    def test_multiple_limits_triggered(self):
-        apply_status(self.challenge, "被说服", 3, limit_category="说服或威胁")
-        apply_status(self.challenge, "流血", 4, limit_category="伤害或制服")
-        triggered = check_limits(self.challenge)
-        self.assertEqual(len(triggered), 2)
-        triggered_names = {lim.name for lim in triggered}
-        self.assertEqual(triggered_names, {"说服或威胁", "伤害或制服"})
 
 
 class TestReduceStatus(unittest.TestCase):
@@ -348,10 +309,8 @@ class TestReduceStatus(unittest.TestCase):
         self.assertIsNone(s)
         self.assertNotIn("受伤", self.character.statuses)
 
-    def test_reduce_on_challenge(self):
-        challenge = Challenge(
-            name="敌人", description="test", limits=[Limit(name="伤害", max_tier=4)]
-        )
+    def test_reduce_on_npc(self):
+        challenge = NPC(name="敌人", description="test")
         apply_status(challenge, "受伤", 2)
         apply_status(challenge, "受伤", 5)
         # ticked: {2, 5}, current_tier=5
@@ -386,21 +345,14 @@ class TestNudgeStatus(unittest.TestCase):
         self.assertIn(6, s.ticked_boxes)
         self.assertNotIn(7, s.ticked_boxes)
 
-    def test_nudge_on_challenge(self):
-        challenge = Challenge(
-            name="敌人", description="test", limits=[Limit(name="说服或威胁", max_tier=3)]
-        )
-        apply_status(challenge, "愿意交易", 2, limit_category="说服")
+    def test_nudge_on_npc(self):
+        challenge = NPC(name="敌人", description="test")
+        apply_status(challenge, "愿意交易", 2)
         # current_tier=2, ticked={2}
         s = nudge_status(challenge, "愿意交易")
-        # 应该勾选盒子3 → 极限触发！
+        # 应该勾选盒子3
         self.assertEqual(s.current_tier, 3)
         self.assertIn(3, s.ticked_boxes)
-
-    def test_nudge_retains_limit_category(self):
-        apply_status(self.character, "被说服", 1, limit_category="说服")
-        s = nudge_status(self.character, "被说服")
-        self.assertEqual(s.limit_category, "说服")
 
     def test_double_nudge(self):
         apply_status(self.character, "受伤", 1)
@@ -415,7 +367,7 @@ class TestNudgeStatus(unittest.TestCase):
 class TestStoryTagEngine(unittest.TestCase):
     def setUp(self):
         self.character = Character(name="Test", power_tags=[], weakness_tags=[])
-        self.challenge = Challenge(name="敌人", description="test", limits=[])
+        self.scene = SceneState()
 
     def test_add_story_tag_to_character(self):
         tag = add_story_tag(self.character, "临时掩体", "翻倒的桌子")
@@ -428,9 +380,9 @@ class TestStoryTagEngine(unittest.TestCase):
         tag = add_story_tag(self.character, "闪光弹", "一发闪光弹", is_single_use=True)
         self.assertTrue(tag.is_single_use)
 
-    def test_add_story_tag_to_challenge(self):
-        _tag = add_story_tag(self.challenge, "增援", "帮派成员到达")
-        self.assertIn("增援", self.challenge.story_tags)
+    def test_add_story_tag_to_scene(self):
+        _tag = add_story_tag(self.scene, "增援", "帮派成员到达")
+        self.assertIn("增援", self.scene.story_tags)
 
     def test_remove_story_tag(self):
         add_story_tag(self.character, "临时掩体", "翻倒的桌子")

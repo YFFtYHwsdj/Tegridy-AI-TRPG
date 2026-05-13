@@ -16,8 +16,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from src.context import AgentContext
-from src.formatter import format_limit_progress, format_statuses, format_story_tags
-from src.models import NPC, Challenge, Character, Clue, GameItem
+from src.formatter import format_statuses, format_story_tags
+from src.models import NPC, Character, Clue, GameItem, StoryTag
 
 
 @dataclass
@@ -31,7 +31,6 @@ class SceneState:
         clues_visible: 已揭示的线索
         clues_hidden: 未揭示的线索
         npcs: 场景中的 NPC
-        active_challenges: 活跃的挑战（通常一个场景只有一个主挑战）
         narrative_history: 叙事历史列表（最新在后，场景内完整保留）
         compression: 场景结束后的压缩摘要（CompressorAgent 产出）
     """
@@ -45,40 +44,10 @@ class SceneState:
     clues_hidden: dict[str, Clue] = field(default_factory=dict)
 
     npcs: dict[str, NPC] = field(default_factory=dict)
-    active_challenges: dict[str, Challenge] = field(default_factory=dict)
+    story_tags: dict[str, StoryTag] = field(default_factory=dict)
 
     narrative_history: list[str] = field(default_factory=list)
-
     compression: str = ""
-
-    def primary_challenge(self) -> Challenge | None:
-        """获取当前场景的主挑战（第一个活跃挑战）。
-
-        Returns:
-            Challenge 或 None
-        """
-        if not self.active_challenges:
-            return None
-        return next(iter(self.active_challenges.values()))
-
-    def get_challenge(self, name: str) -> Challenge | None:
-        """按名称查找挑战。
-
-        Args:
-            name: 挑战名称
-
-        Returns:
-            Challenge 或 None
-        """
-        return self.active_challenges.get(name)
-
-    def add_challenge(self, challenge: Challenge):
-        """向场景添加一个挑战。
-
-        Args:
-            challenge: 挑战对象
-        """
-        self.active_challenges[challenge.name] = challenge
 
     def append_narrative(self, entry: str):
         """追加叙事条目。
@@ -93,7 +62,7 @@ class SceneState:
 
         将场景资产、状态快照、叙事历史拼接为三个文本块：
             - assets_block: 场景资产（NPC、线索、物品）
-            - context_block: 当前状态快照（场景、角色、挑战、极限进度）
+            - context_block: 当前状态快照（场景、角色、叙事历史）
             - narrative_block: 叙事历史
 
         Args:
@@ -103,62 +72,52 @@ class SceneState:
         Returns:
             AgentContext: 完整的 Agent 上下文
         """
-        challenge = self.primary_challenge()
         return AgentContext(
             assets_block=self._build_assets_block(character),
-            context_block=self._build_context_block(character, challenge),
+            context_block=self._build_context_block(character),
             narrative_block=self._build_narrative_block(),
             character=character,
-            challenge=challenge,
             player_input=player_input,
             extra={"scene_state": self},
         )
 
-    def _build_context_block(self, character: Character | None, challenge: Challenge | None) -> str:
+    def _build_context_block(self, character: Character | None) -> str:
         """构建当前状态快照文本块。
 
-        包含场景描述、角色标签/状态、挑战信息、极限进度等，
+        包含场景描述、角色标签/状态等，
         供 Agent 在推理时参考。
 
         Args:
             character: 玩家角色
-            challenge: 当前挑战
 
         Returns:
             格式化的上下文文本块
         """
-        if character is None or challenge is None:
-            return ""
+        lines = [f"场景: {self.scene_description}"]
+        if character is None:
+            return "\n".join(lines)
 
         char_tags = ", ".join(t.name for t in character.power_tags)
         char_weak = ", ".join(t.name for t in character.weakness_tags)
         char_status = format_statuses(character.statuses)
         char_story = format_story_tags(character.story_tags)
 
-        progress = challenge.get_limit_progress()
-        limits = ", ".join(
-            format_limit_progress(
-                limit, progress[limit.name], limit.name in challenge.broken_limits
-            )
-            for limit in challenge.limits
+        lines.extend(
+            [
+                f"角色: {character.name} - {character.description}",
+                f"  力量标签: {char_tags}",
+                f"  弱点标签: {char_weak}",
+                f"  状态: {char_status}",
+                f"  故事标签: {char_story}",
+            ]
         )
-        if not limits:
-            limits = "（无极限设置）"
 
-        lines = [
-            f"场景: {self.scene_description}",
-            f"角色: {character.name} - {character.description}",
-            f"  力量标签: {char_tags}",
-            f"  弱点标签: {char_weak}",
-            f"  状态: {char_status}",
-            f"  故事标签: {char_story}",
-            f"挑战: {challenge.name} - {challenge.description}",
-            f"  极限进度: {limits}",
-        ]
-        if challenge.broken_limits:
-            lines.append(f"  已突破极限: {', '.join(challenge.broken_limits)}")
-        if challenge.transformation:
-            lines.append(f"  挑战转变: {challenge.transformation}")
+        if self.npcs:
+            lines.append("场景NPC:")
+            for npc in self.npcs.values():
+                npc_status = format_statuses(npc.statuses)
+                lines.append(f"  - {npc.name}: 状态 {npc_status}")
+
         return "\n".join(lines)
 
     def _build_narrative_block(self) -> str:

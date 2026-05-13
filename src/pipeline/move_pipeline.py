@@ -109,9 +109,10 @@ class MovePipeline:
         if ctx is None or ctx.character is None:
             raise ValueError("MovePipeline._run_tag_and_roll 需要有效的上下文和角色信息")
         char = ctx.character
-        challenge = ctx.challenge
+        scene = ctx.extra.get("scene_state")
+        npcs = scene.npcs if scene else None
         resolved_power, resolved_weakness = resolve_matched_tags(
-            char, challenge, power_tag_names, weakness_tag_names
+            char, npcs, power_tag_names, weakness_tag_names
         )
 
         power = calculate_power(

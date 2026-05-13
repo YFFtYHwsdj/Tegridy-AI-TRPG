@@ -8,7 +8,6 @@ AGENT_REGISTRY 维护所有 Agent 类的全局注册表。
 from src.agents.compressor import CompressorAgent
 from src.agents.continuation_check import ContinuationCheckAgent
 from src.agents.intent import IntentAgent
-from src.agents.limit_break import LimitBreakAgent
 from src.agents.move_gatekeeper import MoveGatekeeperAgent
 from src.agents.narrator import LiteNarratorAgent, NarratorAgent, QuickNarratorAgent
 from src.agents.outcome import OutcomeAgent, QuickOutcomeAgent
@@ -29,7 +28,6 @@ AGENT_REGISTRY = {
     "narrator": NarratorAgent,
     "lite_narrator": LiteNarratorAgent,
     "quick_narrator": QuickNarratorAgent,
-    "limit_break": LimitBreakAgent,
     "continuation_check": ContinuationCheckAgent,
     "resolution_mode": ResolutionModeAgent,
     "scene_creator": SceneCreatorAgent,
@@ -41,7 +39,6 @@ __all__ = [
     "CompressorAgent",
     "ContinuationCheckAgent",
     "IntentAgent",
-    "LimitBreakAgent",
     "LiteNarratorAgent",
     "MoveGatekeeperAgent",
     "NarratorAgent",

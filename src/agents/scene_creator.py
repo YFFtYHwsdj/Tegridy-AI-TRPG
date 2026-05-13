@@ -16,11 +16,9 @@ from src.formatter import format_statuses
 from src.models import (
     NPC,
     AgentNote,
-    Challenge,
     Character,
     Clue,
     GameItem,
-    Limit,
     PowerTag,
 )
 from src.state.scene_state import SceneState
@@ -103,48 +101,6 @@ def build_scene_from_creator(creator_output: dict) -> SceneState:
     _log = get_logger()
 
     scene = SceneState(scene_description=str(creator_output.get("scene_description", "")).strip())
-
-    # --- Challenge ---
-    chal_data = creator_output.get("challenge")
-    if isinstance(chal_data, dict):
-        chal_name = str(chal_data.get("name", "未知挑战"))
-        chal_desc = str(chal_data.get("description", ""))
-        chal_notes = str(chal_data.get("notes", ""))
-
-        limits = []
-        raw_limits = chal_data.get("limits")
-        if isinstance(raw_limits, list):
-            for lim in raw_limits:
-                if isinstance(lim, dict):
-                    lim_name = str(lim.get("name", ""))
-                    lim_tier = lim.get("max_tier", 3)
-                    if isinstance(lim_tier, (int, float)):
-                        lim_tier = max(1, min(6, int(lim_tier)))
-                    else:
-                        lim_tier = 3
-                    if lim_name:
-                        limits.append(Limit(name=lim_name, max_tier=lim_tier))
-
-        base_tags = []
-        raw_tags = chal_data.get("base_tags")
-        if isinstance(raw_tags, list):
-            for tag in raw_tags:
-                if isinstance(tag, dict):
-                    tag_name = str(tag.get("name", ""))
-                    tag_desc = str(tag.get("description", ""))
-                    if tag_name:
-                        base_tags.append(PowerTag(name=tag_name, description=tag_desc))
-
-        challenge = Challenge(
-            name=chal_name,
-            description=chal_desc,
-            limits=limits,
-            base_tags=base_tags,
-            notes=chal_notes,
-        )
-        scene.add_challenge(challenge)
-    else:
-        _log.warning("SceneCreator 输出缺少 challenge 字段或格式不正确")
 
     # --- NPCs ---
     raw_npcs = creator_output.get("npcs")

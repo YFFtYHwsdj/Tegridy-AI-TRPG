@@ -29,7 +29,6 @@ from dataclasses import dataclass
 from src.agents import (
     CompressorAgent,
     IntentAgent,
-    LimitBreakAgent,
     LiteNarratorAgent,
     MoveGatekeeperAgent,
     ResolutionModeAgent,
@@ -40,8 +39,6 @@ from src.agents import (
 from src.agents.scene_creator import build_scene_from_creator
 from src.display.console import ConsoleDisplay
 from src.effects.applicator import EffectApplicator
-from src.engine import check_limits
-from src.formatter import format_challenge_state
 from src.llm_client import LLMClient
 from src.logger import get_logger, log_status_update, log_system, set_debug_mode
 from src.models import Character
@@ -98,7 +95,6 @@ class GameLoop:
         self.gatekeeper = MoveGatekeeperAgent(llm)
         self.intent_agent = IntentAgent(llm)
         self.lite_narrator = LiteNarratorAgent(llm)
-        self.limit_break_agent = LimitBreakAgent(llm)
         self.resolution_agent = ResolutionModeAgent(llm)
 
         # 场景切换层 Agent
@@ -222,10 +218,9 @@ class GameLoop:
         """为当前场景生成开场叙事。
 
         调用 RhythmAgent 建立场景氛围，输出场景建立叙事、
-        挑战状态概览和聚光灯传递。首个场景额外显示标题。
+        场景状态概览和聚光灯传递。首个场景额外显示标题。
         """
         scene = self.state.scene
-        challenge = scene.primary_challenge()
 
         if self._first_scene:
             self._log.info("")
@@ -247,8 +242,8 @@ class GameLoop:
 
         self._log.info("")
         self._log.info("─" * 50)
-        self._log.info("挑战状态:")
-        self._log.info(format_challenge_state(challenge))
+        self._log.info("场景状态:")
+        self.display.print_status(self.state)
         self._log.info("─" * 50)
 
         spotlight = rhythm.structured.get("spotlight_handoff", "你要做什么？")
@@ -411,11 +406,10 @@ class GameLoop:
         self.display.print_strategy(result.narrator_note)
 
         # 将 Agent 产出的效果应用到游戏状态
-        challenge = self.state.scene.primary_challenge()
         effect_errors = EffectApplicator.apply_results(
             result.outcome_note,
             self.state.character,
-            challenge,
+            self.state.scene,
         )
         if effect_errors:
             log_system(f"共 {len(effect_errors)} 个效果应用失败", level="warning")
@@ -434,15 +428,6 @@ class GameLoop:
         self.state.append_narrative(narrative)
 
         self.display.print_status(self.state)
-
-        # 检查极限是否触发
-        if challenge is not None:
-            triggered_limits = check_limits(challenge)
-            if triggered_limits:
-                break_narrative = self._handle_limit_break(triggered_limits)
-                if break_narrative:
-                    narrative += "\n\n" + break_narrative
-                needs_director = True
 
         return narrative, needs_director
 
@@ -466,11 +451,10 @@ class GameLoop:
             self.display.print_tag_and_roll(result.tag_note, result.roll)
             self.display.print_outcome(result.outcome_note)
 
-            challenge = self.state.scene.primary_challenge()
             effect_errors = EffectApplicator.apply_results(
                 result.outcome_note,
                 self.state.character,
-                challenge,
+                self.state.scene,
             )
             if effect_errors:
                 log_system(f"共 {len(effect_errors)} 个效果应用失败", level="warning")
@@ -500,71 +484,18 @@ class GameLoop:
 
         self.display.print_status(self.state)
 
-        challenge = self.state.scene.primary_challenge()
-        if challenge is not None:
-            triggered_limits = check_limits(challenge)
-            if triggered_limits:
-                break_narrative = self._handle_limit_break(triggered_limits)
-                if break_narrative:
-                    narrative += "\n\n" + break_narrative
-                needs_director = True
-
         return narrative, needs_director
 
     def _finalize_move(self):
         """完成一次 Move 后的收尾工作。
 
-        记录角色和挑战的当前状态到日志。
+        记录角色和NPC的当前状态到日志。
         """
         character = self.state.character
-        challenge = self.state.scene.primary_challenge()
-        if character and challenge:
+        if character:
             log_status_update(character.name, character.statuses)
-            log_status_update(challenge.name, challenge.statuses)
-
-    def _handle_limit_break(self, triggered_limits):
-        """处理极限突破事件。
-
-        当挑战的状态达到 max_tier 阈值时触发。调用极限突破 Agent
-        生成突破叙事、挑战转变描述和场景走向，并在挑战上标记已突破的极限。
-
-        Args:
-            triggered_limits: 被触发的 Limit 对象列表
-        """
-        challenge = self.state.scene.primary_challenge()
-        assert challenge is not None
-        limit_names = [lim.name for lim in triggered_limits]
-        self._log.info("")
-        self._log.info("  ⚡ 极限突破: %s!", ", ".join(limit_names))
-
-        ctx = self.state.make_context()
-
-        limit_break_note = self.limit_break_agent.execute(
-            limit_names,
-            challenge,
-            ctx,
-        )
-        break_narrative = limit_break_note.structured.get("narrative", "")
-        if break_narrative:
-            self._log.info("")
-            self._log.info("─" * 50)
-            self._log.info("")
-            self._log.info(break_narrative)
-            self.state.append_narrative(break_narrative)
-
-        transformation = limit_break_note.structured.get("challenge_transformation", "")
-        if transformation:
-            challenge.transformation = transformation
-            self._log.info("")
-            self._log.info("  [场景转变] %s", transformation)
-
-        scene_direction = limit_break_note.structured.get("scene_direction", "")
-        if scene_direction:
-            self._log.info("  [走向] %s", scene_direction)
-
-        challenge.mark_limits_broken(limit_names)
-        log_status_update(challenge.name, challenge.statuses)
-        return break_narrative
+        for npc in self.state.scene.npcs.values():
+            log_status_update(npc.name, npc.statuses)
 
     # ───────────────────── 主循环 ─────────────────────
 

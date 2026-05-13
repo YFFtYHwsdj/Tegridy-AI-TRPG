@@ -15,19 +15,6 @@ def _make_creator_response():
     data = {
         "reasoning": "创作意图",
         "scene_description": "深夜的赤色数据帮派据点——一座废弃的冷链仓库。",
-        "challenge": {
-            "name": "赤色数据追兵",
-            "description": "赤色数据的打手队追踪芯片信号找到了Kael。",
-            "limits": [
-                {"name": "伤害或制服", "max_tier": 4},
-                {"name": "逃脱或消失", "max_tier": 3},
-            ],
-            "base_tags": [
-                {"name": "街头追踪者", "description": "擅长在底层追踪目标"},
-                {"name": "人数优势", "description": "四人打手队，配合默契"},
-            ],
-            "notes": "威胁参考：打手会先尝试包围再动手。",
-        },
         "npcs": [
             {
                 "npc_id": "leader",
@@ -98,15 +85,15 @@ class TestSceneCreatorAgentExecute(unittest.TestCase):
         user_msg = mock_llm.call_history[0]["user_message"]
         self.assertIn("场景切到后巷", user_msg)
 
-    def test_returns_agent_note_with_challenge(self):
-        """返回的 structured 应包含 challenge。"""
+    def test_returns_agent_note_with_npcs(self):
+        """返回的 structured 应包含 npcs。"""
         mock_llm = MockLLMClient(responses=[(_make_creator_response(), {})])
         agent = SceneCreatorAgent(mock_llm)
 
         result = agent.execute("", self.character, "")
 
-        self.assertIn("challenge", result.structured)
-        self.assertEqual(result.structured["challenge"]["name"], "赤色数据追兵")
+        self.assertIn("npcs", result.structured)
+        self.assertEqual(result.structured["npcs"][0]["name"], "打手头目")
 
     def test_handles_none_character(self):
         """角色为 None 时不应崩溃。"""
@@ -125,13 +112,6 @@ class TestBuildSceneFromCreator(unittest.TestCase):
         """完整 JSON 应正确转换为 SceneState。"""
         data = {
             "scene_description": "冷链仓库",
-            "challenge": {
-                "name": "追兵",
-                "description": "追兵到了",
-                "limits": [{"name": "战斗", "max_tier": 4}],
-                "base_tags": [{"name": "追踪", "description": "擅长追踪"}],
-                "notes": "威胁",
-            },
             "npcs": [
                 {
                     "npc_id": "boss",
@@ -145,10 +125,6 @@ class TestBuildSceneFromCreator(unittest.TestCase):
         scene = build_scene_from_creator(data)
 
         self.assertEqual(scene.scene_description, "冷链仓库")
-        self.assertIn("追兵", scene.active_challenges)
-        self.assertEqual(scene.active_challenges["追兵"].name, "追兵")
-        self.assertEqual(len(scene.active_challenges["追兵"].limits), 1)
-        self.assertEqual(len(scene.active_challenges["追兵"].base_tags), 1)
         self.assertIn("boss", scene.npcs)
         self.assertEqual(scene.npcs["boss"].name, "头目")
 
@@ -156,35 +132,7 @@ class TestBuildSceneFromCreator(unittest.TestCase):
         """空字典应返回空 SceneState 而不崩溃。"""
         scene = build_scene_from_creator({})
         self.assertEqual(scene.scene_description, "")
-        self.assertEqual(scene.active_challenges, {})
         self.assertEqual(scene.npcs, {})
-
-    def test_missing_challenge(self):
-        """缺少 challenge 字段时应安全跳过。"""
-        scene = build_scene_from_creator({"scene_description": "测试场景", "npcs": []})
-        self.assertEqual(scene.scene_description, "测试场景")
-        self.assertEqual(scene.active_challenges, {})
-
-    def test_limit_tier_clamped(self):
-        """max_tier 应被钳制在 1-6 范围内。"""
-        data = {
-            "challenge": {
-                "name": "测试",
-                "description": "",
-                "limits": [
-                    {"name": "极限A", "max_tier": 0},
-                    {"name": "极限B", "max_tier": 10},
-                    {"name": "极限C", "max_tier": "invalid"},
-                ],
-            }
-        }
-
-        scene = build_scene_from_creator(data)
-        challenge = scene.primary_challenge()
-        assert challenge is not None
-        self.assertEqual(challenge.limits[0].max_tier, 1)
-        self.assertEqual(challenge.limits[1].max_tier, 6)
-        self.assertEqual(challenge.limits[2].max_tier, 3)
 
     def test_npc_without_id_skipped(self):
         """没有 npc_id 的 NPC 应被跳过。"""
@@ -276,14 +224,12 @@ class TestBuildSceneFromCreator(unittest.TestCase):
         """字段类型不正确时不应崩溃。"""
         data = {
             "scene_description": "测试",
-            "challenge": "不是字典",
             "npcs": "不是列表",
             "items_visible": "不是列表",
             "clues_hidden": None,
         }
         scene = build_scene_from_creator(data)
         self.assertEqual(scene.scene_description, "测试")
-        self.assertEqual(scene.active_challenges, {})
         self.assertEqual(scene.npcs, {})
 
 

@@ -8,8 +8,8 @@
     WeaknessTag（弱点标签）: 角色/物品的劣势特征，命中行动时提供 -1 力量值
     Status（状态）: PBTA tick 系统的水位标记，tier 1-6 递进
     StoryTag（叙事标签）: 临时的情境性标记，不参与数学计算
-    Limit（极限）: 挑战的关键突破条件，与关联状态的控制阈值挂钩
-    Challenge（挑战）: NPC、障碍物、环境危险等叙事阻力的抽象
+    Limit（极限）: [DEPRECATED] 挑战的关键突破条件
+    Challenge（挑战）: [DEPRECATED] NPC、障碍物、环境危险等叙事阻力的抽象
     AgentNote（分析便签）: Agent 间的自然语言推理传递载体
 """
 
@@ -56,13 +56,11 @@ class Status:
 
     关键字段：
         ticked_boxes: 已勾选的 tier 编号集合，例如 {1, 3} 表示 tier 1 和 3 被标记
-        limit_category: 关联的极限类别名，用于 Challenge 的状态追踪
     """
 
     name: str
     current_tier: int = 0
     ticked_boxes: set[int] = field(default_factory=set)
-    limit_category: str = ""
 
 
 @dataclass
@@ -83,111 +81,6 @@ class StoryTag:
     description: str = ""
     is_single_use: bool = False
     is_consumable: bool = False
-
-
-@dataclass
-class Limit:
-    """极限条件 —— 挑战的关键突破阈值。
-
-    每个 Limit 关联一个 limit_category，与状态的 limit_category 字段匹配。
-    当匹配的状态 current_tier 达到 max_tier 时，极限被触发。
-    is_progress 标记是否以进度条方式追踪（如倒计时、积累型目标）。
-    """
-
-    name: str
-    max_tier: int
-    is_progress: bool = False
-
-    def __post_init__(self):
-        if self.max_tier < 1 or self.max_tier > 6:
-            raise ValueError(f"max_tier must be between 1 and 6, got {self.max_tier}")
-
-
-@dataclass
-class Challenge:
-    """挑战 —— 叙事阻力的抽象表示。
-
-    Challenge 可以代表 NPC、障碍物、环境危险、谜题等任何
-    玩家需要通过行动克服的叙事元素。
-
-    关键机制：
-        - limits: 突破条件列表，当关联状态达到阈值时触发
-        - broken_limits: 已被突破的极限集合
-        - transformation: 极限被完全突破后的形态变化描述
-    """
-
-    name: str
-    description: str
-    limits: list[Limit] = field(default_factory=list)
-    base_tags: list[PowerTag] = field(default_factory=list)
-    statuses: dict[str, Status] = field(default_factory=dict)
-    story_tags: dict[str, StoryTag] = field(default_factory=dict)
-    notes: str = ""
-    broken_limits: set[str] = field(default_factory=set)
-    transformation: str = ""
-
-    def get_matching_statuses(self, limit_name: str) -> list[Status]:
-        """获取与指定极限名匹配的所有状态。
-
-        匹配规则：状态的 limit_category 字段包含 limit_name。
-        例如 limit_name="时间" 会匹配 limit_category="时间压力" 的状态。
-
-        Args:
-            limit_name: 极限名称
-
-        Returns:
-            匹配的 Status 列表
-        """
-        results = []
-        for status in self.statuses.values():
-            if status.limit_category and status.limit_category in limit_name:
-                results.append(status)
-        return results
-
-    def get_limit_progress(self) -> dict[str, int]:
-        """获取每个极限的当前进度。
-
-        对每个 Limit，取其关联状态中的最高 current_tier 作为进度值。
-
-        Returns:
-            {limit_name: progress_tier} 的映射字典
-        """
-        return {
-            limit.name: max(
-                (s.current_tier for s in self.get_matching_statuses(limit.name)),
-                default=0,
-            )
-            for limit in self.limits
-        }
-
-    def check_limits(self) -> list[Limit]:
-        """检查是否有极限条件被触发。
-
-        遍历所有极限，检查关联状态是否达到 max_tier 阈值。
-        已被标记为 broken 的极限不再重复触发。
-
-        Returns:
-            被触发的 Limit 对象列表
-        """
-        triggered = []
-        for limit in self.limits:
-            if limit.name in self.broken_limits:
-                continue
-            matching = self.get_matching_statuses(limit.name)
-            for s in matching:
-                if s.current_tier >= limit.max_tier:
-                    triggered.append(limit)
-                    break
-        return triggered
-
-    def mark_limits_broken(self, limit_names: list[str]):
-        """将指定极限标记为已突破。
-
-        Args:
-            limit_names: 要标记的极限名称列表
-        """
-        for name in limit_names:
-            self.broken_limits.add(name)
 
 
 @dataclass

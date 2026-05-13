@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from src.models import Challenge, Character
+    from src.models import Character
 
 
 @dataclass
@@ -30,7 +30,6 @@ class AgentContext:
         context_block: 当前状态快照文本（供 LLM 阅读）
         narrative_block: 当前场景叙事历史文本（供 LLM 阅读）
         character: 玩家角色引用（代码层使用）
-        challenge: 当前挑战引用（代码层使用）
         player_input: 玩家当前输入文本
         extra: 扩展数据（如 scene_state 引用）
     """
@@ -40,6 +39,5 @@ class AgentContext:
     context_block: str = ""
     narrative_block: str = ""
     character: Character | None = None
-    challenge: Challenge | None = None
     player_input: str = ""
     extra: dict = field(default_factory=dict)
