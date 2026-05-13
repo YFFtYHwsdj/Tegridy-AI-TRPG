@@ -48,7 +48,6 @@ class TestGameLoopStep(unittest.TestCase):
         self.loop.setup(character, scene)
 
         # Mock 各 Agent
-        self.loop.gatekeeper = MagicMock()
         self.loop.intent_agent = MagicMock()
         self.loop.resolution_agent = MagicMock()
         self.loop.lite_narrator = MagicMock()
@@ -78,7 +77,7 @@ class TestGameLoopStep(unittest.TestCase):
 
     def test_step_non_move_no_scene_change(self):
         """非 Move 行动，场景导演判定不结束，返回叙事文本。"""
-        self.loop.gatekeeper.execute.return_value = MagicMock(
+        self.loop.intent_agent.execute.return_value = MagicMock(
             reasoning="低风险观察",
             structured={"is_move": False, "rationale": "纯叙事"},
         )
@@ -105,7 +104,7 @@ class TestGameLoopStep(unittest.TestCase):
 
     def test_step_scene_change_triggered(self):
         """场景导演判定结束时，step() 返回 scene_changed=True。"""
-        self.loop.gatekeeper.execute.return_value = MagicMock(
+        self.loop.intent_agent.execute.return_value = MagicMock(
             reasoning="低风险",
             structured={"is_move": False},
         )
@@ -140,12 +139,9 @@ class TestGameLoopStep(unittest.TestCase):
 
     def test_step_move_with_narrative(self):
         """Move 行动产出叙事，场景不结束。"""
-        self.loop.gatekeeper.execute.return_value = MagicMock(
-            reasoning="这是Move",
-            structured={"is_move": True},
-        )
         self.loop.intent_agent.execute.return_value = MagicMock(
             structured={
+                "is_move": True,
                 "action_type": "combat",
                 "action_summary": "拔枪",
                 "is_split_action": False,

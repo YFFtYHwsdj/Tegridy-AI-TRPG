@@ -140,7 +140,6 @@ class TestGameLoopProcessAction(unittest.TestCase):
         self.loop.setup(character, scene)
 
         # Mock 各 Agent
-        self.loop.gatekeeper = MagicMock()
         self.loop.intent_agent = MagicMock()
         self.loop.resolution_agent = MagicMock()
         self.loop.lite_narrator = MagicMock()
@@ -160,8 +159,8 @@ class TestGameLoopProcessAction(unittest.TestCase):
         self.assertEqual(result, ("QUIT", False))
 
     def test_non_move_calls_lite_narrator(self):
-        """守门人判定非 Move 时调用 LiteNarratorAgent。"""
-        self.loop.gatekeeper.execute.return_value = MagicMock(
+        """意图判定非 Move 时调用 LiteNarratorAgent。"""
+        self.loop.intent_agent.execute.return_value = MagicMock(
             reasoning="低风险观察",
             structured={"is_move": False, "rationale": "纯叙事"},
         )
@@ -176,12 +175,9 @@ class TestGameLoopProcessAction(unittest.TestCase):
 
     def test_move_calls_intent_agent(self):
         """Move 调用 IntentAgent 解析意图。"""
-        self.loop.gatekeeper.execute.return_value = MagicMock(
-            reasoning="这是Move",
-            structured={"is_move": True},
-        )
         self.loop.intent_agent.execute.return_value = MagicMock(
             structured={
+                "is_move": True,
                 "action_type": "combat",
                 "action_summary": "拔枪",
                 "is_split_action": False,
@@ -207,12 +203,9 @@ class TestGameLoopProcessAction(unittest.TestCase):
 
     def test_quick_resolution_calls_quick_pipeline(self):
         """resolution_mode=quick 时调用 run_quick_pipeline。"""
-        self.loop.gatekeeper.execute.return_value = MagicMock(
-            reasoning="这是Move",
-            structured={"is_move": True},
-        )
         self.loop.intent_agent.execute.return_value = MagicMock(
             structured={
+                "is_move": True,
                 "action_type": "combat",
                 "action_summary": "拔枪",
                 "is_split_action": False,
@@ -238,12 +231,9 @@ class TestGameLoopProcessAction(unittest.TestCase):
 
     def test_split_action_calls_process_split_moves(self):
         """is_split_action=True 时调用 _process_split_moves。"""
-        self.loop.gatekeeper.execute.return_value = MagicMock(
-            reasoning="这是Move",
-            structured={"is_move": True},
-        )
         self.loop.intent_agent.execute.return_value = MagicMock(
             structured={
+                "is_move": True,
                 "action_type": "compound",
                 "action_summary": "先拔枪再射击",
                 "is_split_action": True,
@@ -280,12 +270,9 @@ class TestGameLoopProcessAction(unittest.TestCase):
 
     def test_move_appends_narrative_to_state(self):
         """叙事文本被追加到场景历史。"""
-        self.loop.gatekeeper.execute.return_value = MagicMock(
-            reasoning="这是Move",
-            structured={"is_move": True},
-        )
         self.loop.intent_agent.execute.return_value = MagicMock(
             structured={
+                "is_move": True,
                 "action_type": "combat",
                 "action_summary": "拔枪",
                 "is_split_action": False,

@@ -8,7 +8,6 @@ from __future__ import annotations
 import unittest
 
 from src.agents.continuation_check import ContinuationCheckAgent
-from src.agents.move_gatekeeper import MoveGatekeeperAgent
 from src.agents.resolution_mode import ResolutionModeAgent
 from src.agents.rhythm import RhythmAgent
 from tests.helpers import (
@@ -16,62 +15,6 @@ from tests.helpers import (
     make_agent_note,
     make_test_context,
 )
-
-
-class TestMoveGatekeeperAgentExecute(unittest.TestCase):
-    """测试 MoveGatekeeperAgent.execute。"""
-
-    def test_includes_player_input(self):
-        """user_message 包含玩家输入。"""
-        mock_llm = MockLLMClient(
-            responses=[
-                (
-                    '{"reasoning": "判断", "is_move": true}',
-                    {},
-                )
-            ]
-        )
-        agent = MoveGatekeeperAgent(mock_llm)
-        ctx = make_test_context()
-
-        agent.execute("我要拔枪", ctx)
-
-        self.assertIn("我要拔枪", mock_llm.call_history[0]["user_message"])
-
-    def test_includes_context(self):
-        """user_message 包含上下文。"""
-        mock_llm = MockLLMClient(
-            responses=[
-                (
-                    '{"reasoning": "判断", "is_move": true}',
-                    {},
-                )
-            ]
-        )
-        agent = MoveGatekeeperAgent(mock_llm)
-        ctx = make_test_context()
-
-        agent.execute("测试", ctx)
-
-        self.assertIn("场景资产", mock_llm.call_history[0]["user_message"])
-
-    def test_returns_agent_note(self):
-        """验证返回正确解析的 AgentNote。"""
-        mock_llm = MockLLMClient(
-            responses=[
-                (
-                    '{"reasoning": "这是Move", "is_move": true, "rationale": "涉及战斗"}',
-                    {},
-                )
-            ]
-        )
-        agent = MoveGatekeeperAgent(mock_llm)
-        ctx = make_test_context()
-
-        result = agent.execute("我要拔枪", ctx)
-
-        self.assertTrue(result.structured["is_move"])
-        self.assertEqual(result.structured["rationale"], "涉及战斗")
 
 
 class TestResolutionModeAgentExecute(unittest.TestCase):

@@ -8,7 +8,6 @@ AGENT_REGISTRY 维护所有 Agent 类的全局注册表。
 from src.agents.compressor import CompressorAgent
 from src.agents.continuation_check import ContinuationCheckAgent
 from src.agents.intent import IntentAgent
-from src.agents.move_gatekeeper import MoveGatekeeperAgent
 from src.agents.narrator import LiteNarratorAgent, NarratorAgent, QuickNarratorAgent
 from src.agents.outcome import OutcomeAgent, QuickOutcomeAgent
 from src.agents.resolution_mode import ResolutionModeAgent
@@ -19,7 +18,6 @@ from src.agents.tag_matcher import TagMatcherAgent
 
 AGENT_REGISTRY = {
     "rhythm": RhythmAgent,
-    "move_gatekeeper": MoveGatekeeperAgent,
     "intent": IntentAgent,
     "tag_matcher": TagMatcherAgent,
     "outcome": OutcomeAgent,
@@ -40,7 +38,6 @@ __all__ = [
     "ContinuationCheckAgent",
     "IntentAgent",
     "LiteNarratorAgent",
-    "MoveGatekeeperAgent",
     "NarratorAgent",
     "OutcomeAgent",
     "QuickNarratorAgent",

@@ -30,7 +30,6 @@ from src.agents import (
     CompressorAgent,
     IntentAgent,
     LiteNarratorAgent,
-    MoveGatekeeperAgent,
     ResolutionModeAgent,
     RhythmAgent,
     SceneCreatorAgent,
@@ -92,7 +91,6 @@ class GameLoop:
 
         # 行动层 Agent
         self.rhythm_agent = RhythmAgent(llm)
-        self.gatekeeper = MoveGatekeeperAgent(llm)
         self.intent_agent = IntentAgent(llm)
         self.lite_narrator = LiteNarratorAgent(llm)
         self.resolution_agent = ResolutionModeAgent(llm)
@@ -296,7 +294,7 @@ class GameLoop:
 
         入口方法，负责三层路由：
         1. 命令处理（以 / 开头）
-        2. Move 判定（守门人 Agent 判断是否需要规则引擎）
+        2. 意图解析与 Move 判定（判定是否需要规则引擎，并解析行动分类和结构）
         3. 非 Move 叙事（轻量叙述者 Agent 直接处理）
 
         Move 流程中还包含结算模式判定和复合 action 拆分。
@@ -321,17 +319,16 @@ class GameLoop:
 
         ctx = self.state.make_context(raw)
 
-        # 第2层: Move 判定
-        gatekeeper_note = self.gatekeeper.execute(raw, ctx)
-        is_move = gatekeeper_note.structured.get("is_move", True)
+        # 第2层: 意图解析与 Move 判定
+        intent_note = self.intent_agent.execute(raw, ctx)
+        is_move = intent_note.structured.get("is_move", True)
 
         if not is_move:
-            return self._handle_non_move(raw, ctx, gatekeeper_note)
+            return self._handle_non_move(raw, ctx, intent_note)
 
         self._log.debug("  [管道开始 · 掷骰模式]")
 
-        # 第3层: 意图解析 + 结算模式判定
-        intent_note = self.intent_agent.execute(raw, ctx)
+        # 第3层: 复合 action 拆分与结算模式判定
         is_split = intent_note.structured.get("is_split_action", False)
         split_actions = intent_note.structured.get("split_actions", [])
         action_type = intent_note.structured.get("action_type", "unknown")
@@ -352,7 +349,7 @@ class GameLoop:
             return self._process_move(intent_note, ctx, quick=True)
         return self._process_move(intent_note, ctx, quick=False)
 
-    def _handle_non_move(self, player_input, ctx, gatekeeper_note):
+    def _handle_non_move(self, player_input, ctx, intent_note):
         """处理非 Move 行动（纯叙事互动）。
 
         不触发掷骰和效果推演，由轻量叙述者 Agent 直接生成叙事回复。
@@ -361,7 +358,7 @@ class GameLoop:
         Args:
             player_input: 玩家输入
             ctx: Agent 上下文
-            gatekeeper_note: 守门人 Agent 的判定便签
+            intent_note: 意图解析 Agent 的判定便签
 
         Returns:
             叙事文本
