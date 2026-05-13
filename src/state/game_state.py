@@ -18,7 +18,7 @@ from __future__ import annotations
 import uuid
 
 from src.context import AgentContext
-from src.models import Character, SceneSummary
+from src.models import Character
 from src.state.global_state import GlobalState
 from src.state.scene_state import SceneState
 
@@ -51,25 +51,11 @@ class GameState:
     def transition_to(self, new_scene: SceneState):
         """执行场景切换。
 
-        执行以下步骤：
-        1. 为当前场景生成唯一标识，创建 SceneSummary 存入新场景的前驱列表
-        2. 将当前场景的压缩摘要和完整叙事追加到 GlobalState
-        3. 将当前场景引用替换为新场景
-
         Args:
             new_scene: 下一个场景的 SceneState 对象
         """
         old_scene = self.scene
         scene_id = uuid.uuid4().hex[:12]
-
-        # 将当前场景的压缩摘要作为前驱引用存入新场景
-        summary = SceneSummary(
-            scene_id=scene_id,
-            scene_description=old_scene.scene_description,
-            compression=old_scene.compression,
-            narrative_count=len(old_scene.narrative_history),
-        )
-        new_scene.previous_scenes = [*old_scene.previous_scenes, summary]
 
         # 将当前场景的叙事块追加到 GlobalState
         self.global_state.append(

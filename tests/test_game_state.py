@@ -85,39 +85,6 @@ class TestGameState(unittest.TestCase):
         self.assertIn("叙事B", block)
         self.assertIn("酒吧场景", block)
 
-    def test_transition_to_records_previous_scenes_on_new_scene(self):
-        """新场景的 previous_scenes 应包含旧场景的 SceneSummary。"""
-        scene_a = self._make_scene("酒吧场景")
-        self.state.setup(self.character, scene_a)
-        scene_a.compression = "压缩摘要A"
-        self.state.append_narrative("叙事条目")
-
-        scene_b = self._make_scene("后巷场景")
-        self.state.transition_to(scene_b)
-
-        self.assertEqual(len(scene_b.previous_scenes), 1)
-        self.assertEqual(scene_b.previous_scenes[0].scene_description, "酒吧场景")
-        self.assertEqual(scene_b.previous_scenes[0].compression, "压缩摘要A")
-        self.assertEqual(scene_b.previous_scenes[0].narrative_count, 1)
-
-    def test_transition_to_chains_previous_scenes(self):
-        """连续切换时 previous_scenes 应累积前驱链。"""
-        scene_a = self._make_scene("场景A")
-        self.state.setup(self.character, scene_a)
-        scene_a.compression = "摘要A"
-
-        scene_b = self._make_scene("场景B")
-        self.state.transition_to(scene_b)
-        scene_b.compression = "摘要B"
-
-        scene_c = self._make_scene("场景C")
-        self.state.transition_to(scene_c)
-
-        self.assertEqual(len(scene_c.previous_scenes), 2)
-        self.assertEqual(scene_c.previous_scenes[0].scene_description, "场景A")
-        self.assertEqual(scene_c.previous_scenes[1].scene_description, "场景B")
-        self.assertEqual(self.state.global_state.scene_count, 2)
-
     def test_transition_to_multiple_archives_global_state(self):
         """多次切换应累积 GlobalState 中的场景块。"""
         for desc in ["场景A", "场景B", "场景C"]:

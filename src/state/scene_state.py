@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 
 from src.context import AgentContext
 from src.formatter import format_limit_progress, format_statuses, format_story_tags
-from src.models import NPC, Challenge, Character, Clue, GameItem, SceneSummary
+from src.models import NPC, Challenge, Character, Clue, GameItem
 
 
 @dataclass
@@ -34,7 +34,6 @@ class SceneState:
         active_challenges: 活跃的挑战（通常一个场景只有一个主挑战）
         narrative_history: 叙事历史列表（最新在后，场景内完整保留）
         compression: 场景结束后的压缩摘要（CompressorAgent 产出）
-        previous_scenes: 前驱场景的轻量引用列表（支持回溯链）
     """
 
     scene_description: str = ""
@@ -51,7 +50,6 @@ class SceneState:
     narrative_history: list[str] = field(default_factory=list)
 
     compression: str = ""
-    previous_scenes: list[SceneSummary] = field(default_factory=list)
 
     def primary_challenge(self) -> Challenge | None:
         """获取当前场景的主挑战（第一个活跃挑战）。
