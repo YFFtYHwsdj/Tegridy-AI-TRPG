@@ -20,7 +20,7 @@ class TestIntentAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n分析\n=====STRUCTURED=====\n{"action_type": "combat"}',
+                    '{"reasoning": "分析", "action_type": "combat"}',
                     {},
                 )
             ]
@@ -37,7 +37,7 @@ class TestIntentAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n分析\n=====STRUCTURED=====\n{"action_type": "combat"}',
+                    '{"reasoning": "分析", "action_type": "combat"}',
                     {},
                 )
             ]
@@ -53,7 +53,7 @@ class TestIntentAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n分析\n=====STRUCTURED=====\n{"action_type": "combat"}',
+                    '{"reasoning": "分析", "action_type": "combat"}',
                     {},
                 )
             ]
@@ -69,7 +69,7 @@ class TestIntentAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n分析\n=====STRUCTURED=====\n{"action_type": "combat"}',
+                    '{"reasoning": "分析", "action_type": "combat"}',
                     {},
                 )
             ]
@@ -86,8 +86,8 @@ class TestIntentAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    "=====REASONING=====\n玩家想战斗\n=====STRUCTURED=====\n"
-                    '{"action_type": "combat", "action_summary": "拔枪射击"}',
+                    '{"reasoning": "玩家想战斗", '
+                    '"action_type": "combat", "action_summary": "拔枪射击"}',
                     {},
                 )
             ]
@@ -105,7 +105,7 @@ class TestIntentAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n分析\n=====STRUCTURED=====\n{"action_type": "combat"}',
+                    '{"reasoning": "分析", "action_type": "combat"}',
                     {},
                 )
             ]

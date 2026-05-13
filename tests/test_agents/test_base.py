@@ -38,9 +38,7 @@ class TestBaseAgentCallLLM(unittest.TestCase):
 
     def test_uses_subclass_system_prompt(self):
         """验证调用时使用子类定义的 system_prompt。"""
-        mock_llm = MockLLMClient(
-            responses=[("=====REASONING=====\n测试\n=====STRUCTURED=====\n{}", {})]
-        )
+        mock_llm = MockLLMClient(responses=[('{"reasoning": "测试"}', {})])
         agent = DummyAgent(mock_llm)
         agent._call_llm("用户消息")
 
@@ -49,9 +47,7 @@ class TestBaseAgentCallLLM(unittest.TestCase):
 
     def test_passes_user_message(self):
         """验证 user_message 被正确传递给 LLM。"""
-        mock_llm = MockLLMClient(
-            responses=[("=====REASONING=====\n测试\n=====STRUCTURED=====\n{}", {})]
-        )
+        mock_llm = MockLLMClient(responses=[('{"reasoning": "测试"}', {})])
         agent = DummyAgent(mock_llm)
         agent._call_llm("这是测试输入")
 
@@ -62,7 +58,7 @@ class TestBaseAgentCallLLM(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n分析过程\n=====STRUCTURED=====\n{"key": "value"}',
+                    '{"reasoning": "分析过程", "key": "value"}',
                     {},
                 )
             ]
@@ -76,9 +72,7 @@ class TestBaseAgentCallLLM(unittest.TestCase):
 
     def test_uses_default_temperature(self):
         """验证默认 temperature 为 0.3。"""
-        mock_llm = MockLLMClient(
-            responses=[("=====REASONING=====\n测试\n=====STRUCTURED=====\n{}", {})]
-        )
+        mock_llm = MockLLMClient(responses=[('{"reasoning": "测试"}', {})])
         agent = DummyAgent(mock_llm)
         agent._call_llm("输入")
 
@@ -86,9 +80,7 @@ class TestBaseAgentCallLLM(unittest.TestCase):
 
     def test_passes_subclass_model_and_thinking(self):
         """验证子类覆盖的 model 和 thinking 配置被正确传递给 LLMClient。"""
-        mock_llm = MockLLMClient(
-            responses=[("=====REASONING=====\n测试\n=====STRUCTURED=====\n{}", {})]
-        )
+        mock_llm = MockLLMClient(responses=[('{"reasoning": "测试"}', {})])
         agent = ConfiguredDummyAgent(mock_llm)
         agent._call_llm("输入")
 
@@ -102,9 +94,7 @@ class TestBaseAgentCallLLM(unittest.TestCase):
         """验证调用时通过日志记录 Agent 名称。"""
         mock_logger = MagicMock()
         mock_get_logger.return_value = mock_logger
-        mock_llm = MockLLMClient(
-            responses=[("=====REASONING=====\n测试\n=====STRUCTURED=====\n{}", {})]
-        )
+        mock_llm = MockLLMClient(responses=[('{"reasoning": "测试"}', {})])
         agent = DummyAgent(mock_llm)
         agent._call_llm("输入")
 
@@ -114,9 +104,7 @@ class TestBaseAgentCallLLM(unittest.TestCase):
     @patch("src.agents.base.log_call")
     def test_logs_call(self, mock_log_call):
         """验证调用被记录到日志系统。"""
-        mock_llm = MockLLMClient(
-            responses=[("=====REASONING=====\n测试\n=====STRUCTURED=====\n{}", {})]
-        )
+        mock_llm = MockLLMClient(responses=[('{"reasoning": "测试"}', {})])
         agent = DummyAgent(mock_llm)
         agent._call_llm("用户输入")
 
@@ -125,6 +113,37 @@ class TestBaseAgentCallLLM(unittest.TestCase):
         self.assertEqual(args[0], "DummyAgent")
         self.assertEqual(args[1], "你是测试Agent")
         self.assertEqual(args[2], "用户输入")
+
+    def test_retries_on_json_parse_failure(self):
+        """JSON 解析失败时应重试一次 LLM 调用。"""
+        mock_llm = MockLLMClient(
+            responses=[
+                ("这不是JSON", {}),  # 第一次返回非法 JSON
+                ('{"reasoning": "重试成功", "key": "val"}', {}),  # 重试成功
+            ]
+        )
+        agent = DummyAgent(mock_llm)
+        result = agent._call_llm("输入")
+
+        self.assertEqual(result.reasoning, "重试成功")
+        self.assertEqual(result.structured["key"], "val")
+        # 应调用了 2 次 LLM
+        self.assertEqual(len(mock_llm.call_history), 2)
+
+    def test_raises_after_json_retry_exhausted(self):
+        """JSON 解析重试耗尽后应抛出 JSONParseError。"""
+        from src.json_parser import JSONParseError
+
+        mock_llm = MockLLMClient(
+            responses=[
+                ("非法JSON第一次", {}),
+                ("非法JSON第二次", {}),
+            ]
+        )
+        agent = DummyAgent(mock_llm)
+
+        with self.assertRaises(JSONParseError):
+            agent._call_llm("输入")
 
 
 if __name__ == "__main__":

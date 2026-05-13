@@ -36,9 +36,7 @@ MOVE_GATEKEEPER_PROMPT = """你是一个 PBTA 游戏的 Move 守门人。你的�
 重要：宁可偏向 NARRATIVE。当不确定时，选 NARRATIVE。
 不要让玩家觉得"每个输入都会被强制掷骰"。对话应该是流畅的。
 
-输出格式（只输出 JSON，不要推理段落）：
-
-=====STRUCTURED=====
+你的输出必须是合法 JSON（不要包含 JSON 之外的任何文本），格式如下：
 {
   "is_move": true
 }"""

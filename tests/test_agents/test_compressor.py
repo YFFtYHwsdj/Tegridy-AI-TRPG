@@ -15,20 +15,18 @@ class TestCompressorAgentExecute(unittest.TestCase):
     """测试 CompressorAgent.execute。"""
 
     def _make_response(self):
-        structured = json.dumps(
-            {
-                "scene_summary": "Kael在酒吧与Miko谈判并成功获取芯片。",
-                "key_events": [
-                    "Kael向Miko展示了雇主的情报",
-                    "Miko被迫交出了加密芯片",
-                    "保镖在后巷发起了追击",
-                ],
-                "character_changes": "Kael获得了加密芯片；与Miko达成了不稳定的交易",
-                "unresolved_threads": "赤色数据帮派可能会追查芯片的下落",
-            },
-            ensure_ascii=False,
-        )
-        return f"=====REASONING=====\n选择了三个关键转折点\n=====STRUCTURED=====\n{structured}"
+        data = {
+            "reasoning": "选择了三个关键转折点",
+            "scene_summary": "Kael在酒吧与Miko谈判并成功获取芯片。",
+            "key_events": [
+                "Kael向Miko展示了雇主的情报",
+                "Miko被迫交出了加密芯片",
+                "保镖在后巷发起了追击",
+            ],
+            "character_changes": "Kael获得了加密芯片；与Miko达成了不稳定的交易",
+            "unresolved_threads": "赤色数据帮派可能会追查芯片的下落",
+        }
+        return json.dumps(data, ensure_ascii=False)
 
     def _make_scene(self):
         scene = SceneState(

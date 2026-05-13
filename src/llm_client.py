@@ -51,6 +51,7 @@ class LLMClient:
         temperature: float = 0.3,
         model: str | None = None,
         thinking: bool | None = None,
+        json_mode: bool = True,
     ) -> tuple[str, dict]:
         """发起一次 chat completion 调用。
 
@@ -81,6 +82,11 @@ class LLMClient:
                     ],
                     "temperature": temperature,
                 }
+
+                # JSON mode：API 层保证返回合法 JSON，
+                # 配合 prompt 中的 JSON 输出指令使用
+                if json_mode:
+                    kwargs["response_format"] = {"type": "json_object"}
                 # DeepSeek 思考模式默认开启，显式关闭以节省 token 并避免与 temperature 冲突
                 if not target_thinking:
                     kwargs["extra_body"] = {"thinking": {"type": "disabled"}}

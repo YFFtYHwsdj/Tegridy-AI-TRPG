@@ -15,16 +15,14 @@ class TestSceneDirectorAgentExecute(unittest.TestCase):
     def _make_response(self, scene_should_end: bool = False):
         reason = "高潮已过" if scene_should_end else "场景在发展中"
         hint = "切到安全屋" if scene_should_end else ""
-        structured = json.dumps(
-            {
-                "scene_should_end": scene_should_end,
-                "reason": reason,
-                "transition_hint": hint,
-            },
-            ensure_ascii=False,
-        )
         reasoning = "高潮已过，场景可以结束。" if scene_should_end else "场景仍在发展中。"
-        return f"=====REASONING=====\n{reasoning}\n=====STRUCTURED=====\n{structured}"
+        data = {
+            "reasoning": reasoning,
+            "scene_should_end": scene_should_end,
+            "reason": reason,
+            "transition_hint": hint,
+        }
+        return json.dumps(data, ensure_ascii=False)
 
     def test_returns_continue_when_scene_active(self):
         """场景活跃时应返回 scene_should_end=false。"""

@@ -292,6 +292,36 @@ class TestLLMClientChat(unittest.TestCase):
         self.assertEqual(usage["completion_tokens"], 0)
         self.assertEqual(usage["total_tokens"], 0)
 
+    @patch("src.llm_client.OpenAI")
+    def test_chat_passes_json_response_format(self, mock_openai_class: MagicMock):
+        """验证默认 json_mode=True 时，response_format=json_object 被正确传递。"""
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_client.chat.completions.create.return_value = self._make_mock_response()
+
+        client = self._make_client()
+        client.chat("system prompt", "user message")
+
+        call_args = mock_client.chat.completions.create.call_args
+        self.assertIn("response_format", call_args.kwargs)
+        self.assertEqual(
+            call_args.kwargs["response_format"],
+            {"type": "json_object"},
+        )
+
+    @patch("src.llm_client.OpenAI")
+    def test_chat_omits_json_response_format_when_false(self, mock_openai_class: MagicMock):
+        """验证 json_mode=False 时，不传递 response_format 参数。"""
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_client.chat.completions.create.return_value = self._make_mock_response()
+
+        client = self._make_client()
+        client.chat("system prompt", "user message", json_mode=False)
+
+        call_args = mock_client.chat.completions.create.call_args
+        self.assertNotIn("response_format", call_args.kwargs)
+
 
 if __name__ == "__main__":
     unittest.main()

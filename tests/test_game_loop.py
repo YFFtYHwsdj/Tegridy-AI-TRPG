@@ -59,8 +59,8 @@ class TestGameLoopSetup(unittest.TestCase):
         self.mock_llm = MockLLMClient(
             [
                 (
-                    "=====REASONING=====\n场景建立\n=====STRUCTURED=====\n"
-                    '{"scene_establishment": "霓虹灯闪烁的酒吧...", "spotlight_handoff": "你要做什么？"}',
+                    '{"reasoning": "场景建立", '
+                    '"scene_establishment": "霓虹灯闪烁的酒吧...", "spotlight_handoff": "你要做什么？"}',
                     {},
                 ),
             ]

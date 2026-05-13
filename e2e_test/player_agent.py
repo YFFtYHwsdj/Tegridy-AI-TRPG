@@ -149,6 +149,7 @@ class PlayerAgent:
             self._system_prompt,
             user_msg,
             temperature=0.7,  # 比 Agent 流水线略高，增加行动多样性
+            json_mode=False,
         )
 
         # 清理输出：去掉可能的引号和多余空白

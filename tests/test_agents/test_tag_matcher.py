@@ -19,8 +19,7 @@ class TestTagMatcherAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    "=====REASONING=====\n分析\n=====STRUCTURED=====\n"
-                    '{"matched_power_tags": [{"name": "快速拔枪"}]}',
+                    '{"reasoning": "分析", {"matched_power_tags": [{"name": "快速拔枪"}]}',
                     {},
                 )
             ]
@@ -37,7 +36,7 @@ class TestTagMatcherAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n分析\n=====STRUCTURED=====\n{"matched_power_tags": []}',
+                    '{"reasoning": "分析", "matched_power_tags": []}',
                     {},
                 )
             ]
@@ -54,7 +53,7 @@ class TestTagMatcherAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n分析\n=====STRUCTURED=====\n{"matched_power_tags": []}',
+                    '{"reasoning": "分析", "matched_power_tags": []}',
                     {},
                 )
             ]
@@ -72,7 +71,7 @@ class TestTagMatcherAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n分析\n=====STRUCTURED=====\n{"matched_power_tags": []}',
+                    '{"reasoning": "分析", "matched_power_tags": []}',
                     {},
                 )
             ]
@@ -93,7 +92,7 @@ class TestTagMatcherAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n分析\n=====STRUCTURED=====\n{"matched_power_tags": []}',
+                    '{"reasoning": "分析", "matched_power_tags": []}',
                     {},
                 )
             ]
@@ -118,7 +117,7 @@ class TestTagMatcherAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n分析\n=====STRUCTURED=====\n{"matched_power_tags": []}',
+                    '{"reasoning": "分析", "matched_power_tags": []}',
                     {},
                 )
             ]
@@ -138,8 +137,8 @@ class TestTagMatcherAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    "=====REASONING=====\n快速拔枪适用\n=====STRUCTURED=====\n"
-                    '{"matched_power_tags": [{"name": "快速拔枪"}], '
+                    '{"reasoning": "快速拔枪适用", '
+                    '"matched_power_tags": [{"name": "快速拔枪"}], '
                     '"matched_weakness_tags": [], '
                     '"helping_statuses": [], '
                     '"hindering_statuses": []}',

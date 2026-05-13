@@ -18,12 +18,9 @@ RHYTHM_SYSTEM_PROMPT = """你是一个赛博朋克世界中的场景导演。你
 - 第三人称叙述
 - 200-400字
 
-输出格式：
-=====REASONING=====
-场景设计的意图、想要营造的氛围和紧张感
-
-=====STRUCTURED=====
+你的输出必须是合法 JSON，格式如下：
 {
+  "reasoning": "场景设计的意图、想要营造的氛围和紧张感",
   "scene_establishment": "场景建立叙事文本",
   "spotlight_handoff": "给玩家的直接提问或邀请",
   "active_threats": ["当前活跃的威胁描述"]

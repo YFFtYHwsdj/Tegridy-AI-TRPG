@@ -12,49 +12,47 @@ from tests.helpers import MockLLMClient
 
 def _make_creator_response():
     """构造一个典型的 SceneCreator 完整输出。"""
-    structured = json.dumps(
-        {
-            "scene_description": "深夜的赤色数据帮派据点——一座废弃的冷链仓库。",
-            "challenge": {
-                "name": "赤色数据追兵",
-                "description": "赤色数据的打手队追踪芯片信号找到了Kael。",
-                "limits": [
-                    {"name": "伤害或制服", "max_tier": 4},
-                    {"name": "逃脱或消失", "max_tier": 3},
-                ],
-                "base_tags": [
-                    {"name": "街头追踪者", "description": "擅长在底层追踪目标"},
-                    {"name": "人数优势", "description": "四人打手队，配合默契"},
-                ],
-                "notes": "威胁参考：打手会先尝试包围再动手。",
-            },
-            "npcs": [
-                {
-                    "npc_id": "leader",
-                    "name": "打手头目",
-                    "description": "赤色数据的追捕队长，脸上有刀疤。",
-                    "tags": [{"name": "冷酷无情", "description": "不达目的不罢休"}],
-                }
+    data = {
+        "reasoning": "创作意图",
+        "scene_description": "深夜的赤色数据帮派据点——一座废弃的冷链仓库。",
+        "challenge": {
+            "name": "赤色数据追兵",
+            "description": "赤色数据的打手队追踪芯片信号找到了Kael。",
+            "limits": [
+                {"name": "伤害或制服", "max_tier": 4},
+                {"name": "逃脱或消失", "max_tier": 3},
             ],
-            "items_visible": [
-                {
-                    "item_id": "crate",
-                    "name": "可疑的货箱",
-                    "description": "角落里堆叠的金属货箱",
-                    "location": "仓库角落",
-                }
+            "base_tags": [
+                {"name": "街头追踪者", "description": "擅长在底层追踪目标"},
+                {"name": "人数优势", "description": "四人打手队，配合默契"},
             ],
-            "clues_hidden": [
-                {
-                    "clue_id": "tracker",
-                    "name": "信号追踪器",
-                    "description": "他们通过芯片内置的追踪信号找到了Kael。",
-                }
-            ],
+            "notes": "威胁参考：打手会先尝试包围再动手。",
         },
-        ensure_ascii=False,
-    )
-    return f"=====REASONING=====\n创作意图\n=====STRUCTURED=====\n{structured}"
+        "npcs": [
+            {
+                "npc_id": "leader",
+                "name": "打手头目",
+                "description": "赤色数据的追捕队长，脸上有刀疤。",
+                "tags": [{"name": "冷酷无情", "description": "不达目的不罢休"}],
+            }
+        ],
+        "items_visible": [
+            {
+                "item_id": "crate",
+                "name": "可疑的货箱",
+                "description": "角落里堆叠的金属货箱",
+                "location": "仓库角落",
+            }
+        ],
+        "clues_hidden": [
+            {
+                "clue_id": "tracker",
+                "name": "信号追踪器",
+                "description": "他们通过芯片内置的追踪信号找到了Kael。",
+            }
+        ],
+    }
+    return json.dumps(data, ensure_ascii=False)
 
 
 class TestSceneCreatorAgentExecute(unittest.TestCase):

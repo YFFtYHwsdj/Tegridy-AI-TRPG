@@ -37,8 +37,8 @@ class TestEffectActualizationAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    "=====REASONING=====\n推演效果\n=====STRUCTURED=====\n"
-                    '{"effects": [{"operation": "inflict_status", "target": "挑战", "label": "受伤", "tier": 2}]}',
+                    '{"reasoning": "推演效果", '
+                    '"effects": [{"operation": "inflict_status", "target": "挑战", "label": "受伤", "tier": 2}]}',
                     {},
                 )
             ]
@@ -60,7 +60,7 @@ class TestEffectActualizationAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n推演\n=====STRUCTURED=====\n{"effects": []}',
+                    '{"reasoning": "推演", "effects": []}',
                     {},
                 )
             ]
@@ -83,7 +83,7 @@ class TestEffectActualizationAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n推演\n=====STRUCTURED=====\n{"effects": []}',
+                    '{"reasoning": "推演", "effects": []}',
                     {},
                 )
             ]
@@ -105,7 +105,7 @@ class TestEffectActualizationAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n推演\n=====STRUCTURED=====\n{"effects": []}',
+                    '{"reasoning": "推演", "effects": []}',
                     {},
                 )
             ]
@@ -132,7 +132,7 @@ class TestEffectActualizationAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n推演\n=====STRUCTURED=====\n{"effects": []}',
+                    '{"reasoning": "推演", "effects": []}',
                     {},
                 )
             ]
@@ -159,7 +159,7 @@ class TestEffectActualizationAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n推演\n=====STRUCTURED=====\n{"effects": []}',
+                    '{"reasoning": "推演", "effects": []}',
                     {},
                 )
             ]
@@ -180,8 +180,8 @@ class TestEffectActualizationAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    "=====REASONING=====\n造成伤害\n=====STRUCTURED=====\n"
-                    '{"effects": [{"operation": "inflict_status", "target": "挑战", "label": "受伤", "tier": 2}], '
+                    '{"reasoning": "造成伤害", '
+                    '"effects": [{"operation": "inflict_status", "target": "挑战", "label": "受伤", "tier": 2}], '
                     '"narrative_hints": "保镖流血"}',
                     {},
                 )

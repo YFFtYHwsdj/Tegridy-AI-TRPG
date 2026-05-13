@@ -34,12 +34,9 @@ split_actions 元素说明：
   - action_summary: 子行动的一句话概括
   - fragment: 从玩家原始输入中截取的、对应此子行动的文字片段（用于后续 Agent 聚焦上下文）
 
-输出格式：
-=====REASONING=====
-一句话：行动核心 + 类型理由 + 是否需要拆分。（不超过50字）
-
-=====STRUCTURED=====
+你的输出必须是合法 JSON，格式如下：
 {
+  "reasoning": "一句话：行动核心 + 类型理由 + 是否需要拆分。（不超过50字）",
   "action_type": "social|combat|stealth|tech|movement|perception|other",
   "action_summary": "一句话概括玩家试图做什么",
   "is_split_action": false,

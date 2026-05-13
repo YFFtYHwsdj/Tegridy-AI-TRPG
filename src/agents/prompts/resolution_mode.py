@@ -43,9 +43,7 @@ RESOLUTION_MODE_PROMPT = """你是一个结算模式路由器。你的唯一职�
 
 不确定时：偏向 quick。让场景自然流动，只在明确的多轮对抗中启用 detailed。
 
-输出格式（只输出 JSON，不要推理段落）：
-
-=====STRUCTURED=====
+你的输出必须是合法 JSON（不要包含 JSON 之外的任何文本），格式如下：
 {
   "resolution_mode": "quick"
 }"""

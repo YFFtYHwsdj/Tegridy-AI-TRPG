@@ -1,103 +1,79 @@
+"""JSON 解析器测试 —— parse_json_output 的行为验证。
+
+验证 JSON mode 下 LLM 输出的解析：
+    - 纯 JSON 输入的正常解析
+    - reasoning 字段提取为 AgentNote.reasoning
+    - 无 reasoning 字段时 reasoning 为空字符串
+    - JSON 解析失败的 fallback 行为
+"""
+
 import unittest
 
-from src.json_parser import _extract_json_object, _recover_json, parse_agent_output
+from src.json_parser import parse_json_output
 from src.models import AgentNote
 
 
-class TestExtractJsonObject(unittest.TestCase):
-    def test_simple(self):
-        self.assertEqual(_extract_json_object('{"a": 1}'), '{"a": 1}')
+class TestParseJsonOutput(unittest.TestCase):
+    """测试 parse_json_output 的解析行为。"""
 
-    def test_text_before(self):
-        self.assertEqual(_extract_json_object('前缀文字 {"a": 1}'), '{"a": 1}')
-
-    def test_text_after(self):
-        self.assertEqual(_extract_json_object('{"a": 1} 后缀文字'), '{"a": 1}')
-
-    def test_nested(self):
-        result = _extract_json_object('{"a": {"b": 2}}')
-        self.assertEqual(result, '{"a": {"b": 2}}')
-
-    def test_multiple_objects_extracts_first(self):
-        result = _extract_json_object('{"first": 1} {"second": 2}')
-        self.assertEqual(result, '{"first": 1}')
-
-    def test_no_brace(self):
-        self.assertIsNone(_extract_json_object("纯文本没有花括号"))
-
-    def test_string_with_brace_inside(self):
-        result = _extract_json_object('{"key": "value with } inside"}')
-        self.assertEqual(result, '{"key": "value with } inside"}')
-
-    def test_escaped_quote_in_string(self):
-        result = _extract_json_object('{"key": "value with \\" quote"}')
-        self.assertEqual(result, '{"key": "value with \\" quote"}')
-
-
-class TestRecoverJson(unittest.TestCase):
-    def test_direct_parse(self):
-        self.assertEqual(_recover_json('{"a": 1}'), {"a": 1})
-
-    def test_trailing_comma(self):
-        self.assertEqual(_recover_json('{"a": 1,}'), {"a": 1})
-
-    def test_trailing_comma_in_array(self):
-        self.assertEqual(_recover_json('{"a": [1, 2,]}'), {"a": [1, 2]})
-
-    def test_balanced_extraction(self):
-        self.assertEqual(_recover_json('前缀文本 {"a": 1} 后缀文本'), {"a": 1})
-
-    def test_balanced_extraction_with_trailing_comma(self):
-        self.assertEqual(_recover_json('前缀 {"a": 1,} 后缀'), {"a": 1})
-
-    def test_single_quotes(self):
-        self.assertEqual(_recover_json("{'a': 'hello'}"), {"a": "hello"})
-
-    def test_unquoted_keys(self):
-        self.assertEqual(_recover_json('{a: 1, b: "test"}'), {"a": 1, "b": "test"})
-
-    def test_empty_string(self):
-        self.assertIsNone(_recover_json(""))
-
-    def test_unrecoverable(self):
-        self.assertIsNone(_recover_json("这不是JSON甚至不是近似JSON的文本"))
-
-
-class TestParseAgentOutput(unittest.TestCase):
-    def test_both_sections(self):
-        raw = '=====REASONING=====\n这是一段分析推理\n=====STRUCTURED=====\n{"a": 1}'
-        result = parse_agent_output(raw)
+    def test_simple_json(self):
+        """纯 JSON 输入应正确解析。"""
+        result = parse_json_output('{"key": "value"}')
         self.assertIsInstance(result, AgentNote)
-        self.assertEqual(result.reasoning, "这是一段分析推理")
-        self.assertEqual(result.structured, {"a": 1})
+        self.assertEqual(result.structured["key"], "value")
 
-    def test_no_reasoning_section(self):
-        raw = '=====STRUCTURED=====\n{"a": 1}'
-        result = parse_agent_output(raw)
+    def test_reasoning_extracted(self):
+        """reasoning 字段应提取为 AgentNote.reasoning，不出现在 structured 中。"""
+        result = parse_json_output('{"reasoning": "思考过程", "action_type": "combat"}')
+        self.assertEqual(result.reasoning, "思考过程")
+        self.assertEqual(result.structured["action_type"], "combat")
+        self.assertNotIn("reasoning", result.structured)
+
+    def test_no_reasoning_field(self):
+        """无 reasoning 字段时 reasoning 应为空字符串。"""
+        result = parse_json_output('{"action_type": "social"}')
         self.assertEqual(result.reasoning, "")
-        self.assertEqual(result.structured, {"a": 1})
+        self.assertEqual(result.structured["action_type"], "social")
 
-    def test_no_structured_section(self):
-        raw = "=====REASONING=====\n分析内容"
-        result = parse_agent_output(raw)
+    def test_empty_reasoning(self):
+        """reasoning 为空字符串时应正确处理。"""
+        result = parse_json_output('{"reasoning": "", "data": 1}')
         self.assertEqual(result.reasoning, "")
-        self.assertEqual(result.structured, {})
+        self.assertEqual(result.structured["data"], 1)
 
-    def test_unparseable_structured_falls_back_to_raw(self):
-        raw = "=====STRUCTURED=====\n这不是JSON"
-        result = parse_agent_output(raw)
-        self.assertEqual(result.structured, {"raw": "这不是JSON"})
+    def test_nested_json(self):
+        """嵌套 JSON 结构应正确解析。"""
+        raw = '{"reasoning": "推理", "effects": [{"type": "attack", "tier": 2}]}'
+        result = parse_json_output(raw)
+        self.assertEqual(result.reasoning, "推理")
+        self.assertEqual(result.structured["effects"][0]["type"], "attack")
 
-    def test_reasoning_multiline(self):
-        raw = '=====REASONING=====\n第一行分析\n第二行分析\n=====STRUCTURED=====\n{"x": true}'
-        result = parse_agent_output(raw)
-        self.assertEqual(result.reasoning, "第一行分析\n第二行分析")
-        self.assertEqual(result.structured, {"x": True})
+    def test_json_parse_failure_raises(self):
+        """JSON 解析失败时应抛出 JSONParseError。"""
+        from src.json_parser import JSONParseError
 
-    def test_structured_with_trailing_comma(self):
-        raw = '=====REASONING=====\n分析\n=====STRUCTURED=====\n{"a": 1,}'
-        result = parse_agent_output(raw)
-        self.assertEqual(result.structured, {"a": 1})
+        with self.assertRaises(JSONParseError):
+            parse_json_output("这不是JSON")
+
+    def test_empty_string_raises(self):
+        """空字符串应抛出 JSONParseError。"""
+        from src.json_parser import JSONParseError
+
+        with self.assertRaises(JSONParseError):
+            parse_json_output("")
+
+    def test_boolean_and_null_values(self):
+        """布尔值和 null 应正确解析。"""
+        result = parse_json_output('{"reasoning": "测试", "flag": true, "empty": null}')
+        self.assertEqual(result.reasoning, "测试")
+        self.assertTrue(result.structured["flag"])
+        self.assertIsNone(result.structured["empty"])
+
+    def test_chinese_content(self):
+        """中文内容应正确解析。"""
+        result = parse_json_output('{"reasoning": "这是中文推理", "narrative": "赛博朋克酒吧"}')
+        self.assertEqual(result.reasoning, "这是中文推理")
+        self.assertEqual(result.structured["narrative"], "赛博朋克酒吧")
 
 
 if __name__ == "__main__":

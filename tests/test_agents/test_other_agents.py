@@ -28,7 +28,7 @@ class TestMoveGatekeeperAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n判断\n=====STRUCTURED=====\n{"is_move": true}',
+                    '{"reasoning": "判断", "is_move": true}',
                     {},
                 )
             ]
@@ -45,7 +45,7 @@ class TestMoveGatekeeperAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n判断\n=====STRUCTURED=====\n{"is_move": true}',
+                    '{"reasoning": "判断", "is_move": true}',
                     {},
                 )
             ]
@@ -62,8 +62,7 @@ class TestMoveGatekeeperAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    "=====REASONING=====\n这是Move\n=====STRUCTURED=====\n"
-                    '{"is_move": true, "rationale": "涉及战斗"}',
+                    '{"reasoning": "这是Move", "is_move": true, "rationale": "涉及战斗"}',
                     {},
                 )
             ]
@@ -85,7 +84,7 @@ class TestResolutionModeAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n判断\n=====STRUCTURED=====\n{"resolution_mode": "detailed"}',
+                    '{"reasoning": "判断", "resolution_mode": "detailed"}',
                     {},
                 )
             ]
@@ -103,7 +102,7 @@ class TestResolutionModeAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n判断\n=====STRUCTURED=====\n{"resolution_mode": "quick"}',
+                    '{"reasoning": "判断", "resolution_mode": "quick"}',
                     {},
                 )
             ]
@@ -121,8 +120,7 @@ class TestResolutionModeAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    "=====REASONING=====\n简单行动\n=====STRUCTURED=====\n"
-                    '{"resolution_mode": "quick", "reason": "低风险"}',
+                    '{"reasoning": "简单行动", "resolution_mode": "quick", "reason": "低风险"}',
                     {},
                 )
             ]
@@ -144,7 +142,7 @@ class TestContinuationCheckAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n判断\n=====STRUCTURED=====\n{"can_continue": true}',
+                    '{"reasoning": "判断", "can_continue": true}',
                     {},
                 )
             ]
@@ -162,7 +160,7 @@ class TestContinuationCheckAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n判断\n=====STRUCTURED=====\n{"can_continue": true}',
+                    '{"reasoning": "判断", "can_continue": true}',
                     {},
                 )
             ]
@@ -182,7 +180,7 @@ class TestContinuationCheckAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n可以继续\n=====STRUCTURED=====\n{"can_continue": true}',
+                    '{"reasoning": "可以继续", "can_continue": true}',
                     {},
                 )
             ]
@@ -204,7 +202,7 @@ class TestLimitBreakAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n极限突破\n=====STRUCTURED=====\n{"narrative": "..."}',
+                    '{"reasoning": "极限突破", "narrative": "..."}',
                     {},
                 )
             ]
@@ -223,7 +221,7 @@ class TestLimitBreakAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n极限突破\n=====STRUCTURED=====\n{"narrative": "..."}',
+                    '{"reasoning": "极限突破", "narrative": "..."}',
                     {},
                 )
             ]
@@ -241,7 +239,7 @@ class TestLimitBreakAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n极限突破\n=====STRUCTURED=====\n{"narrative": "..."}',
+                    '{"reasoning": "极限突破", "narrative": "..."}',
                     {},
                 )
             ]
@@ -265,8 +263,8 @@ class TestRhythmAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    "=====REASONING=====\n场景建立\n=====STRUCTURED=====\n"
-                    '{"scene_establishment": "霓虹灯...", "spotlight_handoff": "你要做什么？"}',
+                    '{"reasoning": "场景建立", '
+                    '"scene_establishment": "霓虹灯...", "spotlight_handoff": "你要做什么？"}',
                     {},
                 )
             ]
@@ -282,8 +280,8 @@ class TestRhythmAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    "=====REASONING=====\n场景建立\n=====STRUCTURED=====\n"
-                    '{"scene_establishment": "霓虹灯...", "spotlight_handoff": "你要做什么？"}',
+                    '{"reasoning": "场景建立", '
+                    '"scene_establishment": "霓虹灯...", "spotlight_handoff": "你要做什么？"}',
                     {},
                 )
             ]

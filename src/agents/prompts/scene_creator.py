@@ -48,13 +48,9 @@ SCENE_CREATOR_PROMPT = """你是赛博朋克世界的场景创作者。根据前
 - 参考工作类型：调查、潜入、追逐、斡旋、袭击、安保、运输等
 - 场景应该衔接 transition_hint 和上一场景的 unresolved_threads
 
-输出格式：
-=====REASONING=====
-创作意图：为什么选择这个场景方向、与前情的衔接逻辑、
-挑战类型选择的原因、NPC继承/新创的判断、设计的道德困境
-
-=====STRUCTURED=====
+你的输出必须是合法 JSON，格式如下：
 {
+  "reasoning": "创作意图：为什么选择这个场景方向、与前情的衔接逻辑、挑战类型选择的原因、NPC继承/新创的判断、设计的道德困境",
   "scene_description": "场景氛围描述",
   "challenge": {
     "name": "挑战名称",
@@ -72,7 +68,7 @@ SCENE_CREATOR_PROMPT = """你是赛博朋克世界的场景创作者。根据前
       "items_visible": [
         {"item_id": "id", "name": "物品名", "description": "描述", "location": "位置"}
       ],
-      "items_hidden": [...],
+      "items_hidden": [],
       "known_clue_ids": ["clue_id_1"],
       "known_item_ids": ["item_id_1"]
     }

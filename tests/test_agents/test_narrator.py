@@ -19,7 +19,7 @@ class TestNarratorAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n叙事策略\n=====STRUCTURED=====\n{"narrative": "你拔出了枪..."}',
+                    '{"reasoning": "叙事策略", "narrative": "你拔出了枪..."}',
                     {},
                 )
             ]
@@ -39,7 +39,7 @@ class TestNarratorAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n叙事\n=====STRUCTURED=====\n{"narrative": "..."}',
+                    '{"reasoning": "叙事", "narrative": "..."}',
                     {},
                 )
             ]
@@ -66,7 +66,7 @@ class TestNarratorAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n叙事\n=====STRUCTURED=====\n{"narrative": "..."}',
+                    '{"reasoning": "叙事", "narrative": "..."}',
                     {},
                 )
             ]
@@ -88,7 +88,7 @@ class TestNarratorAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n叙事\n=====STRUCTURED=====\n{"narrative": "..."}',
+                    '{"reasoning": "叙事", "narrative": "..."}',
                     {},
                 )
             ]
@@ -108,7 +108,7 @@ class TestNarratorAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n叙事\n=====STRUCTURED=====\n{"narrative": "..."}',
+                    '{"reasoning": "叙事", "narrative": "..."}',
                     {},
                 )
             ]
@@ -129,8 +129,8 @@ class TestNarratorAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    "=====REASONING=====\n叙事策略\n=====STRUCTURED=====\n"
-                    '{"narrative": "你迅速拔枪...", "revelation_decisions": {}}',
+                    '{"reasoning": "叙事策略", '
+                    '"narrative": "你迅速拔枪...", "revelation_decisions": {}}',
                     {},
                 )
             ]
@@ -154,7 +154,7 @@ class TestLiteNarratorAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n叙事\n=====STRUCTURED=====\n{"narrative": "..."}',
+                    '{"reasoning": "叙事", "narrative": "..."}',
                     {},
                 )
             ]
@@ -171,7 +171,7 @@ class TestLiteNarratorAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n叙事\n=====STRUCTURED=====\n{"narrative": "..."}',
+                    '{"reasoning": "叙事", "narrative": "..."}',
                     {},
                 )
             ]
@@ -188,7 +188,7 @@ class TestLiteNarratorAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n叙事\n=====STRUCTURED=====\n{"narrative": "..."}',
+                    '{"reasoning": "叙事", "narrative": "..."}',
                     {},
                 )
             ]
@@ -209,7 +209,7 @@ class TestQuickNarratorAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n叙事\n=====STRUCTURED=====\n{"narrative": "..."}',
+                    '{"reasoning": "叙事", "narrative": "..."}',
                     {},
                 )
             ]
@@ -229,7 +229,7 @@ class TestQuickNarratorAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n叙事\n=====STRUCTURED=====\n{"narrative": "..."}',
+                    '{"reasoning": "叙事", "narrative": "..."}',
                     {},
                 )
             ]
@@ -248,7 +248,7 @@ class TestQuickNarratorAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n叙事\n=====STRUCTURED=====\n{"narrative": "..."}',
+                    '{"reasoning": "叙事", "narrative": "..."}',
                     {},
                 )
             ]

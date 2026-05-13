@@ -67,7 +67,7 @@ class MockLLMClient(LLMClient):
             self.call_index += 1
             return raw, usage
         return (
-            "=====REASONING=====\n默认推理\n=====STRUCTURED=====\n{}",
+            '{"reasoning": "默认推理"}',
             {},
         )
 

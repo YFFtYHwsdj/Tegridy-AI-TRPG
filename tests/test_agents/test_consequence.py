@@ -20,8 +20,8 @@ class TestConsequenceAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    "=====REASONING=====\n后果分析\n=====STRUCTURED=====\n"
-                    '{"consequences": [{"threat_manifested": "保镖介入"}]}',
+                    '{"reasoning": "后果分析", '
+                    '"consequences": [{"threat_manifested": "保镖介入"}]}',
                     {},
                 )
             ]
@@ -48,7 +48,7 @@ class TestConsequenceAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n后果\n=====STRUCTURED=====\n{"consequences": []}',
+                    '{"reasoning": "后果", "consequences": []}',
                     {},
                 )
             ]
@@ -68,7 +68,7 @@ class TestConsequenceAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n后果\n=====STRUCTURED=====\n{"consequences": []}',
+                    '{"reasoning": "后果", "consequences": []}',
                     {},
                 )
             ]
@@ -88,7 +88,7 @@ class TestConsequenceAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n后果\n=====STRUCTURED=====\n{"consequences": []}',
+                    '{"reasoning": "后果", "consequences": []}',
                     {},
                 )
             ]
@@ -108,7 +108,7 @@ class TestConsequenceAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n后果\n=====STRUCTURED=====\n{"consequences": []}',
+                    '{"reasoning": "后果", "consequences": []}',
                     {},
                 )
             ]
@@ -130,8 +130,8 @@ class TestConsequenceAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    "=====REASONING=====\n保镖介入\n=====STRUCTURED=====\n"
-                    '{"consequences": [{"threat_manifested": "保镖介入", "effects": []}]}',
+                    '{"reasoning": "保镖介入", '
+                    '"consequences": [{"threat_manifested": "保镖介入", "effects": []}]}',
                     {},
                 )
             ]
@@ -152,7 +152,7 @@ class TestConsequenceAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n后果\n=====STRUCTURED=====\n{"consequences": []}',
+                    '{"reasoning": "后果", "consequences": []}',
                     {},
                 )
             ]
@@ -200,7 +200,7 @@ class TestQuickConsequenceAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n后果\n=====STRUCTURED=====\n{"consequences": []}',
+                    '{"reasoning": "后果", "consequences": []}',
                     {},
                 )
             ]
@@ -222,7 +222,7 @@ class TestQuickConsequenceAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n后果\n=====STRUCTURED=====\n{"consequences": []}',
+                    '{"reasoning": "后果", "consequences": []}',
                     {},
                 )
             ]
@@ -243,7 +243,7 @@ class TestQuickConsequenceAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n后果\n=====STRUCTURED=====\n{"consequences": []}',
+                    '{"reasoning": "后果", "consequences": []}',
                     {},
                 )
             ]
@@ -262,7 +262,7 @@ class TestQuickConsequenceAgentExecute(unittest.TestCase):
         mock_llm = MockLLMClient(
             responses=[
                 (
-                    '=====REASONING=====\n后果\n=====STRUCTURED=====\n{"consequences": []}',
+                    '{"reasoning": "后果", "consequences": []}',
                     {},
                 )
             ]

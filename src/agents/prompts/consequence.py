@@ -103,12 +103,9 @@ effects 数组中每项格式：
 （例如：「留下证据 OR 惊动警卫」）。
 当这样做时，在 consequences 数组中提供两个条目，都标注 "player_choice": true。
 
-输出格式：
-=====REASONING=====
-一句话：为什么选这个后果 + 如何推动故事。（最多40字）
-
-=====STRUCTURED=====
+你的输出必须是合法 JSON，格式如下：
 {{
+  "reasoning": "一句话：为什么选这个后果 + 如何推动故事。（最多40字）",
   "consequences": [
     {{
       "consequence_type": "narrative",
@@ -202,12 +199,9 @@ effects 数组必须有至少一个条目。
 2. 叙事后果的描述中不要出现机械术语（等级、标签、状态名等）。
 3. 叙事后果 effects 必须为空数组 []，机械后果 effects 必须有至少 1 个条目。
 
-输出格式：
-=====REASONING=====
-一句话：好结果 + 坏事 + 合理性。（最多40字）
-
-=====STRUCTURED=====
+你的输出必须是合法 JSON，格式如下：
 {{
+  "reasoning": "一句话：好结果 + 坏事 + 合理性。（最多40字）",
   "consequences": [
     {{
       "consequence_type": "narrative",
