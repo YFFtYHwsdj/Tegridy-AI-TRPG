@@ -100,10 +100,21 @@ class GameLoop:
         self.compressor = CompressorAgent(llm)
         self.scene_creator = SceneCreatorAgent(llm)
 
+        # 机制结算层 Agent
+        from src.agents import CrackEvaluatorAgent, CrisisAgent, EvolutionAgent
+
+        self.crack_evaluator = CrackEvaluatorAgent(llm)
+        self.evolution_agent = EvolutionAgent(llm)
+        self.crisis_agent = CrisisAgent(llm)
+
         # 场景切换间传递的过渡提示
         self._transition_hint = ""
         # 是否为首个场景（控制标题显示）
         self._first_scene = True
+
+        # 游戏模式状态机
+        self.game_mode = "normal"  # normal, evolution, crisis
+        self.active_theme_name = ""
 
     def toggle_debug(self):
         """切换调试模式开关。
@@ -244,6 +255,11 @@ class GameLoop:
         self._log.info("─" * 50)
 
         spotlight = rhythm.structured.get("spotlight_handoff", "你要做什么？")
+
+        next_prompt = self._check_special_modes_trigger()
+        if next_prompt:
+            spotlight += "\n\n" + next_prompt
+
         self._log.info("")
         self._log.info(spotlight)
 
@@ -261,6 +277,20 @@ class GameLoop:
         compressor_note = self.compressor.execute(old_scene)
         compression = compressor_note.structured.get("scene_summary", "")
         old_scene.compression = compression
+
+        # 1.5 裂痕评估 (仅在有角色时)
+        if self.state.character:
+            ctx = self.state.make_context()
+            crack_note = self.crack_evaluator.execute(compression, ctx)
+            cracked_themes = crack_note.structured.get("cracked_themes", [])
+            for c_theme in cracked_themes:
+                t_name = c_theme.get("theme_name")
+                reason = c_theme.get("reason", "")
+                if t_name and self.state.character.get_theme(t_name):
+                    self.state.character.add_crack(t_name, 1)
+                    log_system(
+                        f"场景裂痕结算: 主题 [{t_name}] Crack +1 (原因: {reason})", level="warning"
+                    )
 
         # 2. 构建场景创作者的上下文块
         # 包含刚刚结束的场景信息 + 跨场景历史
@@ -313,6 +343,10 @@ class GameLoop:
 
         if not raw:
             return "", False
+
+        # 如果处于特殊机制状态（Evolution/Crisis），则拦截正常输入并交由机制 Agent 处理
+        if self.game_mode != "normal":
+            return self._run_special_mode_step(raw), False
 
         self._log.info("")
         self._log.info("─" * 50)
@@ -462,6 +496,10 @@ class GameLoop:
 
         self.display.print_status(self.state)
 
+        next_prompt = self._check_special_modes_trigger()
+        if next_prompt:
+            narrative += "\n\n" + next_prompt
+
         return narrative, needs_director
 
     def _process_split_moves(self, intent_note, split_actions) -> tuple[str, bool]:
@@ -517,6 +555,10 @@ class GameLoop:
 
         self.display.print_status(self.state)
 
+        next_prompt = self._check_special_modes_trigger()
+        if next_prompt:
+            narrative += "\n\n" + next_prompt
+
         return narrative, needs_director
 
     def _finalize_move(self):
@@ -529,6 +571,144 @@ class GameLoop:
             log_status_update(character.name, character.statuses)
         for npc in self.state.scene.npcs.values():
             log_status_update(npc.name, npc.statuses)
+
+    def _check_special_modes_trigger(self) -> str:
+        """检查是否有触发演化或危机的主题，并切换状态。"""
+        if self.game_mode != "normal" or not self.state.character:
+            return ""
+
+        broken = self.state.character.get_broken_themes()
+        if broken:
+            self.game_mode = "crisis"
+            self.active_theme_name = broken[0].name
+            return self._run_special_mode_step("")
+
+        evolvable = self.state.character.get_evolvable_themes()
+        if evolvable:
+            self.game_mode = "evolution"
+            self.active_theme_name = evolvable[0].name
+            return self._run_special_mode_step("")
+
+        return ""
+
+    def _run_special_mode_step(self, player_input: str) -> str:
+        """处理特殊状态下的玩家输入（交互循环）。"""
+        ctx = self.state.make_context()
+        if self.game_mode == "evolution":
+            note = self.evolution_agent.execute(player_input, ctx, self.active_theme_name)
+        elif self.game_mode == "crisis":
+            note = self.crisis_agent.execute(player_input, ctx, self.active_theme_name)
+        else:
+            return ""
+
+        response = note.structured.get("response_to_player", "")
+        status = note.structured.get("status", "negotiating")
+
+        # 渲染回复并追加到叙事历史
+        self._log.info("")
+        self._log.info("─" * 50)
+        self._log.info(f"[{'主题成长' if self.game_mode == 'evolution' else '主题崩溃'}]")
+        self._log.info(response)
+        self._log.info("─" * 50)
+        self.state.append_narrative(response)
+
+        # 检查是否达成一致（finalized）
+        if status == "finalized":
+            if self.game_mode == "evolution":
+                update_data = note.structured.get("theme_update")
+                if update_data:
+                    self._apply_evolution(update_data)
+            elif self.game_mode == "crisis":
+                new_theme_data = note.structured.get("new_theme")
+                if new_theme_data:
+                    self._apply_crisis(new_theme_data)
+
+            # 退出特殊状态，回到 normal
+            self.game_mode = "normal"
+            self.active_theme_name = ""
+
+            # 继续检查是否有其他满级的主题（递归处理多个）
+            next_prompt = self._check_special_modes_trigger()
+            if next_prompt:
+                response += "\n\n" + next_prompt
+
+        return response
+
+    def _apply_evolution(self, update_data: dict) -> None:
+        """落地成长效果到角色身上。"""
+        char = self.state.character
+        if not char:
+            return
+
+        theme = char.get_theme(self.active_theme_name)
+        if not theme:
+            return
+
+        from src.models import PowerTag, WeaknessTag
+
+        if update_data.get("reset_crack"):
+            theme.crack_track = 0
+            log_system(f"主题 [{theme.name}] 已重置裂痕", level="info")
+
+        add_power = update_data.get("add_power_tag")
+        if add_power and isinstance(add_power, dict):
+            theme.power_tags.append(
+                PowerTag(
+                    name=add_power.get("name", ""), description=add_power.get("description", "")
+                )
+            )
+
+        add_weakness = update_data.get("add_weakness_tag")
+        if add_weakness and isinstance(add_weakness, dict):
+            theme.weakness_tags.append(
+                WeaknessTag(
+                    name=add_weakness.get("name", ""),
+                    description=add_weakness.get("description", ""),
+                )
+            )
+
+        remove_weakness = update_data.get("remove_weakness_tag")
+        if remove_weakness:
+            theme.weakness_tags = [w for w in theme.weakness_tags if w.name != remove_weakness]
+
+        # 注意：此处消耗掉 3 点 Attention，实现自动循环
+        theme.attention_track = max(0, theme.attention_track - 3)
+        log_system(f"主题 [{theme.name}] 完成了成长突破！Attention 已扣除 3 点。", level="success")
+
+    def _apply_crisis(self, new_theme_data: dict) -> None:
+        """落地危机重铸效果到角色身上。"""
+        char = self.state.character
+        if not char:
+            return
+
+        from src.models import PowerTag, Theme, WeaknessTag
+
+        power_tags = [
+            PowerTag(name=t.get("name", ""), description=t.get("description", ""))
+            for t in new_theme_data.get("power_tags", [])
+        ]
+        weakness_tags = [
+            WeaknessTag(name=t.get("name", ""), description=t.get("description", ""))
+            for t in new_theme_data.get("weakness_tags", [])
+        ]
+
+        new_theme = Theme(
+            name=new_theme_data.get("name", ""),
+            theme_type=new_theme_data.get("theme_type", ""),
+            concept=new_theme_data.get("concept", ""),
+            motivation=new_theme_data.get("motivation", ""),
+            power_tags=power_tags,
+            weakness_tags=weakness_tags,
+        )
+
+        success = char.replace_theme(self.active_theme_name, new_theme)
+        if success:
+            log_system(
+                f"旧主题 [{self.active_theme_name}] 已被新主题 [{new_theme.name}] 替代",
+                level="warning",
+            )
+        else:
+            log_system(f"未找到要替换的旧主题 [{self.active_theme_name}]！", level="error")
 
     # ───────────────────── 主循环 ─────────────────────
 

@@ -133,6 +133,15 @@ class MovePipeline:
         )
         roll = roll_dice(power)
 
+        # 弱点激发：为匹配到的弱点标签所在的主题增加 1 点 Attention
+        for w_tag in resolved_weakness:
+            theme = char.get_theme_by_weakness_tag(w_tag.name)
+            if theme:
+                char.add_attention(theme.name, 1)
+                log_system(
+                    f"触发弱点 [{w_tag.name}]，主题 [{theme.name}] Attention +1", level="info"
+                )
+
         log_roll(power, roll.dice, roll.total, roll.outcome, power_tag_names, weakness_tag_names)
 
         return tag_note, roll

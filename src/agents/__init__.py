@@ -7,6 +7,9 @@ AGENT_REGISTRY 维护所有 Agent 类的全局注册表。
 
 from src.agents.compressor import CompressorAgent
 from src.agents.continuation_check import ContinuationCheckAgent
+from src.agents.crack_evaluator import CrackEvaluatorAgent
+from src.agents.crisis import CrisisAgent
+from src.agents.evolution import EvolutionAgent
 from src.agents.inquiry import InquiryAgent
 from src.agents.intent import IntentAgent
 from src.agents.narrator import LiteNarratorAgent, NarratorAgent, QuickNarratorAgent
@@ -30,6 +33,9 @@ AGENT_REGISTRY = {
     "continuation_check": ContinuationCheckAgent,
     "scene_creator": SceneCreatorAgent,
     "scene_director": SceneDirectorAgent,
+    "evolution": EvolutionAgent,
+    "crisis": CrisisAgent,
+    "crack_evaluator": CrackEvaluatorAgent,
 }
 
 # 在此处统一配置需要覆盖默认 LLM 设定的 Agent
@@ -51,6 +57,9 @@ AGENT_CONFIGS = {
         "thinking": False,
     },
     "rhythm": {"model": "deepseek-v4-pro", "thinking": False},
+    "evolution": {"model": "deepseek-v4-pro", "thinking": False},
+    "crisis": {"model": "deepseek-v4-pro", "thinking": False},
+    "crack_evaluator": {"model": "deepseek-v4-pro", "thinking": False},
 }
 
 # 模块初始化时，将配置动态注入到类属性中
@@ -67,6 +76,9 @@ __all__ = [
     "AGENT_REGISTRY",
     "CompressorAgent",
     "ContinuationCheckAgent",
+    "CrackEvaluatorAgent",
+    "CrisisAgent",
+    "EvolutionAgent",
     "InquiryAgent",
     "IntentAgent",
     "LiteNarratorAgent",

@@ -383,5 +383,117 @@ class TestGameLoopToggleDebug(unittest.TestCase):
         self.assertEqual(self.loop.debug_mode, initial)
 
 
+class TestGameLoopSpecialModes(unittest.TestCase):
+    """测试特殊机制（成长、危机）的状态机拦截与处理。"""
+
+    def setUp(self):
+        self.mock_llm = MockLLMClient()
+        self.loop = GameLoop(self.mock_llm)
+        character = make_test_character()
+        scene = make_test_scene()
+        self.loop.setup(character, scene)
+
+        self.loop.evolution_agent = MagicMock()
+        self.loop.crisis_agent = MagicMock()
+
+    def test_intercept_input_in_special_mode(self):
+        """当 game_mode 不为 normal 时，拦截正常输入并交由 _run_special_mode_step 处理。"""
+        self.loop.game_mode = "evolution"
+        self.loop.evolution_agent.execute.return_value = MagicMock(
+            structured={"status": "negotiating", "response_to_player": "请继续。"}
+        )
+
+        with patch("builtins.print"):
+            result, needs_director = self.loop.process_action("我要突破")
+
+        self.loop.evolution_agent.execute.assert_called_once()
+        self.assertEqual(result, "请继续。")
+        self.assertFalse(needs_director)
+
+    def test_check_special_modes_trigger_crisis(self):
+        """当存在崩溃的主题时，_check_special_modes_trigger 切换到 crisis 模式。"""
+        self.loop.state.character.themes[0].crack_track = 3
+        self.loop.crisis_agent.execute.return_value = MagicMock(
+            structured={"status": "negotiating", "response_to_player": "危机降临。"}
+        )
+
+        with patch("builtins.print"):
+            next_prompt = self.loop._check_special_modes_trigger()
+
+        self.assertEqual(self.loop.game_mode, "crisis")
+        self.assertEqual(self.loop.active_theme_name, self.loop.state.character.themes[0].name)
+        self.assertEqual(next_prompt, "危机降临。")
+
+    def test_check_special_modes_trigger_evolution(self):
+        """当存在可成长的主题时，_check_special_modes_trigger 切换到 evolution 模式。"""
+        self.loop.state.character.themes[0].attention_track = 3
+        self.loop.evolution_agent.execute.return_value = MagicMock(
+            structured={"status": "negotiating", "response_to_player": "迎来了突破。"}
+        )
+
+        with patch("builtins.print"):
+            next_prompt = self.loop._check_special_modes_trigger()
+
+        self.assertEqual(self.loop.game_mode, "evolution")
+        self.assertEqual(self.loop.active_theme_name, self.loop.state.character.themes[0].name)
+        self.assertEqual(next_prompt, "迎来了突破。")
+
+    def test_apply_evolution_finalized(self):
+        """evolution 谈判完成时落地成长效果并切回 normal 模式。"""
+        theme = self.loop.state.character.themes[0]
+        theme.attention_track = 4
+        self.loop.game_mode = "evolution"
+        self.loop.active_theme_name = theme.name
+
+        self.loop.evolution_agent.execute.return_value = MagicMock(
+            structured={
+                "status": "finalized",
+                "response_to_player": "突破完成。",
+                "theme_update": {
+                    "reset_crack": True,
+                    "add_power_tag": {"name": "新力量", "description": ""},
+                    "add_weakness_tag": {"name": "新弱点", "description": ""},
+                },
+            }
+        )
+
+        with patch("builtins.print"):
+            self.loop._run_special_mode_step("好")
+
+        self.assertEqual(self.loop.game_mode, "normal")
+        self.assertEqual(theme.attention_track, 1)  # max(0, 4-3)
+        self.assertEqual(theme.crack_track, 0)
+        self.assertEqual(theme.power_tags[-1].name, "新力量")
+        self.assertEqual(theme.weakness_tags[-1].name, "新弱点")
+
+    def test_apply_crisis_finalized(self):
+        """crisis 谈判完成时落地危机效果并切回 normal 模式。"""
+        theme = self.loop.state.character.themes[0]
+        self.loop.game_mode = "crisis"
+        self.loop.active_theme_name = theme.name
+
+        self.loop.crisis_agent.execute.return_value = MagicMock(
+            structured={
+                "status": "finalized",
+                "response_to_player": "新特质觉醒。",
+                "new_theme": {
+                    "name": "新生主题",
+                    "theme_type": "概念",
+                    "concept": "",
+                    "motivation": "",
+                    "power_tags": [{"name": "新生力量"}],
+                    "weakness_tags": [{"name": "新生弱点"}],
+                },
+            }
+        )
+
+        with patch("builtins.print"):
+            self.loop._run_special_mode_step("好")
+
+        self.assertEqual(self.loop.game_mode, "normal")
+        self.assertEqual(self.loop.state.character.themes[0].name, "新生主题")
+        self.assertEqual(self.loop.state.character.themes[0].power_tags[0].name, "新生力量")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -122,6 +122,61 @@ class TestCharacter(unittest.TestCase):
         c = CharacterState(name="Test")
         self.assertEqual(c.items_hidden, {})
 
+    def test_get_theme(self):
+        from src.models import Theme
+
+        t = Theme(name="测试", theme_type="测试", concept="", motivation="")
+        c = CharacterState(name="Kael", themes=[t])
+        self.assertEqual(c.get_theme("测试"), t)
+        self.assertIsNone(c.get_theme("不存在"))
+
+    def test_get_theme_by_weakness_tag(self):
+        from src.models import Theme, WeaknessTag
+
+        t = Theme(
+            name="测试",
+            theme_type="测试",
+            concept="",
+            motivation="",
+            weakness_tags=[WeaknessTag("信用破产")],
+        )
+        c = CharacterState(name="Kael", themes=[t])
+        self.assertEqual(c.get_theme_by_weakness_tag("信用破产"), t)
+        self.assertIsNone(c.get_theme_by_weakness_tag("不存在"))
+
+    def test_add_attention_and_crack(self):
+        from src.models import Theme
+
+        t = Theme(name="测试", theme_type="测试", concept="", motivation="")
+        c = CharacterState(name="Kael", themes=[t])
+
+        c.add_attention("测试", 2)
+        self.assertEqual(t.attention_track, 2)
+
+        c.add_crack("测试", 1)
+        self.assertEqual(t.crack_track, 1)
+
+    def test_get_evolvable_and_broken_themes(self):
+        from src.models import Theme
+
+        t1 = Theme(name="测试1", theme_type="测试", concept="", motivation="", attention_track=3)
+        t2 = Theme(name="测试2", theme_type="测试", concept="", motivation="", crack_track=3)
+        c = CharacterState(name="Kael", themes=[t1, t2])
+
+        self.assertEqual(c.get_evolvable_themes(), [t1])
+        self.assertEqual(c.get_broken_themes(), [t2])
+
+    def test_replace_theme(self):
+        from src.models import Theme
+
+        t1 = Theme(name="旧主题", theme_type="测试", concept="", motivation="")
+        t2 = Theme(name="新主题", theme_type="测试", concept="", motivation="")
+        c = CharacterState(name="Kael", themes=[t1])
+
+        self.assertTrue(c.replace_theme("旧主题", t2))
+        self.assertEqual(c.themes[0].name, "新主题")
+        self.assertFalse(c.replace_theme("不存在的主题", t1))
+
 
 class TestGameItem(unittest.TestCase):
     def test_defaults(self):

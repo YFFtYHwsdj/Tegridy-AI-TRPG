@@ -94,3 +94,46 @@ class CharacterState:
             lines.extend(theme_texts)
 
         return "\n".join(lines)
+
+    def get_theme(self, theme_name: str) -> Theme | None:
+        """根据名称获取 Theme。"""
+        for theme in self.themes:
+            if theme.name == theme_name:
+                return theme
+        return None
+
+    def get_theme_by_weakness_tag(self, tag_name: str) -> Theme | None:
+        """根据弱点标签名称查找它所属的 Theme。"""
+        for theme in self.themes:
+            for w_tag in theme.weakness_tags:
+                if w_tag.name == tag_name:
+                    return theme
+        return None
+
+    def add_attention(self, theme_name: str, amount: int = 1) -> None:
+        """为指定主题增加进度 (Attention)。"""
+        theme = self.get_theme(theme_name)
+        if theme:
+            theme.attention_track += amount
+
+    def add_crack(self, theme_name: str, amount: int = 1) -> None:
+        """为指定主题增加裂痕 (Crack)。"""
+        theme = self.get_theme(theme_name)
+        if theme:
+            theme.crack_track += amount
+
+    def get_evolvable_themes(self) -> list[Theme]:
+        """获取可以进化的主题列表 (Attention >= 3)。"""
+        return [theme for theme in self.themes if theme.attention_track >= 3]
+
+    def get_broken_themes(self) -> list[Theme]:
+        """获取已经破碎的主题列表 (Crack >= 3)。"""
+        return [theme for theme in self.themes if theme.crack_track >= 3]
+
+    def replace_theme(self, old_theme_name: str, new_theme: Theme) -> bool:
+        """替换一个已经存在的主题。"""
+        for i, theme in enumerate(self.themes):
+            if theme.name == old_theme_name:
+                self.themes[i] = new_theme
+                return True
+        return False
