@@ -53,7 +53,7 @@ AGENT_CONFIGS = {
         "thinking": False,
     },
     "resolution_mode": {"model": "deepseek-v4-flash", "thinking": False},
-    "rhythm": {"model": "deepseek-v4-flash", "thinking": False},
+    "rhythm": {"model": "deepseek-v4-pro", "thinking": True},
 }
 
 # 模块初始化时，将配置动态注入到类属性中
