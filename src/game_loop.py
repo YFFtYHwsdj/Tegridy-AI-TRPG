@@ -673,7 +673,7 @@ class GameLoop:
 
         # 注意：此处消耗掉 3 点 Attention，实现自动循环
         theme.attention_track = max(0, theme.attention_track - 3)
-        log_system(f"主题 [{theme.name}] 完成了成长突破！Attention 已扣除 3 点。", level="success")
+        log_system(f"主题 [{theme.name}] 完成了成长突破！Attention 已扣除 3 点。", level="info")
 
     def _apply_crisis(self, new_theme_data: dict) -> None:
         """落地危机重铸效果到角色身上。"""
