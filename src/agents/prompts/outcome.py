@@ -59,6 +59,9 @@ OUTCOME_PROMPT = f"""你是一个因果模拟器与后果裁决者。当 PBTA �
 2. 叙事后果的 description 中不要出现机械术语（等级、标签等）。
 3. 彻底失败(6-)时不要给玩家增益；大成功(10+)时不要有后果。
 
+自动缓解推演 (Mitigation)：
+当对 PC (目标为"自身") 施加不利的机械后果（如 inflict_status, remove_status, scratch_story_tag）时，必须检查 PC 面板。如果 PC 拥有能够防护、抵抗或减轻该后果的能力标签、故事标签或有利状态（如"防弹背心"、"敏捷闪避"），请将这些标签/状态名填入 `mitigation_tags` 列表，引擎将在后台执行缓解掷骰。如果没有，留空 []。
+
 严重程度指引：
 - 部分成功(7-9)：较轻后果。1个后果条目。
 - 失败(6-)：较重后果。1-2个后果条目。
@@ -104,6 +107,7 @@ OUTCOME_PROMPT = f"""你是一个因果模拟器与后果裁决者。当 PBTA �
            "reasoning": "后果理由"
          }}
       ],
+      "mitigation_tags": ["适用的防护标签名1", "适用的防护标签名2"],
       "narrative_description": "",
       "player_choice": false
     }}
@@ -140,15 +144,19 @@ QUICK_OUTCOME_PROMPT = """你是一个快速结算的后果裁决者。当行动
 1. 决不用后果立即否定玩家的初衷。
 2. 叙事后果不要包含机械术语。
 
+=== 自动缓解推演 (Mitigation) ===
+当对 PC 施加不利的机械后果时，检查 PC 是否拥有可以防护或抵抗该后果的标签/状态。如果有，将它们放入 `mitigation_tags` 列表，系统会后台判定减免；没有则留空 []。
+
 你的输出必须是合法 JSON，格式如下：
 {{
   "reasoning": "好结果 + 坏事 + 合理性（最多40字）",
   "consequences": [
     {{
-      "consequence_type": "narrative",
-      "narrative_category": "escalate_situation",
-      "description": "后果的叙事描述",
-      "effects": []
+      "consequence_type": "mechanical",
+      "narrative_category": "",
+      "threat_manifested": "机械后果来源",
+      "effects": [],
+      "mitigation_tags": ["适用的防护标签名1"]
     }}
   ]
 }}"""

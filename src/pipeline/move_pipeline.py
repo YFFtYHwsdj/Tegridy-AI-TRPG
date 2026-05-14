@@ -161,6 +161,8 @@ class MovePipeline:
             intent_note, tag_note, roll, ctx, sub_action=sub_action
         )
 
+        self._process_auto_mitigation(outcome_note, ctx)
+
         narrator_note = self.narrator.execute(
             intent_note,
             outcome_note,
@@ -193,6 +195,8 @@ class MovePipeline:
         tag_note, roll = self._run_tag_and_roll(intent_note, ctx)
 
         outcome_note = self.quick_outcome_agent.execute(intent_note, roll, ctx)
+
+        self._process_auto_mitigation(outcome_note, ctx)
 
         narrator_note = self.quick_narrator.execute(
             intent_note,
@@ -231,12 +235,74 @@ class MovePipeline:
             intent_note, tag_note, roll, ctx, sub_action=sub_action
         )
 
+        self._process_auto_mitigation(outcome_note, ctx)
+
         return PipelineResult(
             tag_note=tag_note,
             roll=roll,
             outcome_note=outcome_note,
             # narrator_note 留空，由调用方统一处理
         )
+
+    def _process_auto_mitigation(self, outcome_note, ctx) -> None:
+        """后台拦截处理自动缓解。
+
+        如果后果中带有 mitigation_tags，根据标签数量计算效力并暗中掷骰，
+        然后根据结果自动削减该后果包含的不利 effects。
+        """
+        if not outcome_note or not outcome_note.structured:
+            return
+
+        consequences = outcome_note.structured.get("consequences", [])
+        for cons in consequences:
+            mitigation_tags = cons.get("mitigation_tags", [])
+            if not mitigation_tags:
+                continue
+
+            power = len(mitigation_tags)
+            roll = roll_dice(power)
+
+            if roll.outcome == "failure":
+                spent_power = 0
+            elif roll.outcome == "partial_success":
+                spent_power = power
+            else:
+                spent_power = power + 1
+
+            original_effects = list(cons.get("effects", []))
+            remaining_power = spent_power
+
+            if remaining_power > 0:
+                for eff in original_effects:
+                    op = eff.get("operation")
+                    if op == "inflict_status" and remaining_power > 0:
+                        tier = eff.get("tier", 0)
+                        reduce = min(tier, remaining_power)
+                        eff["tier"] = tier - reduce
+                        remaining_power -= reduce
+                    elif op == "scratch_story_tag" and remaining_power >= 2:
+                        eff["_mitigated_out"] = True
+                        remaining_power -= 2
+
+                filtered_effects = []
+                for eff in cons.get("effects", []):
+                    if eff.get("operation") == "inflict_status" and eff.get("tier", 0) <= 0:
+                        continue
+                    if eff.get("_mitigated_out"):
+                        continue
+                    filtered_effects.append(eff)
+                cons["effects"] = filtered_effects
+
+            tags_str = "、".join(mitigation_tags)
+            cons["mitigation_result_text"] = (
+                f"玩家触发了自动缓解（使用标签：{tags_str}），后台掷骰结果为 {roll.total} "
+                f"({roll.outcome})，获得 {spent_power} 点减免效力。"
+            )
+
+            log_system(
+                f"执行自动缓解掷骰: tags={tags_str}, result={roll.outcome}, spent_power={spent_power}",
+                level="info",
+            )
 
     def validate_and_apply(self, narrator_note, ctx=None):
         """应用叙事输出中的揭示和物品转移及纯叙事故事标签。
