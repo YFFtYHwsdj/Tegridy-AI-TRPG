@@ -39,7 +39,7 @@ AGENT_REGISTRY = {
 AGENT_CONFIGS = {
     "intent": {"model": "deepseek-v4-flash", "thinking": False},
     "outcome": {"model": "deepseek-v4-flash", "thinking": False},
-    "narrator": {"model": "deepseek-v4-flash", "thinking": False},
+    "narrator": {"model": "deepseek-v4-pro", "thinking": False},
     "scene_director": {"model": "deepseek-v4-flash", "thinking": False},
     "scene_creator": {"model": "deepseek-v4-pro", "thinking": True},
     "inquiry": {"model": "deepseek-v4-flash", "thinking": False},
