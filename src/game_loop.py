@@ -39,7 +39,6 @@ from src.agents import (
 from src.agents.scene_creator import build_scene_from_creator
 from src.context import AgentContext
 from src.display.console import ConsoleDisplay
-from src.effects.applicator import EffectApplicator
 from src.llm_client import LLMClient
 from src.logger import get_logger, log_status_update, log_system, set_debug_mode
 from src.models import Character
@@ -445,10 +444,9 @@ class GameLoop:
         self.display.print_strategy(result.narrator_note)
 
         # 将 Agent 产出的效果应用到游戏状态
-        effect_errors = EffectApplicator.apply_results(
+        effect_errors = self.pipeline.apply_results(
             result.outcome_note,
-            self.state.character,
-            self.state.scene,
+            ctx,
         )
         if effect_errors:
             log_system(f"共 {len(effect_errors)} 个效果应用失败", level="warning")
@@ -490,10 +488,10 @@ class GameLoop:
             self.display.print_tag_and_roll(result.tag_note, result.roll)
             self.display.print_outcome(result.outcome_note)
 
-            effect_errors = EffectApplicator.apply_results(
+            ctx = self.state.make_context()
+            effect_errors = self.pipeline.apply_results(
                 result.outcome_note,
-                self.state.character,
-                self.state.scene,
+                ctx,
             )
             if effect_errors:
                 log_system(f"共 {len(effect_errors)} 个效果应用失败", level="warning")

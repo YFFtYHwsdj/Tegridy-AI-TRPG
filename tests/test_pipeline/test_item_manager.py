@@ -10,41 +10,21 @@ from __future__ import annotations
 
 import unittest
 
-from src.models import Clue, GameItem
-from src.pipeline._item_manager import ItemManager
+from src.models import GameItem
+from src.pipeline.managers import ItemManager
 from tests.helpers import (
     MockLLMClient,
-    make_agent_note,
     make_test_game_state,
 )
 
 
 class TestItemManagerRevelations(unittest.TestCase):
-    """测试 apply_revelations 方法。"""
+    """测试物品揭示。"""
 
     def _make_manager(self, state) -> ItemManager:
         """创建 ItemManager 实例。"""
         mock_llm = MockLLMClient()
         return ItemManager(state, mock_llm)
-
-    def test_reveals_clue_from_hidden_to_visible(self):
-        """线索从 hidden 移动到 visible。"""
-        state = make_test_game_state()
-        manager = self._make_manager(state)
-
-        state.scene.clues_hidden["hidden_clue"] = Clue(clue_id="hidden_clue", name="隐藏线索")
-
-        narrator_note = make_agent_note(
-            structured={
-                "narrative": "你发现了线索",
-                "revelation_decisions": {"reveal_clue_ids": ["hidden_clue"]},
-            }
-        )
-
-        manager.validate_and_apply(narrator_note)
-
-        self.assertNotIn("hidden_clue", state.scene.clues_hidden)
-        self.assertIn("hidden_clue", state.scene.clues_visible)
 
     def test_reveals_scene_item(self):
         """物品从 scene_items_hidden 移动到 visible。"""
@@ -53,14 +33,8 @@ class TestItemManagerRevelations(unittest.TestCase):
 
         state.scene.scene_items_hidden["medkit"] = GameItem(item_id="medkit", name="急救包")
 
-        narrator_note = make_agent_note(
-            structured={
-                "narrative": "你发现了急救包",
-                "revelation_decisions": {"reveal_item_ids": ["medkit"]},
-            }
-        )
-
-        manager.validate_and_apply(narrator_note)
+        result = manager.reveal_item("medkit")
+        self.assertTrue(result)
 
         self.assertNotIn("medkit", state.scene.scene_items_hidden)
         self.assertIn("medkit", state.scene.scene_items_visible)
@@ -76,14 +50,8 @@ class TestItemManagerRevelations(unittest.TestCase):
         npc.items_hidden["key"] = GameItem(item_id="key", name="钥匙")
         state.scene.npcs["miko"] = npc
 
-        narrator_note = make_agent_note(
-            structured={
-                "narrative": "你发现了钥匙",
-                "revelation_decisions": {"reveal_item_ids": ["key"]},
-            }
-        )
-
-        manager.validate_and_apply(narrator_note)
+        result = manager.reveal_item("key")
+        self.assertTrue(result)
 
         self.assertNotIn("key", npc.items_hidden)
         self.assertIn("key", npc.items_visible)
@@ -93,17 +61,8 @@ class TestItemManagerRevelations(unittest.TestCase):
         state = make_test_game_state()
         manager = self._make_manager(state)
 
-        narrator_note = make_agent_note(
-            structured={
-                "narrative": "无事发生",
-                "revelation_decisions": {"reveal_clue_ids": ["nonexistent"]},
-            }
-        )
-
-        manager.validate_and_apply(narrator_note)
-
-        self.assertNotIn("nonexistent", state.scene.clues_hidden)
-        self.assertNotIn("nonexistent", state.scene.clues_visible)
+        result = manager.reveal_item("nonexistent")
+        self.assertFalse(result)
 
 
 class TestItemManagerItemTransfers(unittest.TestCase):
@@ -122,7 +81,7 @@ class TestItemManagerItemTransfers(unittest.TestCase):
         item = GameItem(item_id="flashlight", name="手电筒")
         state.scene.scene_items_visible["flashlight"] = item
 
-        result = manager.pop_item("flashlight", "scene")
+        result = manager._pop_item("flashlight", "scene")
 
         self.assertIs(result, item)
         self.assertNotIn("flashlight", state.scene.scene_items_visible)
@@ -135,7 +94,7 @@ class TestItemManagerItemTransfers(unittest.TestCase):
         item = GameItem(item_id="badge", name="警徽")
         state.character.items_visible["badge"] = item
 
-        result = manager.pop_item("badge", "character")
+        result = manager._pop_item("badge", "character")
 
         self.assertIs(result, item)
         self.assertNotIn("badge", state.character.items_visible)
@@ -145,7 +104,7 @@ class TestItemManagerItemTransfers(unittest.TestCase):
         state = make_test_game_state()
         manager = self._make_manager(state)
 
-        result = manager.pop_item("nonexistent", "scene")
+        result = manager._pop_item("nonexistent", "scene")
 
         self.assertIsNone(result)
 
@@ -155,7 +114,7 @@ class TestItemManagerItemTransfers(unittest.TestCase):
         manager = self._make_manager(state)
 
         item = GameItem(item_id="flashlight", name="手电筒")
-        manager.insert_item("flashlight", item, "scene")
+        manager._insert_item("flashlight", item, "scene")
 
         self.assertIn("flashlight", state.scene.scene_items_visible)
         self.assertIs(state.scene.scene_items_visible["flashlight"], item)
@@ -166,7 +125,7 @@ class TestItemManagerItemTransfers(unittest.TestCase):
         manager = self._make_manager(state)
 
         item = GameItem(item_id="badge", name="警徽")
-        manager.insert_item("badge", item, "character")
+        manager._insert_item("badge", item, "character")
 
         self.assertIn("badge", state.character.items_visible)
         self.assertIs(state.character.items_visible["badge"], item)
@@ -179,14 +138,7 @@ class TestItemManagerItemTransfers(unittest.TestCase):
         item = GameItem(item_id="flashlight", name="手电筒")
         state.scene.scene_items_visible["flashlight"] = item
 
-        narrator_note = make_agent_note(
-            structured={
-                "narrative": "你捡起了手电筒",
-                "item_transfers": [{"item_id": "flashlight", "from": "scene", "to": "character"}],
-            }
-        )
-
-        manager.validate_and_apply(narrator_note)
+        manager.transfer_item({"item_id": "flashlight", "from": "scene", "to": "character"})
 
         self.assertNotIn("flashlight", state.scene.scene_items_visible)
         self.assertIn("flashlight", state.character.items_visible)
@@ -199,14 +151,7 @@ class TestItemManagerItemTransfers(unittest.TestCase):
         item = GameItem(item_id="secret_doc", name="秘密文件")
         state.scene.scene_items_hidden["secret_doc"] = item
 
-        narrator_note = make_agent_note(
-            structured={
-                "narrative": "你发现了秘密文件",
-                "item_transfers": [{"item_id": "secret_doc", "from": "scene", "to": "character"}],
-            }
-        )
-
-        manager.validate_and_apply(narrator_note)
+        manager.transfer_item({"item_id": "secret_doc", "from": "scene", "to": "character"})
 
         self.assertNotIn("secret_doc", state.scene.scene_items_hidden)
         self.assertIn("secret_doc", state.character.items_visible)

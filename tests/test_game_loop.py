@@ -13,6 +13,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from src.game_loop import GameLoop
+from src.pipeline.pipeline_result import PipelineResult
 from tests.helpers import MockLLMClient, make_test_character, make_test_scene
 
 
@@ -261,11 +262,10 @@ class TestGameLoopProcessAction(unittest.TestCase):
         self.loop.resolution_agent.execute.return_value = MagicMock(
             structured={"resolution_mode": "detailed"}
         )
-        self.loop.pipeline.run_single_move_pipeline.return_value = MagicMock(
+        self.loop.pipeline.run_single_move_pipeline.return_value = PipelineResult(
             tag_note=MagicMock(),
             roll=MagicMock(outcome="partial_success", power=1, dice=(3, 4), total=8),
-            effect_note=MagicMock(structured={"effects": []}),
-            consequence_note=None,
+            outcome_note=MagicMock(structured={"effects": []}),
             narrator_note=MagicMock(
                 structured={"narrative": "你拔出了枪...", "revelation_decisions": {}}
             ),
@@ -289,11 +289,10 @@ class TestGameLoopProcessAction(unittest.TestCase):
         self.loop.resolution_agent.execute.return_value = MagicMock(
             structured={"resolution_mode": "quick"}
         )
-        self.loop.pipeline.run_quick_pipeline.return_value = MagicMock(
+        self.loop.pipeline.run_quick_pipeline.return_value = PipelineResult(
             tag_note=MagicMock(),
             roll=MagicMock(outcome="partial_success", power=1, dice=(3, 4), total=8),
-            effect_note=None,
-            consequence_note=None,
+            outcome_note=None,
             narrator_note=MagicMock(
                 structured={"narrative": "你拔出了枪...", "revelation_decisions": {}}
             ),
@@ -329,11 +328,10 @@ class TestGameLoopProcessAction(unittest.TestCase):
             }
         )
         self.loop.pipeline.process_split_actions.return_value = [
-            MagicMock(
+            PipelineResult(
                 tag_note=MagicMock(),
                 roll=MagicMock(outcome="partial_success"),
-                effect_note=MagicMock(structured={"effects": []}),
-                consequence_note=None,
+                outcome_note=MagicMock(structured={"effects": []}),
                 narrator_note=MagicMock(structured={"narrative": "你拔出了枪..."}),
             ),
         ]
@@ -356,11 +354,10 @@ class TestGameLoopProcessAction(unittest.TestCase):
         self.loop.resolution_agent.execute.return_value = MagicMock(
             structured={"resolution_mode": "detailed"}
         )
-        self.loop.pipeline.run_single_move_pipeline.return_value = MagicMock(
+        self.loop.pipeline.run_single_move_pipeline.return_value = PipelineResult(
             tag_note=MagicMock(),
             roll=MagicMock(outcome="partial_success", power=1, dice=(3, 4), total=8),
-            effect_note=MagicMock(structured={"effects": []}),
-            consequence_note=None,
+            outcome_note=MagicMock(structured={"effects": []}),
             narrator_note=MagicMock(
                 structured={"narrative": "你迅速拔枪...", "revelation_decisions": {}}
             ),

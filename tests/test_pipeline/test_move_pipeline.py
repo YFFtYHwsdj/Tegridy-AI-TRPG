@@ -130,6 +130,10 @@ class TestMovePipelineSingleMove(unittest.TestCase):
         )
 
         pipeline.item_manager = MagicMock()
+        pipeline.clue_manager = MagicMock()
+        pipeline.story_tag_manager = MagicMock()
+        pipeline.character_manager = MagicMock()
+        pipeline.npc_manager = MagicMock()
 
         return pipeline
 
@@ -184,17 +188,18 @@ class TestMovePipelineSingleMove(unittest.TestCase):
 
         pipeline.outcome_agent.execute.assert_called_once()
 
-    def test_delegates_validate_and_apply_to_item_manager(self):
-        """流水线末端委托 item_manager 执行 validate_and_apply。"""
+    def test_calls_validate_and_apply(self):
+        """流水线末端调用 validate_and_apply。"""
         mock_llm = MockLLMClient()
         state = make_test_game_state()
         pipeline = self._make_pipeline(state, mock_llm)
+        pipeline.validate_and_apply = MagicMock()
 
         intent_note = make_agent_note(structured={"action_type": "combat"})
         ctx = state.make_context("我要拔枪")
         pipeline.run_single_move_pipeline(intent_note, ctx)
 
-        pipeline.item_manager.validate_and_apply.assert_called_once()
+        pipeline.validate_and_apply.assert_called_once()
 
     @patch("src.pipeline.move_pipeline.roll_dice")
     def test_returns_pipeline_result(self, mock_roll_dice):
@@ -316,6 +321,10 @@ class TestMovePipelineSplitActions(unittest.TestCase):
         )
 
         pipeline.item_manager = MagicMock()
+        pipeline.clue_manager = MagicMock()
+        pipeline.story_tag_manager = MagicMock()
+        pipeline.character_manager = MagicMock()
+        pipeline.npc_manager = MagicMock()
 
         return pipeline
 
@@ -442,6 +451,8 @@ class TestMovePipelineSplitActions(unittest.TestCase):
         state = make_test_game_state()
         pipeline = self._make_pipeline(state, mock_llm)
 
+        pipeline.validate_and_apply = MagicMock()
+
         intent_note = make_agent_note(
             structured={"action_type": "compound", "is_split_action": True}
         )
@@ -453,7 +464,7 @@ class TestMovePipelineSplitActions(unittest.TestCase):
         pipeline.process_split_actions(intent_note, split_actions)
 
         # validate_and_apply 只调用 1 次（统一叙事后）
-        pipeline.item_manager.validate_and_apply.assert_called_once()
+        pipeline.validate_and_apply.assert_called_once()
 
 
 if __name__ == "__main__":

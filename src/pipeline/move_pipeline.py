@@ -26,9 +26,15 @@ from src.agents import (
 from src.display.console import ConsoleDisplay
 from src.engine import calculate_power, resolve_matched_tags, roll_dice
 from src.llm_client import LLMClient
-from src.logger import log_roll
-from src.pipeline._item_manager import ItemManager
+from src.logger import log_roll, log_system
 from src.pipeline._tag_utils import extract_status_tiers, extract_tag_names
+from src.pipeline.managers import (
+    CharacterManager,
+    ClueManager,
+    ItemManager,
+    NPCManager,
+    StoryTagManager,
+)
 from src.pipeline.pipeline_result import PipelineResult
 from src.state.game_state import GameState
 
@@ -80,8 +86,12 @@ class MovePipeline:
         self.quick_narrator = QuickNarratorAgent(llm)
         self.continuation_check = ContinuationCheckAgent(llm)
 
-        # 物品与揭示管理器，处理流水线最后一阶段的叙事生效
+        # 创建领域驱动的状态管理器
         self.item_manager = ItemManager(state, llm)
+        self.clue_manager = ClueManager(state)
+        self.story_tag_manager = StoryTagManager(state)
+        self.character_manager = CharacterManager(state)
+        self.npc_manager = NPCManager(state)
 
     def _run_tag_and_roll(self, intent_note, ctx, sub_action=None):
         """流水线阶段1: 标签匹配 + 掷骰。
@@ -229,16 +239,164 @@ class MovePipeline:
         )
 
     def validate_and_apply(self, narrator_note, ctx=None):
-        """应用叙事输出中的揭示和物品转移。
+        """应用叙事输出中的揭示和物品转移及纯叙事故事标签。
 
-        委托给 ItemManager 执行。ItemManager 直接信任叙述者的
-        revelation_decisions 和 item_transfers，不经过 LLM 校验。
+        委托给各领域 Manager 执行，不经过 LLM 校验。
 
         Args:
             narrator_note: 叙述者 Agent 的分析便签
             ctx: 当前场景上下文（用于 emergent 物品创建）
         """
-        self.item_manager.validate_and_apply(narrator_note, ctx)
+        if not narrator_note or not narrator_note.structured:
+            return
+
+        structured = narrator_note.structured
+
+        # 线索揭示
+        decisions = structured.get("revelation_decisions", {})
+        for clue_id in decisions.get("reveal_clue_ids", []):
+            self.clue_manager.reveal_clue(clue_id)
+
+        # 物品揭示与转移
+        for item_id in decisions.get("reveal_item_ids", []):
+            self.item_manager.reveal_item(item_id)
+
+        for transfer in structured.get("item_transfers", []):
+            if isinstance(transfer, dict):
+                self.item_manager.transfer_item(transfer, ctx)
+
+        for update in structured.get("location_text_updates", []):
+            if isinstance(update, dict):
+                self.item_manager.update_item_location_text(
+                    update.get("item_id", ""), update.get("new_location", "")
+                )
+
+        # 叙事级故事标签更新
+        tag_updates = structured.get("story_tag_updates", {})
+        for tag in tag_updates.get("add", []):
+            if isinstance(tag, dict):
+                self.story_tag_manager.add_scene_tag(
+                    tag.get("name", ""), tag.get("description", "")
+                )
+        for tag_name in tag_updates.get("remove", []):
+            if isinstance(tag_name, str):
+                self.story_tag_manager.remove_scene_tag(tag_name)
+
+    def apply_results(self, outcome_note, ctx) -> list[str]:
+        """应用效果推演和后果的全部效果到游戏状态。
+
+        Args:
+            outcome_note: 结算推演 Agent 的分析便签
+            ctx: 当前场景上下文
+
+        Returns:
+            执行过程中产生的错误信息列表
+        """
+        errors = []
+        if not outcome_note:
+            return errors
+
+        effects = outcome_note.structured.get("effects", [])
+        errors.extend(self._apply_effects(effects, ctx))
+
+        consequences = outcome_note.structured.get("consequences", [])
+        for cons in consequences:
+            errors.extend(self._apply_effects(cons.get("effects", []), ctx))
+
+        return errors
+
+    def _apply_effects(self, effects: list[dict], ctx) -> list[str]:
+        errors = []
+        for eff in effects:
+            op = eff.get("operation", "inflict_status")
+            target_name = eff.get("target", "")
+
+            # 解析目标
+            target_type = None
+            target_id = None
+            if not target_name:
+                continue
+
+            name_lower = target_name.lower().strip()
+
+            if name_lower in ("自身", "self", "自身(玩家)", "自己") or (
+                self.state.character and name_lower == self.state.character.name.lower()
+            ):
+                target_type = "character"
+            elif name_lower in ("场景", "环境", "scene", "environment"):
+                target_type = "scene"
+            else:
+                for npc_id, npc in self.state.scene.npcs.items():
+                    if (
+                        name_lower == npc.name.lower()
+                        or name_lower in npc.name.lower()
+                        or npc.name.lower() in name_lower
+                    ):
+                        target_type = "npc"
+                        target_id = npc_id
+                        break
+
+            if not target_type:
+                # 只在 DEBUG 级别打印找不到的目标，避免刷屏
+                log_system(
+                    f"目标 '{target_name}' 可能是环境阻力或非生命物体，已忽略其数据绑定",
+                    level="debug",
+                )
+                continue
+
+            try:
+                if op == "inflict_status":
+                    label = eff.get("label", "")
+                    tier = eff.get("tier", 0)
+                    if target_type == "character":
+                        self.character_manager.apply_status(label, tier)
+                    elif target_type == "npc" and target_id:
+                        self.npc_manager.apply_status(target_id, label, tier)
+                elif op == "nudge_status":
+                    label = eff.get("status_to_nudge", eff.get("label", ""))
+                    if target_type == "character":
+                        self.character_manager.nudge_status(label)
+                    elif target_type == "npc" and target_id:
+                        self.npc_manager.nudge_status(target_id, label)
+                elif op == "reduce_status":
+                    label = eff.get("status_to_reduce", "")
+                    reduce_by = eff.get("reduce_by", 1)
+                    if target_type == "character":
+                        self.character_manager.reduce_status(label, reduce_by)
+                    elif target_type == "npc" and target_id:
+                        self.npc_manager.reduce_status(target_id, label, reduce_by)
+                elif op == "add_story_tag":
+                    name = eff.get("story_tag_name", "")
+                    desc = eff.get("story_tag_description", "")
+                    is_single_use = eff.get("is_single_use", False)
+                    if target_type == "scene":
+                        self.story_tag_manager.add_scene_tag(name, desc, is_single_use)
+                    elif target_type == "character":
+                        self.character_manager.add_personal_tag(name, desc, is_single_use)
+                    elif target_type == "npc" and target_id:
+                        self.npc_manager.add_personal_tag(target_id, name, desc, is_single_use)
+                elif op == "scratch_story_tag":
+                    name = eff.get("story_tag_to_scratch", "")
+                    if target_type == "scene":
+                        self.story_tag_manager.remove_scene_tag(name)
+                    elif target_type == "character":
+                        self.character_manager.remove_personal_tag(name)
+                    elif target_type == "npc" and target_id:
+                        self.npc_manager.remove_personal_tag(target_id, name)
+                elif op == "discover":
+                    detail = eff.get("detail", "")
+                    if detail:
+                        log_system(f"discover: {detail}", level="debug")
+                elif op == "extra_feat":
+                    desc = eff.get("description", "")
+                    if desc:
+                        log_system(f"extra_feat: {desc}", level="debug")
+            except Exception as e:
+                msg = f"执行效果失败 ({op}): {e}"
+                log_system(msg, level="error")
+                errors.append(msg)
+
+        return errors
 
     def process_split_actions(self, intent_note, split_actions) -> list:
         """执行复合 action 的拆分流水线（统一叙事版）。

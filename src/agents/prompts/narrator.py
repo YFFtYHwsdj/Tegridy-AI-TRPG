@@ -20,7 +20,7 @@ _REVELATION_RULES_FULL = """=== 线索与物品揭示 ===
 - 揭示和转移是两个独立操作：揭示 = 玩家看到了，转移 = 物品换了主人"""
 
 _STRUCTURED_FORMAT = """\
-  "suggest_scene_end": "布尔值。当你认为本轮叙事已使场景到达一个自然结束点时设为 true，否则 false。判断标准：主要冲突已有明确结论（无论胜负）、叙事高潮已过且节奏自然回落、角色的行动已导出到'下一步去哪'的节点。注意：这只是一个建议信号，系统会调用场景导演做最终判定。",
+  "suggest_scene_end": "布尔值。是否建议结束当前场景？只要发生空间位置的显著转移（如从街头逃入下水道、进入新房间）或冲突性质突变，请立刻设为 true！注意：这只是一个建议信号，宁可错杀不要放过，系统会调用场景导演做最终校验。不要死守当前的场景设定。",
   "revelation_decisions": {
     "reveal_clue_ids": [],
     "reveal_item_ids": []
@@ -38,7 +38,16 @@ _STRUCTURED_FORMAT = """\
       "item_id": "...",
       "new_location": "自然语言描述物品此刻的位置"
     }
-  ]"""
+  ],
+  "story_tag_updates": {
+    "add": [
+      {
+        "name": "标签名(如 'acid_rain')",
+        "description": "标签效果的简短描述"
+      }
+    ],
+    "remove": ["需要移除的旧标签名"]
+  }"""
 
 NARRATOR_PROMPT = f"""{_MC_IDENTITY}你的职责是将结构化的判定结果转化为呈现给玩家的最终叙事，并推动场景发展。
 
