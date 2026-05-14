@@ -39,18 +39,18 @@ AGENT_CONFIGS = {
     "outcome": {"model": "deepseek-v4-flash", "thinking": False},
     "narrator": {"model": "deepseek-v4-pro", "thinking": False},
     "scene_director": {"model": "deepseek-v4-flash", "thinking": False},
-    "scene_creator": {"model": "deepseek-v4-pro", "thinking": True},
+    "scene_creator": {"model": "deepseek-v4-pro", "thinking": False},
     "inquiry": {"model": "deepseek-v4-flash", "thinking": False},
     "tag_matcher": {"model": "deepseek-v4-flash", "thinking": False},
     "quick_outcome": {"model": "deepseek-v4-flash", "thinking": False},
-    "compressor": {"model": "deepseek-v4-pro", "thinking": True},
+    "compressor": {"model": "deepseek-v4-pro", "thinking": False},
     "lite_narrator": {"model": "deepseek-v4-flash", "thinking": False},
     "quick_narrator": {"model": "deepseek-v4-flash", "thinking": False},
     "continuation_check": {
         "model": "deepseek-v4-flash",
         "thinking": False,
     },
-    "rhythm": {"model": "deepseek-v4-pro", "thinking": True},
+    "rhythm": {"model": "deepseek-v4-pro", "thinking": False},
 }
 
 # 模块初始化时，将配置动态注入到类属性中
