@@ -85,23 +85,46 @@ INTENT_PROMPT = """你是一个 PBTA（Powered by the Apocalypse）游戏的意�
 当你判定需要拆分时，将玩家的复合行动拆解为多个独立的子行动，按执行顺序排列。
 每个子行动必须包含：action_type, action_summary, fragment（从玩家原始输入中截取的对应文字片段）。
 
+任务 4：结算模式判定 (resolution_mode)
+仅当 intent_type 为 "move" 时适用。判断当前行动应该用"快速结算 (quick)"还是"跟踪结算 (detailed)"。
+
+=== 两种模式与判断标准 ===
+
+跟踪结算 (detailed)：
+  玩家行动的主要目的是为了给 NPC、自己或环境**施加、改变或移除某种状态 (status) 或故事标签 (story tag)**。
+  成功时可以花费力量购买具体效果。
+  适用情况：
+  - 战斗攻击（目的：给目标施加"受伤"等状态）
+  - 社交操控（目的：给目标施加"被说服"或"受威慑"等状态）
+  - 黑客渗透（目的：给系统施加"被控制"等标签或状态）
+  - 治疗或增益（目的：移除负面状态或添加正面标签）
+
+快速结算 (quick)：
+  一次掷骰决定成败，不需要花费力量购买复杂的机械效果，不产生状态/标签的持久变更。
+  适用情况：
+  - 一次性动作（例：翻过围墙、跳跃鸿沟、快速躲避）
+  - 感知或调查（例：快速搜索房间、察言观色判断真伪）
+  - 不以改变对方状态为核心目标的互动（例：顺手黑开一个无看守的电子门、摆脱路人的纠缠）
+
+边缘判断：
+  - "我花时间仔细搜查Miko的办公室" → 虽耗时，但如果不为了产生"已掌握全部证据"这种全局标签，仅仅是获取信息 → quick
+  - "我跟巡逻的保安套近乎" → 如果只是想让他放行 → quick；如果是想让他彻底变成我的线人（需要加标签） → detailed
+
+不确定时：偏向 quick。让场景自然流动，只在明确需要状态/标签追踪的交锋中启用 detailed。
+
 你的输出必须是合法 JSON，格式如下：
 {
-  "reasoning": "一句话：意图类型判定理由 + 行动核心与分类 + 是否需要拆分。（不超过50字）",
-  "intent_type": "move|narrative|inquiry", # "move" 表示需要掷骰的戏剧性行动， "narrative" 表示低风险的叙事互动， "inquiry" 表示信息询问、回忆、确认细节。
-  "action_type": "social|combat|stealth|tech|movement|perception|inquiry|other", # "social" 表示说服、威胁、欺骗、谈判、安抚 # "combat" 表示直接的物理对抗、射击、格斗 # "stealth" 表示潜行、隐藏、追踪、尾随 # "tech" 表示骇入系统、操控设备、分析数据 # "movement" 表示奔跑、攀爬、穿越障碍、追逐 # "perception" 表示观察、搜索、侦察、辨认 # "inquiry" 表示提问、回忆、确认细节 # "other" 表示其他无法归类的行动
-  "action_summary": "一句话概括玩家试图做什么", #
-  "is_split_action": false, # 当intent_type为"move"且满足任一拆分条件时为true
+  "reasoning": "一句话：意图判定 + 是否拆分 + 结算模式判定理由。（不超过80字）",
+  "intent_type": "move|narrative|inquiry", # "move" 表示需要掷骰的行动， "narrative" 表示无风险叙事， "inquiry" 表示信息询问。
+  "action_type": "social|combat|stealth|tech|movement|perception|inquiry|other",
+  "action_summary": "一句话概括玩家试图做什么",
+  "is_split_action": false, # 当 intent_type 为 "move" 且满足任一拆分条件时为 true
   "split_actions": [
     {
       "action_type": "combat",
       "action_summary": "用枪压制保镖",
       "fragment": "我先拔枪压制保镖"
-    },
-    {
-      "action_type": "social",
-      "action_summary": "逼问Miko情报",
-      "fragment": "然后转过头逼问Miko关于芯片的下落"
     }
-  ]
+  ],
+  "resolution_mode": "quick|detailed" # 仅当 intent_type 为 "move" 时有效。快速结算为 "quick"，跟踪结算为 "detailed"。
 }"""

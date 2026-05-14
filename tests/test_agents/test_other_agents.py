@@ -8,71 +8,12 @@ from __future__ import annotations
 import unittest
 
 from src.agents.continuation_check import ContinuationCheckAgent
-from src.agents.resolution_mode import ResolutionModeAgent
 from src.agents.rhythm import RhythmAgent
 from tests.helpers import (
     MockLLMClient,
     make_agent_note,
     make_test_context,
 )
-
-
-class TestResolutionModeAgentExecute(unittest.TestCase):
-    """测试 ResolutionModeAgent.execute。"""
-
-    def test_includes_action_type(self):
-        """user_message 包含 action_type。"""
-        mock_llm = MockLLMClient(
-            responses=[
-                (
-                    '{"reasoning": "判断", "resolution_mode": "detailed"}',
-                    {},
-                )
-            ]
-        )
-        agent = ResolutionModeAgent(mock_llm)
-        ctx = make_test_context()
-        intent_note = make_agent_note(structured={"action_type": "combat"})
-
-        agent.execute(intent_note, ctx)
-
-        self.assertIn("combat", mock_llm.call_history[0]["user_message"])
-
-    def test_includes_player_input(self):
-        """user_message 包含原始玩家输入。"""
-        mock_llm = MockLLMClient(
-            responses=[
-                (
-                    '{"reasoning": "判断", "resolution_mode": "quick"}',
-                    {},
-                )
-            ]
-        )
-        agent = ResolutionModeAgent(mock_llm)
-        ctx = make_test_context()
-        intent_note = make_agent_note(structured={"action_type": "combat"})
-
-        agent.execute(intent_note, ctx)
-
-        self.assertIn("我要拔枪", mock_llm.call_history[0]["user_message"])
-
-    def test_returns_agent_note(self):
-        """验证返回正确解析的 AgentNote。"""
-        mock_llm = MockLLMClient(
-            responses=[
-                (
-                    '{"reasoning": "简单行动", "resolution_mode": "quick", "reason": "低风险"}',
-                    {},
-                )
-            ]
-        )
-        agent = ResolutionModeAgent(mock_llm)
-        ctx = make_test_context()
-        intent_note = make_agent_note(structured={"action_type": "combat"})
-
-        result = agent.execute(intent_note, ctx)
-
-        self.assertEqual(result.structured["resolution_mode"], "quick")
 
 
 class TestContinuationCheckAgentExecute(unittest.TestCase):

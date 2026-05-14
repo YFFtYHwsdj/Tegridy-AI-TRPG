@@ -11,7 +11,6 @@ from src.agents.inquiry import InquiryAgent
 from src.agents.intent import IntentAgent
 from src.agents.narrator import LiteNarratorAgent, NarratorAgent, QuickNarratorAgent
 from src.agents.outcome import OutcomeAgent, QuickOutcomeAgent
-from src.agents.resolution_mode import ResolutionModeAgent
 from src.agents.rhythm import RhythmAgent
 from src.agents.scene_creator import SceneCreatorAgent
 from src.agents.scene_director import SceneDirectorAgent
@@ -29,7 +28,6 @@ AGENT_REGISTRY = {
     "lite_narrator": LiteNarratorAgent,
     "quick_narrator": QuickNarratorAgent,
     "continuation_check": ContinuationCheckAgent,
-    "resolution_mode": ResolutionModeAgent,
     "scene_creator": SceneCreatorAgent,
     "scene_director": SceneDirectorAgent,
 }
@@ -52,7 +50,6 @@ AGENT_CONFIGS = {
         "model": "deepseek-v4-flash",
         "thinking": False,
     },
-    "resolution_mode": {"model": "deepseek-v4-flash", "thinking": False},
     "rhythm": {"model": "deepseek-v4-pro", "thinking": True},
 }
 
@@ -77,7 +74,6 @@ __all__ = [
     "OutcomeAgent",
     "QuickNarratorAgent",
     "QuickOutcomeAgent",
-    "ResolutionModeAgent",
     "RhythmAgent",
     "SceneCreatorAgent",
     "SceneDirectorAgent",

@@ -31,7 +31,6 @@ from src.agents import (
     InquiryAgent,
     IntentAgent,
     LiteNarratorAgent,
-    ResolutionModeAgent,
     RhythmAgent,
     SceneCreatorAgent,
     SceneDirectorAgent,
@@ -95,7 +94,6 @@ class GameLoop:
         self.intent_agent = IntentAgent(llm)
         self.inquiry_agent = InquiryAgent(llm)
         self.lite_narrator = LiteNarratorAgent(llm)
-        self.resolution_agent = ResolutionModeAgent(llm)
 
         # 场景切换层 Agent
         self.scene_director = SceneDirectorAgent(llm)
@@ -355,8 +353,7 @@ class GameLoop:
             return self._process_split_moves(intent_note, split_actions)
 
         # 结算模式判定（detailed vs quick）
-        resolution_note = self.resolution_agent.execute(intent_note, ctx)
-        resolution_mode = resolution_note.structured.get("resolution_mode", "detailed")
+        resolution_mode = intent_note.structured.get("resolution_mode", "detailed")
         self._log.debug("  结算模式: %s", resolution_mode)
 
         if resolution_mode == "quick":

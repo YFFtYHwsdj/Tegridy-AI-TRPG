@@ -52,7 +52,7 @@ class NPCManager:
             return
         npc = self.get_npc(npc_id)
         if npc:
-            add_story_tag(npc, name, description, is_single_use)
+            add_story_tag(self.state.scene, f"[{npc.name}] {name}", description, is_single_use)
 
     def remove_personal_tag(self, npc_id: str, name: str) -> bool:
         """移除特定 NPC 身上的个人故事标签。"""
@@ -60,5 +60,5 @@ class NPCManager:
             return False
         npc = self.get_npc(npc_id)
         if npc:
-            return remove_story_tag(npc, name) is not None
+            return remove_story_tag(self.state.scene, f"[{npc.name}] {name}") is not None
         return False

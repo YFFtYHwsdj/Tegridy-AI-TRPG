@@ -50,7 +50,6 @@ class TestGameLoopStep(unittest.TestCase):
         # Mock 各 Agent
         self.loop.intent_agent = MagicMock()
         self.loop.inquiry_agent = MagicMock()
-        self.loop.resolution_agent = MagicMock()
         self.loop.lite_narrator = MagicMock()
         self.loop.scene_director = MagicMock()
 
@@ -146,10 +145,8 @@ class TestGameLoopStep(unittest.TestCase):
                 "action_type": "combat",
                 "action_summary": "拔枪",
                 "is_split_action": False,
+                "resolution_mode": "detailed"
             }
-        )
-        self.loop.resolution_agent.execute.return_value = MagicMock(
-            structured={"resolution_mode": "detailed"}
         )
         self.loop.pipeline.run_single_move_pipeline.return_value = MagicMock(
             tag_note=MagicMock(),
