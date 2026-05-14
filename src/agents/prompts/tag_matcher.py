@@ -49,17 +49,14 @@ TAG_MATCHER_PROMPT = """你是一个 PBTA 标签匹配器。你的职责是判�
 
 你的输出必须是合法 JSON，格式如下：
 {
-  "reasoning": "只列出匹配的标签及一句话理由（每个≤15字）。不匹配的标签可跳过。只列出有帮助/有阻碍的状态及理由（每个≤15字）。弱点援引一句话说明。总计不超过100字。",
-  "matched_power_tags": [
-    {"name": "标签名", "relevance": "为何直接帮助此行动的执行"}
-  ],
-  "matched_weakness_tags": [],
+  "reasoning": "一句话概括整体的标签与状态匹配思路，说明为何这些标签和状态能直接影响行动执行。弱点援引需说明原因。总计不超过100字。",
+  "matched_power_tags": ["匹配的力量标签名1", "匹配的力量标签名2"],
+  "matched_weakness_tags": ["匹配的弱点标签名"],
   "weakness_invoked": false,
-  "invoked_weakness_reason": "",
   "helping_statuses": [
-    {"name": "状态名", "tier": 2, "reason": "为何在此行动中构成帮助"}
+    {"name": "状态名", "tier": 2}
   ],
   "hindering_statuses": [
-    {"name": "状态名", "tier": 1, "reason": "为何在此行动中构成阻碍"}
+    {"name": "状态名", "tier": 1}
   ]
 }"""
