@@ -1,3 +1,5 @@
+"""标签匹配 Agent —— 负责判断角色特质状态如何影响当前行动。"""
+
 from __future__ import annotations
 
 from src.agents._utils import resolve_sub_action_info
@@ -9,6 +11,8 @@ from src.models import AgentNote
 
 
 class TagMatcherAgent(BaseAgent):
+    """匹配相关的力量标签、弱点标签，以及具有影响的当前状态。"""
+
     system_prompt = TAG_MATCHER_PROMPT
     agent_name = "标签匹配Agent"
 
@@ -18,6 +22,18 @@ class TagMatcherAgent(BaseAgent):
         ctx: AgentContext,
         sub_action: dict | None = None,
     ) -> AgentNote:
+        """执行标签与状态匹配。
+
+        从角色的力量、弱点标签及当前状态中，筛选出对本次行动有帮助或阻碍的因素，以计算骰子加值。
+
+        Args:
+            intent_note: 意图解析的结果便签
+            ctx: 当前场景的上下文
+            sub_action: 子动作信息（如果有拆分）
+
+        Returns:
+            AgentNote: 包含匹配结果的分析便签
+        """
         power_tags_str = format_role_tags(ctx.character.power_tags) if ctx.character else ""
         weakness_tags_str = format_role_tags(ctx.character.weakness_tags) if ctx.character else ""
         status_str = format_statuses(ctx.character.statuses) if ctx.character else ""

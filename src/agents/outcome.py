@@ -1,3 +1,5 @@
+"""结算推演 Agent —— 负责推演行动的机制效果与后果。"""
+
 from __future__ import annotations
 
 import json
@@ -14,6 +16,8 @@ from src.models import AgentNote, RollResult
 
 
 class OutcomeAgent(BaseAgent):
+    """根据掷骰结果推演完整的行动效果与后果。"""
+
     system_prompt = OUTCOME_PROMPT
     agent_name = "结算推演Agent"
 
@@ -25,6 +29,20 @@ class OutcomeAgent(BaseAgent):
         ctx: AgentContext,
         sub_action: dict | None = None,
     ) -> AgentNote:
+        """执行详细的结算推演。
+
+        根据掷骰结果（成功/部分成功/失败）及力量消耗，生成合理的机制效果（如状态增减）和后果。
+
+        Args:
+            intent_note: 意图解析的结果便签
+            tag_note: 标签匹配的结果便签
+            roll_result: 掷骰结果数据
+            ctx: 当前场景的上下文
+            sub_action: 可选的子动作信息（用于复合行动拆分）
+
+        Returns:
+            AgentNote: 包含效果和后果的推演便签
+        """
         power_tags_str = format_role_tags(ctx.character.power_tags) if ctx.character else ""
         weakness_tags_str = format_role_tags(ctx.character.weakness_tags) if ctx.character else ""
         char_status_str = format_statuses(ctx.character.statuses) if ctx.character else ""
@@ -82,6 +100,8 @@ class OutcomeAgent(BaseAgent):
 
 
 class QuickOutcomeAgent(BaseAgent):
+    """快速推演行动的后果，跳过详细机制效果计算。"""
+
     system_prompt = QUICK_OUTCOME_PROMPT
     agent_name = "结算推演Agent(快速)"
 
@@ -91,6 +111,18 @@ class QuickOutcomeAgent(BaseAgent):
         roll_result: RollResult,
         ctx: AgentContext,
     ) -> AgentNote:
+        """执行快速的结算推演。
+
+        仅针对部分成功和失败生成后果，不涉及复杂的状态判定与力量消耗计算。
+
+        Args:
+            intent_note: 意图解析的结果便签
+            roll_result: 掷骰结果数据
+            ctx: 当前场景的上下文
+
+        Returns:
+            AgentNote: 包含生成后果的分析便签
+        """
         roll_info = f"power={roll_result.power}, dice={roll_result.dice}, total={roll_result.total}, outcome={roll_result.outcome}"
 
         # 快速模式下只需要简单信息

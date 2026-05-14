@@ -1,3 +1,5 @@
+"""叙述者 Agent 集合 —— 负责生成沉浸式的剧情文本。"""
+
 from __future__ import annotations
 
 import json
@@ -13,6 +15,8 @@ _HIDDEN_NOTICE = """注意：标记为(隐藏)的线索、物品及其详情尚�
 
 
 class NarratorAgent(BaseAgent):
+    """标准的叙述者 Agent，将结构化的规则推演结果翻译为自然语言剧情。"""
+
     system_prompt = NARRATOR_PROMPT
     agent_name = "叙述者Agent"
 
@@ -23,6 +27,17 @@ class NarratorAgent(BaseAgent):
         roll_result: RollResult,
         ctx: AgentContext,
     ) -> AgentNote:
+        """执行单步行动的叙事生成。
+
+        Args:
+            intent_note: 意图解析的结果便签
+            outcome_note: 结算推演的便签（包含机制效果和后果）
+            roll_result: 掷骰结果
+            ctx: 当前场景的上下文
+
+        Returns:
+            AgentNote: 包含生成的沉浸式叙事文本和揭示标记的便签
+        """
         roll_summary = f"{roll_result.dice[0]}+{roll_result.dice[1]}+{roll_result.power}={roll_result.total} ({roll_result.outcome})"
 
         user_msg = f"""{ctx.assets_block}
@@ -105,6 +120,8 @@ class NarratorAgent(BaseAgent):
 
 
 class LiteNarratorAgent(BaseAgent):
+    """轻量叙述者，用于处理不触发掷骰的非规则交互。"""
+
     system_prompt = LITE_NARRATOR_PROMPT
     agent_name = "叙述者(轻量)"
 
@@ -114,6 +131,16 @@ class LiteNarratorAgent(BaseAgent):
         ctx: AgentContext,
         gatekeeper_reasoning: str,
     ) -> AgentNote:
+        """执行非 Move 行动的叙事回复。
+
+        Args:
+            player_input: 玩家输入的纯叙事文本
+            ctx: 当前场景的上下文
+            gatekeeper_reasoning: 守门人的判断理由（如有）
+
+        Returns:
+            AgentNote: 包含纯叙事回应的便签
+        """
         gatekeeper_block = f"\n守门人判断: {gatekeeper_reasoning}\n" if gatekeeper_reasoning else ""
         user_msg = f"""{ctx.assets_block}
 {ctx.context_block}
@@ -130,6 +157,8 @@ class LiteNarratorAgent(BaseAgent):
 
 
 class QuickNarratorAgent(BaseAgent):
+    """快速叙述者，用于简单行动的叙事生成，无需详尽的效果推演。"""
+
     system_prompt = QUICK_NARRATOR_PROMPT
     agent_name = "叙述者Agent(快速)"
 
@@ -140,6 +169,17 @@ class QuickNarratorAgent(BaseAgent):
         roll_result: RollResult,
         ctx: AgentContext,
     ) -> AgentNote:
+        """执行快速叙事生成。
+
+        Args:
+            intent_note: 意图解析的结果便签
+            outcome_note: 快速推演生成的后果便签
+            roll_result: 掷骰结果
+            ctx: 当前场景的上下文
+
+        Returns:
+            AgentNote: 包含叙事文本的便签
+        """
         roll_summary = f"{roll_result.dice[0]}+{roll_result.dice[1]}+{roll_result.power}={roll_result.total} ({roll_result.outcome})"
 
         user_msg = f"""{ctx.assets_block}

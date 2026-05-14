@@ -17,13 +17,26 @@ class StoryTagManager:
         self.state = state
 
     def add_scene_tag(self, name: str, description: str = "", is_single_use: bool = False):
-        """向场景中添加一个故事标签。"""
+        """向场景中添加一个故事标签。
+
+        Args:
+            name: 标签名称
+            description: 标签的描述文本
+            is_single_use: 是否为单次使用（消耗品）
+        """
         if not name:
             return
         add_story_tag(self.state.scene, name, description, is_single_use)
 
     def remove_scene_tag(self, name: str) -> bool:
-        """从场景中移除一个故事标签。"""
+        """从场景中移除一个故事标签。
+
+        Args:
+            name: 标签名称
+
+        Returns:
+            bool: 如果成功找到并移除则返回 True，否则返回 False
+        """
         if not name:
             return False
         return remove_story_tag(self.state.scene, name) is not None
