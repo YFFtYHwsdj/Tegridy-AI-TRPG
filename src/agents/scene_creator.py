@@ -76,7 +76,6 @@ def build_scene_from_creator(creator_output: dict) -> SceneState:
     对所有 LLM 产出的字段做防御性校验：
         - 缺失字段用默认值填充
         - 类型不匹配时跳过并记录告警
-        - Limit 的 max_tier 强制钳制在 1-6 范围内
 
     Args:
         creator_output: SceneCreatorAgent.structured 字典

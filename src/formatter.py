@@ -1,6 +1,6 @@
 """格式化工具 —— 将游戏数据渲染为可读的文本块。
 
-提供各类格式化函数，将 Tag、Status、StoryTag、Limit、Challenge
+提供各类格式化函数，将 Tag、Status、StoryTag
 等数据模型格式化为人类可读的文本（供 Agent 上下文和调试输出使用）。
 """
 

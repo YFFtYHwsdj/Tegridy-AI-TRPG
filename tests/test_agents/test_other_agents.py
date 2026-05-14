@@ -1,4 +1,4 @@
-"""其他 Agent 测试 —— MoveGatekeeper、ResolutionMode、ContinuationCheck、LimitBreak、Rhythm、ItemCreator。
+"""其他 Agent 测试 —— MoveGatekeeper、ResolutionMode、ContinuationCheck、Rhythm、ItemCreator。
 
 验证各 Agent 的 execute 方法正确组装 prompt 并调用 LLM。
 """

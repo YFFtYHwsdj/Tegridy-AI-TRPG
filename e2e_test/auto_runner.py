@@ -232,11 +232,6 @@ class AutoRunner:
                 for name, s in challenge.statuses.items()
             }
 
-        # 极限突破情况
-        broken_limits = []
-        if challenge:
-            broken_limits = sorted(challenge.broken_limits)
-
         return {
             "total_rounds": round_count,
             "scene_changes": scene_changes,
@@ -245,7 +240,6 @@ class AutoRunner:
             "character_statuses": char_statuses,
             "challenge_name": challenge_name,
             "challenge_statuses": challenge_statuses,
-            "broken_limits": broken_limits,
             "actions": actions,
             "elapsed_seconds": round(elapsed, 1),
         }
@@ -283,9 +277,6 @@ class AutoRunner:
                 log.info("    %s: 等级%d (格子: %s)", name, info["tier"], info["boxes"])
         else:
             log.info("    （无状态）")
-
-        if summary["broken_limits"]:
-            log.info("  已突破极限: %s", ", ".join(summary["broken_limits"]))
 
         # 行动列表
         log.info("")

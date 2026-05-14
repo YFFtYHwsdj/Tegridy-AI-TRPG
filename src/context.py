@@ -4,9 +4,9 @@ AgentContext 是传递给每个 Agent 的标准上下文数据结构。
 包含四个文本块和结构化引用：
     - global_block: 跨场景历史（GlobalState 产出，含上一场景完整叙事）
     - assets_block: 场景资产（NPC、线索、物品）
-    - context_block: 当前状态快照（场景、角色、挑战、极限进度）
+    - context_block: 当前状态快照（场景、角色）
     - narrative_block: 当前场景叙事历史
-    - character/challenge: 直接对象引用（供代码层使用）
+    - character: 直接对象引用（供代码层使用）
     - player_input: 玩家当前输入
     - extra: 扩展字段（如 scene_state）
 """

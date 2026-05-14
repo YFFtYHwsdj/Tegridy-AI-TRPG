@@ -8,8 +8,6 @@
     WeaknessTag（弱点标签）: 角色/物品的劣势特征，命中行动时提供 -1 力量值
     Status（状态）: PBTA tick 系统的水位标记，tier 1-6 递进
     StoryTag（叙事标签）: 临时的情境性标记，不参与数学计算
-    Limit（极限）: [DEPRECATED] 挑战的关键突破条件
-    Challenge（挑战）: [DEPRECATED] NPC、障碍物、环境危险等叙事阻力的抽象
     AgentNote（分析便签）: Agent 间的自然语言推理传递载体
 """
 

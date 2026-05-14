@@ -69,7 +69,7 @@ class ItemManager:
 
     def update_item_location_text(self, item_id: str, new_location: str):
         """更新物品的自然语言位置描述。
-        
+
         仅修改文字描述，不进行物理转移字典操作。如果物品在当前场景可见物品或角色物品中，
         更新其 location 字段。
 

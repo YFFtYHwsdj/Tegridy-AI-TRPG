@@ -106,7 +106,7 @@ class ConsoleDisplay:
     def print_status(self, state):
         """打印当前游戏状态快照。
 
-        包含角色状态、故事标签、持有物品，以及挑战的极限进度和状态。
+        包含角色状态、故事标签和持有物品。
 
         Args:
             state: 当前 GameState

@@ -19,7 +19,7 @@ EFFECT_TYPES_REFERENCE = """
     - inflict_status 的 tier 是绝对值（"给3级受伤"），nudge_status 是增量（"受伤+1级"）
     - 如果状态不存在，nudge_status 自动创建为1级
     - 如果状态已存在，nudge_status 在当前等级基础上+1
-    - **推进极限时优先用 nudge_status**——当你只需提升1级就能到达极限时，1力量刚好够
+
 
 • reduce_status — 降低目标的某个已有状态的等级
   花费: 1力量/每降低1级
@@ -51,11 +51,7 @@ EFFECT_TYPES_REFERENCE = """
     - 用 nudge_status: 勾选 current_tier+1 的盒子（若已勾选则继续+1）
   - 状态的真实等级 = 已勾选的最大盒子编号
 
-【推进极限的关键规则】
-如果你想推进挑战的极限（例如"说服或威胁"），先看挑战的当前状态：
-  - 状态「愿意交易」当前2级，极限需要3级 → 需要+1级
-  - 可用力量=1 → 用 nudge_status（1力量升1级，恰好到达极限）
-  - 可用力量≥2 → 可用 inflict_status tier=2（盒子2有→溢出到3）或 nudge_status
+
 
 === 效果类型与操作的对应关系 ===
 
