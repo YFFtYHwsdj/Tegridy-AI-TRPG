@@ -14,7 +14,7 @@ PlayerAgent 是自动化测试的核心：它读取 GameLoop 的叙事输出，
 from __future__ import annotations
 
 from src.llm_client import LLMClient
-from src.models import Character
+from src.state.character_state import CharacterState
 
 # AI 玩家的系统提示词模板
 # {name} / {description} / {power_tags} / {weakness_tags} 由运行时填充
@@ -89,7 +89,7 @@ class PlayerAgent:
     def __init__(
         self,
         llm: LLMClient,
-        character: Character,
+        character: CharacterState,
         max_history: int = 50,
     ):
         """初始化 AI 玩家。

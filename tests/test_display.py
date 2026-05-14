@@ -204,9 +204,8 @@ class TestConsoleDisplayStatus(unittest.TestCase):
     def test_outputs_story_tags(self):
         """输出故事标签。"""
         with patch.object(self.logger, "debug") as mock_debug:
-            state = self._make_state(
-                story_tags={"掩体": StoryTag(name="掩体", description="翻倒的桌子")},
-            )
+            state = self._make_state()
+            state.scene.story_tags = {"掩体": StoryTag(name="掩体", description="翻倒的桌子")}
             self.display.print_status(state)
 
         output = _collect_debug_output(mock_debug)

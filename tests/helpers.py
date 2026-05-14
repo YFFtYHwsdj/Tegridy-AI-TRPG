@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from src.context import AgentContext
 from src.llm_client import LLMClient
-from src.models import AgentNote, Character, PowerTag, RollResult, WeaknessTag
+from src.models import AgentNote, PowerTag, RollResult, WeaknessTag
+from src.state.character_state import CharacterState
 from src.state.game_state import GameState
 from src.state.scene_state import SceneState
 
@@ -85,21 +86,31 @@ def make_agent_note(reasoning: str = "", structured: dict | None = None) -> Agen
     return AgentNote(reasoning=reasoning, structured=structured or {})
 
 
-def make_test_character() -> Character:
+def make_test_character() -> CharacterState:
     """创建标准测试角色（Kael）。
 
     Returns:
-        带有典型标签和状态的 Character 实例
+        带有典型标签和状态的 CharacterState 实例
     """
-    return Character(
+    from src.models import Theme
+
+    return CharacterState(
         name="Kael",
         description="佣兵",
-        power_tags=[
-            PowerTag(name="快速拔枪", description="枪法快"),
-            PowerTag(name="前公司安保"),
-        ],
-        weakness_tags=[
-            WeaknessTag(name="信用破产"),
+        themes=[
+            Theme(
+                name="测试",
+                theme_type="测试",
+                concept="测试",
+                motivation="测试",
+                power_tags=[
+                    PowerTag(name="快速拔枪", description="枪法快"),
+                    PowerTag(name="前公司安保"),
+                ],
+                weakness_tags=[
+                    WeaknessTag(name="信用破产"),
+                ],
+            )
         ],
     )
 

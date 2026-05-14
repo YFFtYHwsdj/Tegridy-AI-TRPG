@@ -14,7 +14,6 @@
 """
 
 from dataclasses import dataclass, field
-from typing import ClassVar
 
 
 @dataclass
@@ -145,54 +144,23 @@ class NPC:
 
 
 @dataclass
-class Character:
-    """玩家角色 —— 玩家在游戏世界中的化身。
+class Theme:
+    """主题 / 特质模块 —— 构成角色的基本单位。
 
-    角色拥有力量标签和弱点标签（用于力量值计算）、
-    状态（track 系统）、叙事标签（临时标记）和物品。
-
-    关键机制：
-        burned_tags: 已燃尽的标签集合，标签燃烧后不再参与计算
-        INCAPACITATING_STATUSES: 达到 tier 1 即判定为失去行动能力的状态名集合
+    每个 Theme 代表角色的一项核心特征（如背景、职业、专长或装备）。
+    它包含了相关的正面特质（力量标签）和负面特征（弱点标签）。
+    同时，根据《Otherscape》规则，每个 Theme 还带有两条发展轨道：
+    Attention (进度) 和 Crack (裂痕)。
     """
 
     name: str
+    theme_type: str
+    concept: str
+    motivation: str
     power_tags: list[PowerTag] = field(default_factory=list)
     weakness_tags: list[WeaknessTag] = field(default_factory=list)
-    statuses: dict[str, Status] = field(default_factory=dict)
-    story_tags: dict[str, StoryTag] = field(default_factory=dict)
-    burned_tags: set[str] = field(default_factory=set)
-    items_visible: dict[str, "GameItem"] = field(default_factory=dict)
-    items_hidden: dict[str, "GameItem"] = field(default_factory=dict)
-    description: str = ""
-
-    INCAPACITATING_STATUSES: ClassVar[set[str]] = {
-        "死亡",
-        "失去行动能力",
-        "被打晕",
-        "被制服",
-        "被束缚",
-        "dead",
-        "unconscious",
-        "incapacitated",
-    }
-
-    def is_incapacitated(self) -> bool:
-        """判断角色是否失去行动能力。
-
-        两种判定条件（满足其一即判定为 incapacitated）：
-        1. 任意状态达到 tier 6（极度严重）
-        2. 特定"失去行动能力"类状态达到 tier 1 及以上
-
-        Returns:
-            True 表示角色无法行动
-        """
-        for status in self.statuses.values():
-            if status.current_tier >= 6:
-                return True
-            if status.name in self.INCAPACITATING_STATUSES and status.current_tier >= 1:
-                return True
-        return False
+    attention_track: int = 0
+    crack_track: int = 0
 
 
 @dataclass

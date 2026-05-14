@@ -16,8 +16,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from src.context import AgentContext
-from src.formatter import format_statuses, format_story_tags
-from src.models import NPC, Character, Clue, GameItem, StoryTag
+from src.formatter import format_statuses
+from src.models import NPC, Clue, GameItem, StoryTag
+from src.state.character_state import CharacterState
 
 
 @dataclass
@@ -57,7 +58,9 @@ class SceneState:
         """
         self.narrative_history.append(entry)
 
-    def make_context(self, character: Character | None, player_input: str = "") -> AgentContext:
+    def make_context(
+        self, character: CharacterState | None, player_input: str = ""
+    ) -> AgentContext:
         """构建 Agent 上下文对象。
 
         将场景资产、状态快照、叙事历史拼接为三个文本块：
@@ -81,7 +84,7 @@ class SceneState:
             extra={"scene_state": self},
         )
 
-    def _build_context_block(self, character: Character | None) -> str:
+    def _build_context_block(self, character: CharacterState | None) -> str:
         """构建当前状态快照文本块。
 
         包含场景描述、角色标签/状态等，
@@ -97,20 +100,7 @@ class SceneState:
         if character is None:
             return "\n".join(lines)
 
-        char_tags = ", ".join(t.name for t in character.power_tags)
-        char_weak = ", ".join(t.name for t in character.weakness_tags)
-        char_status = format_statuses(character.statuses)
-        char_story = format_story_tags(character.story_tags)
-
-        lines.extend(
-            [
-                f"角色: {character.name} - {character.description}",
-                f"  力量标签: {char_tags}",
-                f"  弱点标签: {char_weak}",
-                f"  状态: {char_status}",
-                f"  故事标签: {char_story}",
-            ]
-        )
+        lines.append(character.build_context_block(include_tracks=True))
 
         if self.npcs:
             lines.append("场景NPC:")
@@ -135,7 +125,7 @@ class SceneState:
             lines.append(f"[{i}] {entry}")
         return "\n".join(lines)
 
-    def _build_assets_block(self, character: Character | None) -> str:
+    def _build_assets_block(self, character: CharacterState | None) -> str:
         """构建场景资产文本块。
 
         包含 NPC、线索、场景物品、角色随身物品等场景资产信息，

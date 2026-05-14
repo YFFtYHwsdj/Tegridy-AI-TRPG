@@ -7,11 +7,11 @@ from src.engine import (
     nudge_status,
     reduce_status,
     remove_status,
-    remove_story_tag,
     resolve_matched_tags,
     roll_dice,
 )
-from src.models import NPC, Character, PowerTag, RollResult, WeaknessTag
+from src.models import NPC, PowerTag, RollResult, WeaknessTag
+from src.state.character_state import CharacterState
 from src.state.scene_state import SceneState
 
 
@@ -59,14 +59,24 @@ class TestCalculatePower(unittest.TestCase):
 
 class TestResolveMatchedTags(unittest.TestCase):
     def setUp(self):
-        self.character = Character(
+        from src.models import Theme
+
+        self.character = CharacterState(
             name="Kael",
-            power_tags=[
-                PowerTag(name="快速拔枪"),
-                PowerTag(name="前公司安保"),
-            ],
-            weakness_tags=[
-                WeaknessTag(name="信用破产"),
+            themes=[
+                Theme(
+                    name="测试",
+                    theme_type="测试",
+                    concept="测试",
+                    motivation="测试",
+                    power_tags=[
+                        PowerTag(name="快速拔枪"),
+                        PowerTag(name="前公司安保"),
+                    ],
+                    weakness_tags=[
+                        WeaknessTag(name="信用破产"),
+                    ],
+                )
             ],
         )
         self.challenge = NPC(
@@ -172,7 +182,7 @@ class TestRollDice(unittest.TestCase):
 
 class TestApplyStatus(unittest.TestCase):
     def setUp(self):
-        self.character = Character(name="Test", power_tags=[], weakness_tags=[])
+        self.character = CharacterState(name="Test")
 
     def test_new_status_tier_1(self):
         s = apply_status(self.character, "受伤", 1)
@@ -236,7 +246,7 @@ class TestApplyStatus(unittest.TestCase):
 
 class TestRemoveStatus(unittest.TestCase):
     def setUp(self):
-        self.character = Character(name="Test", power_tags=[], weakness_tags=[])
+        self.character = CharacterState(name="Test")
 
     def test_remove_nonexistent_returns_none(self):
         self.assertIsNone(remove_status(self.character, "受伤", 1))
@@ -265,7 +275,7 @@ class TestRemoveStatus(unittest.TestCase):
 
 class TestReduceStatus(unittest.TestCase):
     def setUp(self):
-        self.character = Character(name="Test", power_tags=[], weakness_tags=[])
+        self.character = CharacterState(name="Test")
 
     def test_reduce_nonexistent_returns_none(self):
         self.assertIsNone(reduce_status(self.character, "受伤", 1))
@@ -322,7 +332,7 @@ class TestReduceStatus(unittest.TestCase):
 
 class TestNudgeStatus(unittest.TestCase):
     def setUp(self):
-        self.character = Character(name="Test", power_tags=[], weakness_tags=[])
+        self.character = CharacterState(name="Test")
 
     def test_nudge_new_status_creates_at_tier_1(self):
         s = nudge_status(self.character, "被说服")
@@ -366,34 +376,12 @@ class TestNudgeStatus(unittest.TestCase):
 
 class TestStoryTagEngine(unittest.TestCase):
     def setUp(self):
-        self.character = Character(name="Test", power_tags=[], weakness_tags=[])
+        self.character = CharacterState(name="Test")
         self.scene = SceneState()
-
-    def test_add_story_tag_to_character(self):
-        tag = add_story_tag(self.character, "临时掩体", "翻倒的桌子")
-        self.assertIn("临时掩体", self.character.story_tags)
-        self.assertEqual(tag.name, "临时掩体")
-        self.assertEqual(tag.description, "翻倒的桌子")
-        self.assertFalse(tag.is_single_use)
-
-    def test_add_story_tag_single_use(self):
-        tag = add_story_tag(self.character, "闪光弹", "一发闪光弹", is_single_use=True)
-        self.assertTrue(tag.is_single_use)
 
     def test_add_story_tag_to_scene(self):
         _tag = add_story_tag(self.scene, "增援", "帮派成员到达")
         self.assertIn("增援", self.scene.story_tags)
-
-    def test_remove_story_tag(self):
-        add_story_tag(self.character, "临时掩体", "翻倒的桌子")
-        result = remove_story_tag(self.character, "临时掩体")
-        self.assertIsNotNone(result)
-        self.assertEqual(result.name, "临时掩体")
-        self.assertNotIn("临时掩体", self.character.story_tags)
-
-    def test_remove_nonexistent_story_tag(self):
-        result = remove_story_tag(self.character, "不存在")
-        self.assertIsNone(result)
 
 
 if __name__ == "__main__":

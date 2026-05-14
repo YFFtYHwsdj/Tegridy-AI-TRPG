@@ -9,7 +9,6 @@ from src.context import AgentContext
 from src.formatter import (
     format_role_tags,
     format_statuses,
-    format_story_tags,
 )
 from src.models import AgentNote, RollResult
 
@@ -29,7 +28,6 @@ class OutcomeAgent(BaseAgent):
         power_tags_str = format_role_tags(ctx.character.power_tags) if ctx.character else ""
         weakness_tags_str = format_role_tags(ctx.character.weakness_tags) if ctx.character else ""
         char_status_str = format_statuses(ctx.character.statuses) if ctx.character else ""
-        char_story_tags_str = format_story_tags(ctx.character.story_tags) if ctx.character else ""
         available_power = max(roll_result.power, 0)
         roll_info = f"power={roll_result.power}, dice={roll_result.dice}, total={roll_result.total}, outcome={roll_result.outcome}"
 
@@ -50,8 +48,7 @@ class OutcomeAgent(BaseAgent):
 角色当前状态:
 {char_status_str}
 
-角色故事标签:
-{char_story_tags_str}
+
 
 意图解析:
   reasoning: {intent_note.reasoning}

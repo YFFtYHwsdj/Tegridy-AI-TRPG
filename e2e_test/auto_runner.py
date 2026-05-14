@@ -25,7 +25,7 @@ from e2e_test.player_agent import PlayerAgent
 from src.game_loop import GameLoop
 from src.llm_client import LLMClient
 from src.logger import get_logger
-from src.models import Character
+from src.state.character_state import CharacterState
 from src.state.scene_state import SceneState
 
 
@@ -64,7 +64,7 @@ class AutoRunner:
         self.player_history_window = player_history_window
         self.debug_mode = debug_mode
 
-    def run(self, character: Character, first_scene: SceneState, worldview: str = "") -> dict:
+    def run(self, character: CharacterState, first_scene: SceneState, worldview: str = "") -> dict:
         """运行自动化测试。
 
         完整流程：

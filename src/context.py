@@ -16,8 +16,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from src.state.character_state import CharacterState
+
 if TYPE_CHECKING:
-    from src.models import Character
+    pass
 
 
 @dataclass
@@ -38,6 +40,6 @@ class AgentContext:
     assets_block: str = ""
     context_block: str = ""
     narrative_block: str = ""
-    character: Character | None = None
+    character: CharacterState | None = None
     player_input: str = ""
     extra: dict = field(default_factory=dict)

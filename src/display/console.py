@@ -116,7 +116,7 @@ class ConsoleDisplay:
         self._log.debug("")
         self._log.debug("  [角色: %s]", state.character.name)
         self._log.debug("  状态: %s", format_statuses(state.character.statuses))
-        self._log.debug("  故事标签: %s", format_story_tags(state.character.story_tags))
+
         char_items = state.character.items_visible
         if char_items:
             item_names = ", ".join(item.name for item in char_items.values())

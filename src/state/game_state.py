@@ -18,7 +18,7 @@ from __future__ import annotations
 import uuid
 
 from src.context import AgentContext
-from src.models import Character
+from src.state.character_state import CharacterState
 from src.state.global_state import GlobalState
 from src.state.scene_state import SceneState
 
@@ -31,11 +31,11 @@ class GameState:
     """
 
     def __init__(self):
-        self.character: Character | None = None
+        self.character: CharacterState | None = None
         self.scene: SceneState = SceneState()
         self.global_state = GlobalState()
 
-    def setup(self, character: Character, scene: SceneState):
+    def setup(self, character: CharacterState, scene: SceneState):
         """初始化游戏或直接设置场景（不触发归档）。
 
         仅用于游戏首次启动时设置初始场景。

@@ -40,8 +40,8 @@ from src.context import AgentContext
 from src.display.console import ConsoleDisplay
 from src.llm_client import LLMClient
 from src.logger import get_logger, log_status_update, log_system, set_debug_mode
-from src.models import Character
 from src.pipeline.move_pipeline import MovePipeline
+from src.state.character_state import CharacterState
 from src.state.game_state import GameState
 from src.state.scene_state import SceneState
 
@@ -200,7 +200,7 @@ class GameLoop:
 
     # ───────────────────── 场景管理 ─────────────────────
 
-    def setup(self, character: Character, scene: SceneState):
+    def setup(self, character: CharacterState, scene: SceneState):
         """初始化首个场景。
 
         设置角色和场景状态，调用 RhythmAgent 输出开场叙事。
@@ -532,7 +532,7 @@ class GameLoop:
 
     # ───────────────────── 主循环 ─────────────────────
 
-    def run(self, character: Character, first_scene: SceneState):
+    def run(self, character: CharacterState, first_scene: SceneState):
         """启动完整的游戏循环。
 
         包含两层循环：

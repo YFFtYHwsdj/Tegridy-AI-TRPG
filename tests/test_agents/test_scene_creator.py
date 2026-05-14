@@ -6,7 +6,8 @@ import json
 import unittest
 
 from src.agents.scene_creator import SceneCreatorAgent, build_scene_from_creator
-from src.models import Character, PowerTag, WeaknessTag
+from src.models import PowerTag, WeaknessTag
+from src.state.character_state import CharacterState
 from tests.helpers import MockLLMClient
 
 
@@ -46,11 +47,21 @@ class TestSceneCreatorAgentExecute(unittest.TestCase):
     """测试 SceneCreatorAgent.execute。"""
 
     def setUp(self):
-        self.character = Character(
+        from src.models import Theme
+
+        self.character = CharacterState(
             name="Kael",
             description="佣兵",
-            power_tags=[PowerTag(name="快速拔枪")],
-            weakness_tags=[WeaknessTag(name="信用破产")],
+            themes=[
+                Theme(
+                    name="测试",
+                    theme_type="测试",
+                    concept="测试",
+                    motivation="测试",
+                    power_tags=[PowerTag(name="快速拔枪")],
+                    weakness_tags=[WeaknessTag(name="信用破产")],
+                )
+            ],
         )
 
     def test_includes_global_block(self):

@@ -15,14 +15,15 @@ from __future__ import annotations
 import logging
 import random
 
-from src.models import NPC, Character, PowerTag, RollResult, Status, StoryTag, WeaknessTag
+from src.models import NPC, PowerTag, RollResult, Status, StoryTag, WeaknessTag
+from src.state.character_state import CharacterState
 from src.state.scene_state import SceneState
 
 logger = logging.getLogger("aitrpg.game")
 
 
 def resolve_matched_tags(
-    character: Character,
+    character: CharacterState,
     npcs: dict[str, NPC] | None,
     matched_power_names: list[str],
     matched_weakness_names: list[str],
@@ -123,7 +124,7 @@ def roll_dice(power: int) -> RollResult:
 
 
 def apply_status(
-    entity: Character | NPC,
+    entity: CharacterState | NPC,
     status_name: str,
     tier: int,
 ) -> Status:
@@ -144,11 +145,11 @@ def apply_status(
         Status: 施加后的状态对象（原地修改）
 
     Raises:
-        TypeError: entity 不是 Character 或 NPC
+        TypeError: entity 不是 CharacterState 或 NPC
         ValueError: tier 不在 1-6 范围内
     """
-    if not isinstance(entity, (Character, NPC)):
-        raise TypeError(f"entity must be Character or NPC, got {type(entity).__name__}")
+    if not isinstance(entity, (CharacterState, NPC)):
+        raise TypeError(f"entity must be CharacterState or NPC, got {type(entity).__name__}")
     if tier < 1 or tier > 6:
         raise ValueError(f"tier must be between 1 and 6, got {tier}")
 
@@ -171,7 +172,7 @@ def apply_status(
 
 
 def remove_status(
-    entity: Character | NPC,
+    entity: CharacterState | NPC,
     status_name: str,
     tier: int,
 ) -> Status | None:
@@ -210,7 +211,7 @@ def remove_status(
 
 
 def reduce_status(
-    entity: Character | NPC,
+    entity: CharacterState | NPC,
     status_name: str,
     reduce_by: int,
 ) -> Status | None:
@@ -229,10 +230,10 @@ def reduce_status(
         减少后的 Status 对象；如果状态被清空则返回 None
 
     Raises:
-        TypeError: entity 不是 Character 或 NPC
+        TypeError: entity 不是 CharacterState 或 NPC
     """
-    if not isinstance(entity, (Character, NPC)):
-        raise TypeError(f"entity must be Character or NPC, got {type(entity).__name__}")
+    if not isinstance(entity, (CharacterState, NPC)):
+        raise TypeError(f"entity must be CharacterState or NPC, got {type(entity).__name__}")
     if reduce_by < 1:
         return None
 
@@ -266,7 +267,7 @@ def reduce_status(
 
 
 def add_story_tag(
-    entity: Character | SceneState,
+    entity: CharacterState | SceneState,
     name: str,
     description: str = "",
     is_single_use: bool = False,
@@ -287,17 +288,17 @@ def add_story_tag(
         StoryTag: 新创建的标签对象
 
     Raises:
-        TypeError: entity 不是 Character 或 NPC
+        TypeError: entity 不是 CharacterState 或 NPC
     """
-    if not isinstance(entity, (Character, SceneState)):
-        raise TypeError(f"entity must be Character or SceneState, got {type(entity).__name__}")
+    if not isinstance(entity, (CharacterState, SceneState)):
+        raise TypeError(f"entity must be CharacterState or SceneState, got {type(entity).__name__}")
     tag = StoryTag(name=name, description=description, is_single_use=is_single_use)
     entity.story_tags[name] = tag
     return tag
 
 
 def remove_story_tag(
-    entity: Character | SceneState,
+    entity: CharacterState | SceneState,
     name: str,
 ) -> StoryTag | None:
     """从实体移除一个叙事标签。
@@ -310,15 +311,15 @@ def remove_story_tag(
         被移除的 StoryTag 对象；如果标签不存在则返回 None
 
     Raises:
-        TypeError: entity 不是 Character 或 NPC
+        TypeError: entity 不是 CharacterState 或 NPC
     """
-    if not isinstance(entity, (Character, SceneState)):
-        raise TypeError(f"entity must be Character or SceneState, got {type(entity).__name__}")
+    if not isinstance(entity, (CharacterState, SceneState)):
+        raise TypeError(f"entity must be CharacterState or SceneState, got {type(entity).__name__}")
     return entity.story_tags.pop(name, None)
 
 
 def nudge_status(
-    entity: Character | NPC,
+    entity: CharacterState | NPC,
     status_name: str,
 ) -> Status:
     """将状态恶化一级（nudge）。
@@ -337,10 +338,10 @@ def nudge_status(
         Status: 恶化后的状态对象
 
     Raises:
-        TypeError: entity 不是 Character 或 NPC
+        TypeError: entity 不是 CharacterState 或 NPC
     """
-    if not isinstance(entity, (Character, NPC)):
-        raise TypeError(f"entity must be Character or NPC, got {type(entity).__name__}")
+    if not isinstance(entity, (CharacterState, NPC)):
+        raise TypeError(f"entity must be CharacterState or NPC, got {type(entity).__name__}")
 
     if status_name not in entity.statuses:
         entity.statuses[status_name] = Status(name=status_name, current_tier=1, ticked_boxes={1})

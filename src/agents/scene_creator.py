@@ -12,15 +12,14 @@ from __future__ import annotations
 
 from src.agents.base import BaseAgent
 from src.agents.prompts import SCENE_CREATOR_PROMPT
-from src.formatter import format_statuses
 from src.models import (
     NPC,
     AgentNote,
-    Character,
     Clue,
     GameItem,
     PowerTag,
 )
+from src.state.character_state import CharacterState
 from src.state.scene_state import SceneState
 
 
@@ -38,7 +37,7 @@ class SceneCreatorAgent(BaseAgent):
     def execute(
         self,
         global_block: str,
-        character: Character | None,
+        character: CharacterState | None,
         transition_hint: str = "",
     ) -> AgentNote:
         """创建下一个场景。
@@ -54,18 +53,7 @@ class SceneCreatorAgent(BaseAgent):
         """
         char_block = ""
         if character is not None:
-            power_names = ", ".join(t.name for t in character.power_tags)
-            weakness_names = ", ".join(t.name for t in character.weakness_tags)
-            status_text = format_statuses(character.statuses)
-            story_tag_names = ", ".join(character.story_tags.keys())
-            char_block = (
-                f"当前角色: {character.name}\n"
-                f"角色描述: {character.description}\n"
-                f"力量标签: {power_names}\n"
-                f"弱点标签: {weakness_names}\n"
-                f"当前状态: {status_text}\n"
-                f"故事标签: {story_tag_names if story_tag_names else '（无）'}"
-            )
+            char_block = character.build_context_block(include_tracks=False)
 
         hint_block = ""
         if transition_hint:

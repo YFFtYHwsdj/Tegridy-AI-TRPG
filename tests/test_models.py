@@ -3,7 +3,6 @@ import unittest
 from src.models import (
     NPC,
     AgentNote,
-    Character,
     Clue,
     ConsequenceEntry,
     EffectEntry,
@@ -13,6 +12,7 @@ from src.models import (
     StoryTag,
     WeaknessTag,
 )
+from src.state.character_state import CharacterState
 
 
 class TestPowerTag(unittest.TestCase):
@@ -68,50 +68,58 @@ class TestStoryTag(unittest.TestCase):
 
 class TestCharacter(unittest.TestCase):
     def test_defaults(self):
-        c = Character(name="Test")
+        c = CharacterState(name="Test")
         self.assertEqual(c.name, "Test")
         self.assertEqual(c.power_tags, [])
         self.assertEqual(c.weakness_tags, [])
         self.assertEqual(c.statuses, {})
-        self.assertEqual(c.story_tags, {})
-        self.assertEqual(c.burned_tags, set())
         self.assertEqual(c.description, "")
 
     def test_with_tags(self):
-        c = Character(
+        from src.models import Theme
+
+        c = CharacterState(
             name="Kael",
-            power_tags=[PowerTag(name="前公司安保")],
-            weakness_tags=[WeaknessTag(name="信用破产")],
             description="佣兵",
+            themes=[
+                Theme(
+                    name="测试",
+                    theme_type="测试",
+                    concept="测试",
+                    motivation="测试",
+                    power_tags=[PowerTag(name="前公司安保")],
+                    weakness_tags=[WeaknessTag(name="信用破产")],
+                )
+            ],
         )
         self.assertEqual(len(c.power_tags), 1)
         self.assertEqual(len(c.weakness_tags), 1)
 
     def test_is_incapacitated_tier_six(self):
-        c = Character(name="Test")
+        c = CharacterState(name="Test")
         c.statuses["受伤"] = Status(name="受伤", current_tier=6, ticked_boxes={6})
         self.assertTrue(c.is_incapacitated())
 
     def test_is_incapacitated_explicit_status(self):
-        c = Character(name="Test")
-        c.statuses["被打晕"] = Status(name="被打晕", current_tier=2, ticked_boxes={1, 2})
+        c = CharacterState(name="Test")
+        c.statuses["昏迷"] = Status(name="昏迷", current_tier=2, ticked_boxes={1, 2})
         self.assertTrue(c.is_incapacitated())
 
     def test_not_incapacitated_low_tier(self):
-        c = Character(name="Test")
+        c = CharacterState(name="Test")
         c.statuses["受伤"] = Status(name="受伤", current_tier=3, ticked_boxes={1, 2, 3})
         self.assertFalse(c.is_incapacitated())
 
     def test_not_incapacitated_no_statuses(self):
-        c = Character(name="Test")
+        c = CharacterState(name="Test")
         self.assertFalse(c.is_incapacitated())
 
     def test_items_visible_default_empty(self):
-        c = Character(name="Test")
+        c = CharacterState(name="Test")
         self.assertEqual(c.items_visible, {})
 
     def test_items_hidden_default_empty(self):
-        c = Character(name="Test")
+        c = CharacterState(name="Test")
         self.assertEqual(c.items_hidden, {})
 
 

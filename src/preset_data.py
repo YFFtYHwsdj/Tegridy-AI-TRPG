@@ -5,7 +5,8 @@
     - build_demo_scene(): 构建包含 NPC、物品、线索的完整场景
 """
 
-from src.models import NPC, Character, Clue, GameItem, PowerTag, StoryTag, WeaknessTag
+from src.models import NPC, Clue, GameItem, PowerTag, StoryTag, Theme, WeaknessTag
+from src.state.character_state import CharacterState
 from src.state.scene_state import SceneState
 
 DEMO_WORLDVIEW = "这是一个赛博朋克世界。科技、黑客、枪战、街头谈判、超自然神话力量都可能是行动的一部分。风格：硬朗、有质感、氛围浓厚。挑战常常包含道德困境或艰难选择。"
@@ -16,17 +17,62 @@ DEMO_SCENE_DESCRIPTION = """
 Kael 刚刚完成了一单看似简单的“跑腿”任务，手里提着一个生物锁死的手提箱。但接头人没有出现，反而是三个带着廉价义体武器的底层帮派混混堵住了胡同口。对方显然是提前收到了风声，专门来抢箱子的。
 """
 
-DEMO_CHARACTER = Character(
+DEMO_CHARACTER = CharacterState(
     name="Kael",
     description="前公司安保干员，现在靠街头情报网过活。身手利落，人脉广但信用破产。",
-    power_tags=[
-        PowerTag(name="前公司安保", description="受过专业的安保和战斗训练"),
-        PowerTag(name="街头线人网", description="在底层有广泛的情报来源和人脉"),
-        PowerTag(name="快速拔枪", description="枪法快且准，近距离战斗专家"),
-        PowerTag(name="读懂房间", description="擅长观察气氛和他人的真实意图"),
-    ],
-    weakness_tags=[
-        WeaknessTag(name="信用破产", description="在圈子里名声不好，没人愿意先给好处"),
+    themes=[
+        Theme(
+            name="前公司安保",
+            theme_type="背景/职业",
+            concept="受过专业的安保和战斗训练",
+            motivation="找回失去的荣誉",
+            power_tags=[
+                PowerTag(
+                    name="前公司安保", description="受过专业的安保和战斗训练，深谙战术小队协作"
+                ),
+                PowerTag(name="快速拔枪", description="枪法快且准，近距离火拼专家"),
+                PowerTag(name="战术格斗", description="精通夺枪和近身CQC制服技术"),
+            ],
+            weakness_tags=[
+                WeaknessTag(
+                    name="公司通缉", description="被前雇主列入黑名单，随时可能遭遇赏金猎人"
+                ),
+            ],
+        ),
+        Theme(
+            name="街头线人网",
+            theme_type="资源/专长",
+            concept="在底层有广泛的情报来源和人脉",
+            motivation="在街头活下去",
+            power_tags=[
+                PowerTag(name="街头线人网", description="在底层酒吧、黑市有熟人和情报来源"),
+                PowerTag(name="读懂房间", description="擅长观察气氛，一眼看穿他人的真实意图和谎言"),
+                PowerTag(name="黑市渠道", description="知道去哪里搞到未注册的装备或禁药"),
+            ],
+            weakness_tags=[
+                WeaknessTag(
+                    name="信用破产", description="在圈子里名声不好，办事必须先交钱或给抵押"
+                ),
+            ],
+        ),
+        Theme(
+            name="神经强化义体",
+            theme_type="装备/义体",
+            concept="植入了廉价但实用的神经反射和感知增强义体",
+            motivation="保持对危险的极度敏锐",
+            power_tags=[
+                PowerTag(
+                    name="突触加速器", description="危机时刻可以短暂加速神经反应，如同时间变慢"
+                ),
+                PowerTag(name="视觉增强", description="在黑暗和烟雾中能看清热源或夜视"),
+                PowerTag(name="疼痛抑制", description="强行切断痛觉神经，无视伤痛继续战斗"),
+            ],
+            weakness_tags=[
+                WeaknessTag(
+                    name="排异反应", description="使用过度会导致神经抽搐或短暂失明，需要长期服药"
+                ),
+            ],
+        ),
     ],
 )
 
