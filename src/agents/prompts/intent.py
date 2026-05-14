@@ -90,7 +90,7 @@ INTENT_PROMPT = """你是一个 PBTA（Powered by the Apocalypse）游戏的意�
   "reasoning": "一句话：意图类型判定理由 + 行动核心与分类 + 是否需要拆分。（不超过50字）",
   "intent_type": "move|narrative|inquiry", # "move" 表示需要掷骰的戏剧性行动， "narrative" 表示低风险的叙事互动， "inquiry" 表示信息询问、回忆、确认细节。
   "action_type": "social|combat|stealth|tech|movement|perception|inquiry|other", # "social" 表示说服、威胁、欺骗、谈判、安抚 # "combat" 表示直接的物理对抗、射击、格斗 # "stealth" 表示潜行、隐藏、追踪、尾随 # "tech" 表示骇入系统、操控设备、分析数据 # "movement" 表示奔跑、攀爬、穿越障碍、追逐 # "perception" 表示观察、搜索、侦察、辨认 # "inquiry" 表示提问、回忆、确认细节 # "other" 表示其他无法归类的行动
-  "action_summary": "一句话概括玩家试图做什么", # 
+  "action_summary": "一句话概括玩家试图做什么", #
   "is_split_action": false, # 当intent_type为"move"且满足任一拆分条件时为true
   "split_actions": [
     {

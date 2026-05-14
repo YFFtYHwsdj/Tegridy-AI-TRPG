@@ -34,7 +34,39 @@ AGENT_REGISTRY = {
     "scene_director": SceneDirectorAgent,
 }
 
+# 在此处统一配置需要覆盖默认 LLM 设定的 Agent
+# 未配置的 Agent 将使用全局的 LLMClient 配置（默认 deepseek-v4-flash，Thinking 关闭）
+AGENT_CONFIGS = {
+    "intent": {"model": "deepseek-v4-flash", "thinking": False},
+    "outcome": {"model": "deepseek-v4-flash", "thinking": False},
+    "narrator": {"model": "deepseek-v4-flash", "thinking": False},
+    "scene_director": {"model": "deepseek-v4-flash", "thinking": False},
+    "scene_creator": {"model": "deepseek-v4-pro", "thinking": True},
+    "inquiry": {"model": "deepseek-v4-flash", "thinking": False},
+    "tag_matcher": {"model": "deepseek-v4-flash", "thinking": False},
+    "quick_outcome": {"model": "deepseek-v4-flash", "thinking": False},
+    "compressor": {"model": "deepseek-v4-pro", "thinking": True},
+    "lite_narrator": {"model": "deepseek-v4-flash", "thinking": False},
+    "quick_narrator": {"model": "deepseek-v4-flash", "thinking": False},
+    "continuation_check": {
+        "model": "deepseek-v4-flash",
+        "thinking": False,
+    },
+    "resolution_mode": {"model": "deepseek-v4-flash", "thinking": False},
+    "rhythm": {"model": "deepseek-v4-flash", "thinking": False},
+}
+
+# 模块初始化时，将配置动态注入到类属性中
+for _name, _cls in AGENT_REGISTRY.items():
+    if _name in AGENT_CONFIGS:
+        _conf = AGENT_CONFIGS[_name]
+        if "model" in _conf:
+            _cls.model = _conf["model"]
+        if "thinking" in _conf:
+            _cls.thinking = _conf["thinking"]
+
 __all__ = [
+    "AGENT_CONFIGS",
     "AGENT_REGISTRY",
     "CompressorAgent",
     "ContinuationCheckAgent",
