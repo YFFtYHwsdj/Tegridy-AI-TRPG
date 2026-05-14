@@ -1,5 +1,6 @@
 from src.agents.prompts.compressor import COMPRESSOR_PROMPT
 from src.agents.prompts.continuation_check import CONTINUATION_CHECK_PROMPT
+from src.agents.prompts.inquiry import INQUIRY_PROMPT
 from src.agents.prompts.intent import INTENT_PROMPT
 from src.agents.prompts.item_creator import ITEM_CREATOR_PROMPT
 from src.agents.prompts.narrator import LITE_NARRATOR_PROMPT, NARRATOR_PROMPT, QUICK_NARRATOR_PROMPT
@@ -13,6 +14,7 @@ from src.agents.prompts.tag_matcher import TAG_MATCHER_PROMPT
 __all__ = [
     "COMPRESSOR_PROMPT",
     "CONTINUATION_CHECK_PROMPT",
+    "INQUIRY_PROMPT",
     "INTENT_PROMPT",
     "ITEM_CREATOR_PROMPT",
     "LITE_NARRATOR_PROMPT",

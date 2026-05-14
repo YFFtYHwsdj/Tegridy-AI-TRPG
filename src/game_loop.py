@@ -28,6 +28,7 @@ from dataclasses import dataclass
 
 from src.agents import (
     CompressorAgent,
+    InquiryAgent,
     IntentAgent,
     LiteNarratorAgent,
     ResolutionModeAgent,
@@ -36,6 +37,7 @@ from src.agents import (
     SceneDirectorAgent,
 )
 from src.agents.scene_creator import build_scene_from_creator
+from src.context import AgentContext
 from src.display.console import ConsoleDisplay
 from src.effects.applicator import EffectApplicator
 from src.llm_client import LLMClient
@@ -92,6 +94,7 @@ class GameLoop:
         # 行动层 Agent
         self.rhythm_agent = RhythmAgent(llm)
         self.intent_agent = IntentAgent(llm)
+        self.inquiry_agent = InquiryAgent(llm)
         self.lite_narrator = LiteNarratorAgent(llm)
         self.resolution_agent = ResolutionModeAgent(llm)
 
@@ -292,10 +295,11 @@ class GameLoop:
     def process_action(self, player_input: str) -> tuple[str, bool]:
         """处理单次玩家行动。
 
-        入口方法，负责三层路由：
+        入口方法，负责四层路由：
         1. 命令处理（以 / 开头）
-        2. 意图解析与 Move 判定（判定是否需要规则引擎，并解析行动分类和结构）
-        3. 非 Move 叙事（轻量叙述者 Agent 直接处理）
+        2. 意图解析与类型判定（move / narrative / inquiry）
+        3. 信息询问（InquiryAgent 回答玩家提问）
+        4. 非 Move 叙事（轻量叙述者 Agent 直接处理）
 
         Move 流程中还包含结算模式判定和复合 action 拆分。
 
@@ -319,16 +323,27 @@ class GameLoop:
 
         ctx = self.state.make_context(raw)
 
-        # 第2层: 意图解析与 Move 判定
+        # 第2层: 意图解析与类型判定
         intent_note = self.intent_agent.execute(raw, ctx)
-        is_move = intent_note.structured.get("is_move", True)
 
-        if not is_move:
+        # intent_type 三值路由，兼容旧版 is_move 布尔值
+        intent_type = intent_note.structured.get("intent_type")
+        if intent_type is None:
+            # 向后兼容：is_move 布尔值映射为 intent_type
+            is_move = intent_note.structured.get("is_move", True)
+            intent_type = "move" if is_move else "narrative"
+
+        # 第3层: 信息询问（不推进叙事，不掷骰）
+        if intent_type == "inquiry":
+            return self._handle_inquiry(raw, ctx)
+
+        # 第4层: 非 Move 叙事
+        if intent_type == "narrative":
             return self._handle_non_move(raw, ctx, intent_note)
 
         self._log.debug("  [管道开始 · 掷骰模式]")
 
-        # 第3层: 复合 action 拆分与结算模式判定
+        # 第5层: 复合 action 拆分与结算模式判定
         is_split = intent_note.structured.get("is_split_action", False)
         split_actions = intent_note.structured.get("split_actions", [])
         action_type = intent_note.structured.get("action_type", "unknown")
@@ -348,6 +363,33 @@ class GameLoop:
         if resolution_mode == "quick":
             return self._process_move(intent_note, ctx, quick=True)
         return self._process_move(intent_note, ctx, quick=False)
+
+    def _handle_inquiry(self, player_input: str, ctx: AgentContext) -> tuple[str, bool]:
+        """处理信息询问（不推进叙事的提问和回忆）。
+
+        调用 InquiryAgent 在已有信息范围内回答玩家的问题。
+        不触发掷骰、效果推演或揭示机制。
+        回复追加到叙事历史，但不触发场景导演检查。
+
+        Args:
+            player_input: 玩家的提问文本
+            ctx: Agent 上下文
+
+        Returns:
+            (回复文本, False)：信息询问永远不触发场景导演
+        """
+        self._log.debug("  [信息模式]")
+
+        inquiry_note = self.inquiry_agent.execute(player_input, ctx)
+        self._log.info("─" * 50)
+
+        response = inquiry_note.structured.get("response", "")
+        self._log.info("")
+        self._log.info(response)
+        self.state.append_narrative(response)
+
+        self.display.print_status(self.state)
+        return response, False
 
     def _handle_non_move(self, player_input, ctx, intent_note):
         """处理非 Move 行动（纯叙事互动）。

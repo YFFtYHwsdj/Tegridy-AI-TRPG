@@ -141,6 +141,7 @@ class TestGameLoopProcessAction(unittest.TestCase):
 
         # Mock 各 Agent
         self.loop.intent_agent = MagicMock()
+        self.loop.inquiry_agent = MagicMock()
         self.loop.resolution_agent = MagicMock()
         self.loop.lite_narrator = MagicMock()
         self.loop.lite_narrator = MagicMock()
@@ -162,6 +163,21 @@ class TestGameLoopProcessAction(unittest.TestCase):
         """意图判定非 Move 时调用 LiteNarratorAgent。"""
         self.loop.intent_agent.execute.return_value = MagicMock(
             reasoning="低风险观察",
+            structured={"intent_type": "narrative", "rationale": "纯叙事"},
+        )
+        self.loop.lite_narrator.execute.return_value = MagicMock(
+            structured={"narrative": "你环顾四周...", "revelation_decisions": {}}
+        )
+
+        with patch("builtins.print"):
+            self.loop.process_action("看看周围")
+
+        self.loop.lite_narrator.execute.assert_called_once()
+
+    def test_non_move_backward_compat_is_move_false(self):
+        """旧版 is_move=False 向后兼容，路由到叙事模式。"""
+        self.loop.intent_agent.execute.return_value = MagicMock(
+            reasoning="低风险观察",
             structured={"is_move": False, "rationale": "纯叙事"},
         )
         self.loop.lite_narrator.execute.return_value = MagicMock(
@@ -172,6 +188,65 @@ class TestGameLoopProcessAction(unittest.TestCase):
             self.loop.process_action("看看周围")
 
         self.loop.lite_narrator.execute.assert_called_once()
+
+    def test_inquiry_calls_inquiry_agent(self):
+        """意图判定为 inquiry 时调用 InquiryAgent。"""
+        self.loop.intent_agent.execute.return_value = MagicMock(
+            reasoning="玩家在提问",
+            structured={
+                "intent_type": "inquiry",
+                "action_type": "inquiry",
+                "action_summary": "询问NPC名字",
+            },
+        )
+        self.loop.inquiry_agent.execute.return_value = MagicMock(
+            structured={"response": "他叫Miko。", "info_source": "history"}
+        )
+
+        with patch("builtins.print"):
+            result, needs_director = self.loop.process_action("那个NPC叫什么？")
+
+        self.loop.inquiry_agent.execute.assert_called_once()
+        self.assertEqual(result, "他叫Miko。")
+        self.assertFalse(needs_director)
+
+    def test_inquiry_appends_to_narrative_history(self):
+        """信息询问回复追加到叙事历史。"""
+        self.loop.intent_agent.execute.return_value = MagicMock(
+            reasoning="玩家在提问",
+            structured={
+                "intent_type": "inquiry",
+                "action_type": "inquiry",
+                "action_summary": "询问NPC名字",
+            },
+        )
+        self.loop.inquiry_agent.execute.return_value = MagicMock(
+            structured={"response": "他叫Miko。", "info_source": "history"}
+        )
+
+        with patch("builtins.print"):
+            self.loop.process_action("那个NPC叫什么？")
+
+        self.assertIn("他叫Miko。", self.loop.state.scene.narrative_history)
+
+    def test_inquiry_does_not_call_lite_narrator(self):
+        """信息询问不调用 LiteNarratorAgent。"""
+        self.loop.intent_agent.execute.return_value = MagicMock(
+            reasoning="玩家在提问",
+            structured={
+                "intent_type": "inquiry",
+                "action_type": "inquiry",
+                "action_summary": "询问NPC名字",
+            },
+        )
+        self.loop.inquiry_agent.execute.return_value = MagicMock(
+            structured={"response": "他叫Miko。", "info_source": "history"}
+        )
+
+        with patch("builtins.print"):
+            self.loop.process_action("那个NPC叫什么？")
+
+        self.loop.lite_narrator.execute.assert_not_called()
 
     def test_move_calls_intent_agent(self):
         """Move 调用 IntentAgent 解析意图。"""

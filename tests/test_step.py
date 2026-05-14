@@ -49,6 +49,7 @@ class TestGameLoopStep(unittest.TestCase):
 
         # Mock 各 Agent
         self.loop.intent_agent = MagicMock()
+        self.loop.inquiry_agent = MagicMock()
         self.loop.resolution_agent = MagicMock()
         self.loop.lite_narrator = MagicMock()
         self.loop.scene_director = MagicMock()
