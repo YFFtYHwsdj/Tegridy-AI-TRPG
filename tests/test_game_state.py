@@ -112,13 +112,15 @@ class TestGameState(unittest.TestCase):
 
     def test_make_context_has_player_input(self):
         scene = self._make_scene("酒吧场景")
+        self.state.global_state.worldview = "测试世界观"
         self.state.setup(self.character, scene)
         ctx = self.state.make_context("我要拔枪")
         self.assertIsInstance(ctx, AgentContext)
         self.assertEqual(ctx.player_input, "我要拔枪")
         self.assertIs(ctx.character, self.character)
         self.assertIsNotNone(ctx.assets_block)
-        self.assertEqual(ctx.global_block, "")
+        self.assertIn("=== 世界观设定 ===", ctx.global_block)
+        self.assertIn("=== 世界观设定 ===", ctx.context_block)
 
     def test_make_context_no_player_input(self):
         scene = self._make_scene("酒吧场景")

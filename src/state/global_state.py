@@ -43,8 +43,9 @@ class GlobalState:
     build_block() 中实现。
     """
 
-    def __init__(self):
+    def __init__(self, worldview: str = ""):
         self._blocks: list[SceneBlock] = []
+        self.worldview = worldview
 
     def append(
         self,
@@ -90,10 +91,16 @@ class GlobalState:
         Returns:
             格式化的跨场景上下文文本，供 Agent prompt 中嵌入使用
         """
-        if not self._blocks:
-            return ""
+        lines = []
+        if getattr(self, "worldview", ""):
+            lines.append("=== 世界观设定 ===")
+            lines.append(self.worldview)
+            lines.append("")
 
-        lines = ["=== 故事至今 ==="]
+        if not self._blocks:
+            return "\n".join(lines).strip()
+
+        lines.append("=== 故事至今 ===")
         n = len(self._blocks)
 
         # 更早的场景（场景1 到 场景N-2）：只输出压缩摘要

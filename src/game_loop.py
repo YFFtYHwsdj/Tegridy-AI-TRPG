@@ -218,8 +218,6 @@ class GameLoop:
         调用 RhythmAgent 建立场景氛围，输出场景建立叙事、
         场景状态概览和聚光灯传递。首个场景额外显示标题。
         """
-        scene = self.state.scene
-
         if self._first_scene:
             self._log.info("")
             self._log.info("═" * 50)
@@ -232,7 +230,8 @@ class GameLoop:
             self._log.info("       场景切换")
             self._log.info("═" * 50)
 
-        rhythm = self.rhythm_agent.execute(scene.scene_description)
+        ctx = self.state.make_context()
+        rhythm = self.rhythm_agent.execute(ctx)
         narrative = rhythm.structured.get("scene_establishment", "")
         self._log.info("")
         self._log.info(narrative)

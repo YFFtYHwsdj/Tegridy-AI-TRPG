@@ -92,4 +92,9 @@ class GameState:
         """
         ctx = self.scene.make_context(self.character, player_input)
         ctx.global_block = self.global_state.build_block()
+
+        if getattr(self.global_state, "worldview", ""):
+            worldview_text = f"=== 世界观设定 ===\n{self.global_state.worldview}\n\n"
+            ctx.context_block = worldview_text + ctx.context_block
+
         return ctx

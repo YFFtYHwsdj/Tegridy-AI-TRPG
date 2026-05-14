@@ -256,7 +256,7 @@ class TestGameLoopProcessAction(unittest.TestCase):
                 "action_type": "combat",
                 "action_summary": "拔枪",
                 "is_split_action": False,
-                "resolution_mode": "detailed"
+                "resolution_mode": "detailed",
             }
         )
         self.loop.pipeline.run_single_move_pipeline.return_value = PipelineResult(
@@ -281,7 +281,7 @@ class TestGameLoopProcessAction(unittest.TestCase):
                 "action_type": "combat",
                 "action_summary": "拔枪",
                 "is_split_action": False,
-                "resolution_mode": "quick"
+                "resolution_mode": "quick",
             }
         )
         self.loop.pipeline.run_quick_pipeline.return_value = PipelineResult(
@@ -344,7 +344,7 @@ class TestGameLoopProcessAction(unittest.TestCase):
                 "action_type": "combat",
                 "action_summary": "拔枪",
                 "is_split_action": False,
-                "resolution_mode": "detailed"
+                "resolution_mode": "detailed",
             }
         )
         self.loop.pipeline.run_single_move_pipeline.return_value = PipelineResult(

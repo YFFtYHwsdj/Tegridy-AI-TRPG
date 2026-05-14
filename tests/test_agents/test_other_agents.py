@@ -11,7 +11,6 @@ from src.agents.continuation_check import ContinuationCheckAgent
 from src.agents.rhythm import RhythmAgent
 from tests.helpers import (
     MockLLMClient,
-    make_agent_note,
     make_test_context,
 )
 
@@ -91,8 +90,10 @@ class TestRhythmAgentExecute(unittest.TestCase):
             ]
         )
         agent = RhythmAgent(mock_llm)
+        ctx = make_test_context()
+        ctx.context_block = "赛博朋克酒吧"
 
-        agent.execute("赛博朋克酒吧")
+        agent.execute(ctx)
 
         self.assertIn("赛博朋克酒吧", mock_llm.call_history[0]["user_message"])
 
@@ -108,8 +109,10 @@ class TestRhythmAgentExecute(unittest.TestCase):
             ]
         )
         agent = RhythmAgent(mock_llm)
+        ctx = make_test_context()
+        ctx.context_block = "赛博朋克酒吧"
 
-        result = agent.execute("赛博朋克酒吧")
+        result = agent.execute(ctx)
 
         self.assertEqual(result.structured["scene_establishment"], "霓虹灯...")
 

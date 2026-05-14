@@ -13,6 +13,10 @@ class TestGlobalState(unittest.TestCase):
         self.assertEqual(self.gs.scene_count, 0)
         self.assertEqual(self.gs.build_block(), "")
 
+    def test_worldview_injection(self):
+        self.gs.worldview = "测试世界观"
+        self.assertIn("=== 世界观设定 ===", self.gs.build_block())
+
     def test_append_and_scene_count(self):
         self.gs.append("abc123", "酒吧场景", "压缩摘要", ["叙事1", "叙事2"])
         self.assertEqual(self.gs.scene_count, 1)

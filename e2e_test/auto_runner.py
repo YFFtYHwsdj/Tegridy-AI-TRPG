@@ -64,7 +64,7 @@ class AutoRunner:
         self.player_history_window = player_history_window
         self.debug_mode = debug_mode
 
-    def run(self, character: Character, first_scene: SceneState) -> dict:
+    def run(self, character: Character, first_scene: SceneState, worldview: str = "") -> dict:
         """运行自动化测试。
 
         完整流程：
@@ -76,6 +76,7 @@ class AutoRunner:
         Args:
             character: 玩家角色
             first_scene: 初始场景
+            worldview: 游戏的世界观设定
 
         Returns:
             测试结果摘要字典，包含：
@@ -92,6 +93,7 @@ class AutoRunner:
 
         # ── 初始化 ──
         game = GameLoop(self.llm, debug_mode=self.debug_mode)
+        game.state.global_state.worldview = worldview
         player = PlayerAgent(self.llm, character, max_history=self.player_history_window)
         game.setup(character, first_scene)
 

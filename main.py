@@ -14,6 +14,7 @@ from src.llm_client import LLMClient
 from src.logger import get_logger, init_logging
 from src.preset_data import (
     DEMO_CHARACTER,
+    DEMO_WORLDVIEW,
     build_demo_scene,
 )
 
@@ -51,6 +52,7 @@ def main():
         sys.exit(1)
 
     game = GameLoop(llm, debug_mode=True)
+    game.state.global_state.worldview = DEMO_WORLDVIEW
     game.run(
         character=DEMO_CHARACTER,
         first_scene=build_demo_scene(),

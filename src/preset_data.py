@@ -8,6 +8,8 @@
 from src.models import NPC, Character, Clue, GameItem, PowerTag, StoryTag, WeaknessTag
 from src.state.scene_state import SceneState
 
+DEMO_WORLDVIEW = "这是一个赛博朋克世界。科技、黑客、枪战、街头谈判、超自然神话力量都可能是行动的一部分。风格：硬朗、有质感、氛围浓厚。挑战常常包含道德困境或艰难选择。"
+
 DEMO_SCENE_DESCRIPTION = """
 赛博朋克世界《异景》。下着酸雨的阴暗死胡同，旁边是散发着馊味的合成面条摊，霓虹招牌在雨中闪烁短路。
 
