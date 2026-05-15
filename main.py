@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from src.game_loop import GameLoop
 from src.llm_client import LLMClient
 from src.logger import get_logger, init_logging
-from src.preset_data import AVAILABLE_PRESETS
+from src.module_loader import ModuleLoader
 
 load_dotenv()
 
@@ -40,14 +40,19 @@ def main():
     _log.info("游戏日志: %s", session_file)
     _log.info("LLM调用日志: %s", llm_file)
 
+    loader = ModuleLoader()
+    presets = loader.list_available_modules()
+    if not presets:
+        print("错误: 未找到任何可用模组 (data/modules/)")
+        sys.exit(1)
+
     print("\n==================================================")
     print("  欢迎来到 Tegridy AI TRPG  ")
     print("==================================================")
     print("请选择要加载的演示模组：")
-    presets = list(AVAILABLE_PRESETS.values())
     for i, p in enumerate(presets):
-        print(f" {i + 1}. {p.name}")
-        print(f"    - {p.description}")
+        print(f" {i + 1}. {p['name']}")
+        print(f"    - {p['description']}")
 
     choice_str = input(f"\n请选择 [1-{len(presets)}] (默认: 1): ")
     choice_idx = 0
@@ -56,8 +61,10 @@ def main():
         if 0 <= idx < len(presets):
             choice_idx = idx
 
-    selected_preset = presets[choice_idx]
-    print(f"\n>> 已选择模组: {selected_preset.name} <<\n")
+    selected_preset_info = presets[choice_idx]
+    print(f"\n>> 已选择模组: {selected_preset_info['name']} <<\n")
+
+    selected_preset = loader.load_module(selected_preset_info["id"])
 
     _log.info("正在连接到 DeepSeek...")
     try:
@@ -68,10 +75,16 @@ def main():
 
     game = GameLoop(llm, debug_mode=True)
     game.state.global_state.worldview = selected_preset.worldview
-    first_scene = selected_preset.build_scene(game.state.global_state)
+    for place in selected_preset.global_state_init.places:
+        game.state.global_state.places[place.place_id] = place
+    for item in selected_preset.global_state_init.items:
+        game.state.global_state.items[item.item_id] = item
+    for npc in selected_preset.global_state_init.npcs:
+        game.state.global_state.npcs[npc.npc_id] = npc
+
     game.run(
         character=selected_preset.character,
-        first_scene=first_scene,
+        first_scene=selected_preset.initial_scene,
     )
 
 
