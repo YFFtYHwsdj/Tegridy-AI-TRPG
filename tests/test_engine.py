@@ -383,6 +383,64 @@ class TestStoryTagEngine(unittest.TestCase):
         _tag = add_story_tag(self.scene, "增援", "帮派成员到达")
         self.assertIn("增援", self.scene.story_tags)
 
+    def test_invalid_entity_type(self):
+        with self.assertRaises(TypeError):
+            add_story_tag("NotEntity", "标签", "")
+
+        from src.engine import remove_story_tag
+
+        with self.assertRaises(TypeError):
+            remove_story_tag("NotEntity", "标签")
+
+
+class TestEngineEdgeCases(unittest.TestCase):
+    def test_apply_status_invalid_entity(self):
+        with self.assertRaises(TypeError):
+            apply_status("NotEntity", "状态", 1)
+
+    def test_reduce_status_invalid_entity(self):
+        with self.assertRaises(TypeError):
+            reduce_status("NotEntity", "状态", 1)
+
+    def test_reduce_status_zero_or_negative(self):
+        character = CharacterState(name="Test")
+        apply_status(character, "状态", 1)
+        self.assertIsNone(reduce_status(character, "状态", 0))
+        self.assertIsNone(reduce_status(character, "状态", -1))
+
+    def test_reduce_status_empty_ticked_boxes(self):
+        character = CharacterState(name="Test")
+        status = apply_status(character, "状态", 1)
+        status.ticked_boxes.clear()  # artificially empty it
+        s = reduce_status(character, "状态", 1)
+        self.assertEqual(len(s.ticked_boxes), 0)
+
+    def test_nudge_status_invalid_entity(self):
+        with self.assertRaises(TypeError):
+            nudge_status("NotEntity", "状态")
+
+    def test_nudge_status_missing_target_box(self):
+        # Simulate ticking the box but the next one missing in loop (though the loop shouldn't miss if we artificially add boxes)
+        character = CharacterState(name="Test")
+        status = apply_status(character, "状态", 1)
+        status.ticked_boxes.add(2)
+        status.ticked_boxes.add(3)
+        status.current_tier = 1
+        s = nudge_status(character, "状态")
+        self.assertIn(4, s.ticked_boxes)
+        self.assertEqual(s.current_tier, 4)
+
+    def test_remove_story_tag(self):
+        from src.engine import remove_story_tag
+        scene = SceneState()
+        add_story_tag(scene, "标签", "")
+        removed = remove_story_tag(scene, "标签")
+        self.assertIsNotNone(removed)
+        self.assertNotIn("标签", scene.story_tags)
+        
+        # remove non-existent
+        self.assertIsNone(remove_story_tag(scene, "不存在"))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -489,6 +489,11 @@ class TestMovePipelineApplyEffects(unittest.TestCase):
         self.pipeline._apply_effects(effects, self.ctx)
         self.pipeline.character_manager.apply_status.assert_called_with("受伤", 2)
 
+    def test_apply_effects_nudge_status_character(self):
+        effects = [{"operation": "nudge_status", "target": "自身", "label": "疲劳"}]
+        self.pipeline._apply_effects(effects, self.ctx)
+        self.pipeline.character_manager.nudge_status.assert_called_with("疲劳")
+
     def test_apply_effects_nudge_status_npc(self):
         from src.models import NPC
 
@@ -721,3 +726,203 @@ class TestMovePipelineApplyEffects(unittest.TestCase):
         errors = self.pipeline._apply_effects(effects, self.ctx)
         self.assertEqual(len(errors), 1)
         self.assertIn("Test Exception", errors[0])
+
+    def test_adds_attention_on_weakness_tag(self):
+        """触发弱点标签时增加对应主题的 Attention。"""
+        from src.models import Theme, WeaknessTag
+
+        mock_llm = MockLLMClient()
+        state = make_test_game_state()
+
+        # 给角色添加带弱点的主题
+        theme = Theme(name="机械之心", theme_type="mythos", concept="", motivation="")
+        theme.weakness_tags.append(WeaknessTag(name="短路"))
+        assert state.character is not None
+        state.character.themes.append(theme)
+
+        pipeline = MovePipeline(mock_llm, state, MagicMock())
+        pipeline.tag_agent = MagicMock()
+        pipeline.tag_agent.execute.return_value = make_agent_note(
+            structured={
+                "matched_power_tags": [],
+                "matched_weakness_tags": [{"name": "短路"}],
+                "helping_statuses": [],
+                "hindering_statuses": [],
+            }
+        )
+
+        intent_note = make_agent_note(structured={"action_type": "combat"})
+        ctx = state.make_context("我要拔枪")
+        pipeline._run_tag_and_roll(intent_note, ctx)
+
+        self.assertEqual(theme.attention_track, 1)
+
+    def test_run_tag_and_roll_no_context(self):
+        """上下文或角色为空时抛出 ValueError。"""
+        mock_llm = MockLLMClient()
+        state = make_test_game_state()
+        pipeline = MovePipeline(mock_llm, state, MagicMock())
+        pipeline.tag_agent = MagicMock()
+
+        intent_note = make_agent_note(structured={"action_type": "combat"})
+        with self.assertRaises(ValueError):
+            pipeline._run_tag_and_roll(intent_note, None)
+
+
+class TestMovePipelineMisc(unittest.TestCase):
+    def setUp(self):
+        from src.pipeline.move_pipeline import MovePipeline
+        from tests.helpers import MockLLMClient
+
+        self.llm = MockLLMClient()
+        self.state = make_test_game_state()
+        self.pipeline = MovePipeline(self.llm, self.state, MagicMock())
+        self.pipeline.item_manager = MagicMock()
+        self.pipeline.story_tag_manager = MagicMock()
+        self.pipeline.character_manager = MagicMock()
+        self.pipeline.npc_manager = MagicMock()
+        self.ctx = self.state.make_context()
+
+    def test_summarize_last_sub_empty(self):
+        from src.pipeline.move_pipeline import _summarize_last_sub
+
+        self.assertEqual(_summarize_last_sub(None, [], []), "（上一步无有效掷骰）")
+
+        import src.models
+
+        roll = src.models.RollResult(power=1, dice=(1, 1), total=2, outcome="failure")
+        self.assertEqual(_summarize_last_sub(roll, [], []), "掷骰结果: failure")
+
+        self.assertIn("擦伤", _summarize_last_sub(roll, [{"label": "擦伤"}], []))
+        self.assertIn("保镖", _summarize_last_sub(roll, [], [{"threat_manifested": "保镖"}]))
+
+    def test_validate_and_apply_empty(self):
+        # 空结果不应崩溃
+        self.pipeline.validate_and_apply(None, self.ctx)
+        self.pipeline.item_manager.reveal_item.assert_not_called()
+
+    def test_validate_and_apply_invalid_types(self):
+        narrator_note = make_agent_note(
+            structured={
+                "revelation_decisions": {"reveal_clue_ids": ["c1"], "reveal_item_ids": ["i1"]},
+                "item_transfers": ["invalid_str", {"item_id": "i2"}],
+                "location_text_updates": ["invalid_str", {"item_id": "i3", "new_location": "bag"}],
+                "story_tag_updates": {
+                    "add": ["invalid_str", {"name": "着火", "description": "火"}],
+                    "remove": [123, "冰冻"],
+                },
+            }
+        )
+        self.pipeline.validate_and_apply(narrator_note, self.ctx)
+        self.pipeline.item_manager.reveal_item.assert_called_with("i1")
+        self.pipeline.item_manager.transfer_item.assert_called_with({"item_id": "i2"}, self.ctx)
+        self.pipeline.item_manager.update_item_location_text.assert_called_with("i3", "bag")
+        self.pipeline.story_tag_manager.add_scene_tag.assert_called_with("着火", "火")
+        self.pipeline.story_tag_manager.remove_scene_tag.assert_called_with("冰冻")
+
+    def test_process_auto_mitigation_empty(self):
+        self.pipeline._process_auto_mitigation(None, self.ctx)
+        self.pipeline._process_auto_mitigation(make_agent_note(structured={}), self.ctx)
+
+    def test_process_split_actions_invalid_sub(self):
+        import src.models
+
+        intent_note = make_agent_note(structured={})
+        self.pipeline._run_resolution_only = MagicMock()
+        self.pipeline._run_resolution_only.return_value = PipelineResult(
+            tag_note=make_agent_note(structured={"action_summary": "invalid_str"}),
+            roll=src.models.RollResult(power=1, dice=(1, 1), total=2, outcome="failure"),
+            outcome_note=None,
+            narrator_note=None,
+        )
+        results = self.pipeline.process_split_actions(intent_note, [None, "invalid_str"])
+        self.assertEqual(len(results), 1)
+
+    def test_apply_results_empty(self):
+        self.assertEqual(self.pipeline.apply_results(None, self.ctx), [])
+
+    def test_apply_effects_empty_target(self):
+        effects = [{"operation": "inflict_status", "target": "", "label": "受伤", "tier": 2}]
+        self.assertEqual(self.pipeline._apply_effects(effects, self.ctx), [])
+
+    def test_apply_effects_missing_npc(self):
+        self.state.scene.active_npc_ids.append("missing_npc")
+        effects = [
+            {"operation": "inflict_status", "target": "Missing NPC", "label": "受伤", "tier": 2}
+        ]
+        self.assertEqual(self.pipeline._apply_effects(effects, self.ctx), [])
+
+    def test_apply_effects_add_story_tag_character(self):
+        effects = [
+            {
+                "operation": "add_story_tag",
+                "target": "自身",
+                "story_tag_name": "起火",
+                "story_tag_description": "大火",
+                "is_single_use": False,
+            }
+        ]
+        self.pipeline._apply_effects(effects, self.ctx)
+        self.pipeline.character_manager.add_personal_tag.assert_called_with("起火", "大火", False)
+
+    def test_process_auto_mitigation_filter_out(self):
+        import src.models
+
+        with patch("src.pipeline.move_pipeline.roll_dice") as mock_roll:
+            mock_roll.return_value = src.models.RollResult(
+                power=2, dice=(6, 6), total=14, outcome="full_success"
+            )
+            outcome_note = make_agent_note(
+                structured={
+                    "consequences": [
+                        {
+                            "mitigation_tags": ["防御", "闪避"],
+                            "effects": [
+                                {
+                                    "operation": "inflict_status",
+                                    "target": "自身",
+                                    "label": "擦伤",
+                                    "tier": 1,
+                                },
+                                {
+                                    "operation": "scratch_story_tag",
+                                    "target": "自身",
+                                    "story_tag_to_scratch": "起火",
+                                },
+                            ],
+                        }
+                    ]
+                }
+            )
+            self.pipeline._process_auto_mitigation(outcome_note, self.ctx)
+            effs = outcome_note.structured["consequences"][0]["effects"]
+            self.assertEqual(len(effs), 0)
+
+    def test_process_auto_mitigation_partial_survive(self):
+        import src.models
+
+        with patch("src.pipeline.move_pipeline.roll_dice") as mock_roll:
+            mock_roll.return_value = src.models.RollResult(
+                power=1, dice=(1, 1), total=2, outcome="partial_success"
+            )
+            outcome_note = make_agent_note(
+                structured={
+                    "consequences": [
+                        {
+                            "mitigation_tags": ["防御"],
+                            "effects": [
+                                {
+                                    "operation": "inflict_status",
+                                    "target": "自身",
+                                    "label": "重伤",
+                                    "tier": 3,
+                                }
+                            ],
+                        }
+                    ]
+                }
+            )
+            self.pipeline._process_auto_mitigation(outcome_note, self.ctx)
+            effs = outcome_note.structured["consequences"][0]["effects"]
+            self.assertEqual(len(effs), 1)
+            self.assertEqual(effs[0]["tier"], 2)

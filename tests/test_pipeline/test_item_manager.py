@@ -228,3 +228,24 @@ class TestItemManagerRemainingBranches(unittest.TestCase):
 
         self.manager.update_item_location_text("n_item", "手上")
         self.assertEqual(item.location, "手上")
+
+    def test_update_item_location_not_found(self):
+        # Should do nothing and hit `return None` in `_find_visible_item`
+        self.manager.update_item_location_text("nonexistent", "手里")
+
+    def test_create_emergent_item_with_dict_tags(self):
+        from src.context import AgentContext
+
+        self.llm.responses.append(
+            (
+                '{"item_id": "item_dict_tags", "tags": [{"name": "强力", "description": "很强"}], "weakness": {"name": "脆弱", "description": "很脆"}}',
+                {},
+            )
+        )
+        ctx = AgentContext()
+        item = self.manager.create_emergent_item("item_dict_tags", ctx)
+        self.assertIsNotNone(item)
+        self.assertEqual(item.tags[0].name, "强力")
+        self.assertEqual(item.tags[0].description, "很强")
+        self.assertEqual(item.weakness_tags[0].name, "脆弱")
+        self.assertEqual(item.weakness_tags[0].description, "很脆")

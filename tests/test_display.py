@@ -186,8 +186,14 @@ class TestConsoleDisplayStatus(unittest.TestCase):
 
         scene = MagicMock()
         scene.npcs = {npc.name: npc}
+        scene.active_npc_ids = ["test_npc_id"]
         scene.scene_items_visible = {}
+        
+        global_state = MagicMock()
+        global_state.npcs = {"test_npc_id": npc}
+        
         state.scene = scene
+        state.global_state = global_state
         return state
 
     def test_outputs_character_statuses(self):
@@ -210,6 +216,91 @@ class TestConsoleDisplayStatus(unittest.TestCase):
 
         output = _collect_debug_output(mock_debug)
         self.assertIn("掩体", output)
+
+    def test_print_status_no_character(self):
+        with patch.object(self.logger, "debug") as mock_debug:
+            state = self._make_state()
+            state.character = None
+            self.display.print_status(state)
+        output = _collect_debug_output(mock_debug)
+        self.assertEqual(output, "")
+
+    def test_print_status_with_items(self):
+        from src.models import GameItem
+
+        with patch.object(self.logger, "debug") as mock_debug:
+            state = self._make_state(items={"item1": GameItem(item_id="1", name="物品1")})
+            self.display.print_status(state)
+        output = _collect_debug_output(mock_debug)
+        self.assertIn("物品1", output)
+
+    def test_print_status_no_story_tags(self):
+        with patch.object(self.logger, "debug") as mock_debug:
+            state = self._make_state()
+            state.scene.story_tags = {}
+            state.character.story_tags = {}
+            self.display.print_status(state)
+        output = _collect_debug_output(mock_debug)
+        self.assertIn("故事标签: （无）", output)
+
+    def test_print_status_npc_with_status(self):
+        with patch.object(self.logger, "debug") as mock_debug:
+            state = self._make_state(
+                challenge_statuses={"受伤": Status(name="受伤", current_tier=2, ticked_boxes={2})}
+            )
+            self.display.print_status(state)
+        output = _collect_debug_output(mock_debug)
+        self.assertIn("受伤", output)
+
+
+class TestConsoleDisplayExtra(unittest.TestCase):
+    def setUp(self):
+        self.logger = logging.getLogger("aitrpg.game")
+        self.display = ConsoleDisplay(self.logger)
+
+    def test_print_tag_and_roll_with_status(self):
+        with patch.object(self.logger, "debug") as mock_debug:
+            tag_note = AgentNote(
+                reasoning="",
+                structured={
+                    "matched_power_tags": [],
+                    "matched_weakness_tags": [],
+                    "helping_statuses": [{"name": "专注"}],
+                    "hindering_statuses": [{"name": "流血"}],
+                },
+            )
+            self.display.print_tag_and_roll(
+                tag_note, RollResult(power=1, dice=(1, 1), total=3, outcome="failure")
+            )
+        output = _collect_debug_output(mock_debug)
+        self.assertIn("专注", output)
+        self.assertIn("流血", output)
+
+    def test_print_outcome_quick_no_effects(self):
+        with patch.object(self.logger, "debug") as mock_debug:
+            outcome_note = AgentNote(reasoning="", structured={"effects": [], "consequences": []})
+            self.display.print_outcome(outcome_note, quick=True)
+        output = _collect_debug_output(mock_debug)
+        self.assertIn("快速结算不花费力量", output)
+
+    def test_print_outcome_no_effects(self):
+        with patch.object(self.logger, "debug") as mock_debug:
+            outcome_note = AgentNote(reasoning="", structured={"effects": [], "consequences": []})
+            self.display.print_outcome(outcome_note, quick=False)
+        output = _collect_debug_output(mock_debug)
+        self.assertIn("效果: 无", output)
+
+    def test_split_action_messages(self):
+        with patch.object(self.logger, "debug") as mock_debug:
+            self.display.print_split_action_header(3)
+            self.display.print_split_sub_header(1, 3, "冲锋")
+            self.display.print_split_blocked("冲锋", "被绊倒")
+            self.display.print_incapacitated_break()
+        output = _collect_debug_output(mock_debug)
+        self.assertIn("拆分为 %d 个子行动", output)
+        self.assertIn("子行动 %d/%d: %s", output)
+        self.assertIn("无法继续: %s", output)
+        self.assertIn("角色已丧失行动能力，剩余子行动中断", output)
 
 
 if __name__ == "__main__":

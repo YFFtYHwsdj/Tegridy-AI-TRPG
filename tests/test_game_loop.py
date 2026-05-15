@@ -498,6 +498,221 @@ class TestGameLoopSpecialModes(unittest.TestCase):
         self.assertEqual(self.loop.state.character.themes[0].name, "新生主题")
         self.assertEqual(self.loop.state.character.themes[0].power_tags[0].name, "新生力量")
 
+    def test_run_special_mode_step_recursive_trigger(self):
+        """当处理完一个机制后紧接着触发另一个机制，追加提示文本。"""
+        theme = self.loop.state.character.themes[0]
+        self.loop.game_mode = "crisis"
+        self.loop.active_theme_name = theme.name
+
+        self.loop.crisis_agent.execute.return_value = MagicMock(
+            structured={
+                "status": "finalized",
+                "response_to_player": "新特质觉醒。",
+                "new_theme": {
+                    "name": "新生主题",
+                    "theme_type": "概念",
+                    "concept": "",
+                    "motivation": "",
+                    "power_tags": [],
+                    "weakness_tags": [],
+                },
+            }
+        )
+
+        from src.models import Theme
+
+        self.loop.state.character.themes.append(
+            Theme(name="第二个主题", theme_type="mythos", concept="", motivation="")
+        )
+        self.loop.state.character.themes[1].attention_track = 3
+
+        self.loop.evolution_agent.execute.return_value = MagicMock(
+            structured={"status": "negotiating", "response_to_player": "紧接着的突破。"}
+        )
+
+        with patch("builtins.print"):
+            response = self.loop._run_special_mode_step("好")
+
+        self.assertIn("紧接着的突破。", response)
+
+
+class TestGameLoopRunSceneLoop(unittest.TestCase):
+    """测试 _run_scene_loop 及其相关功能。"""
+
+    def setUp(self):
+        self.mock_llm = MockLLMClient()
+        self.loop = GameLoop(self.mock_llm)
+        character = make_test_character()
+        scene = make_test_scene()
+        self.loop.setup(character, scene)
+        self.loop.scene_director = MagicMock()
+        self.loop._transition_scene = MagicMock()
+        self.loop.process_action = MagicMock()
+
+    @patch("builtins.input")
+    def test_run_scene_loop_quits_on_eof(self, mock_input):
+        mock_input.side_effect = EOFError()
+        with patch("builtins.print"):
+            self.assertTrue(self.loop._run_scene_loop())
+
+    @patch("builtins.input")
+    def test_run_scene_loop_quits_on_quit_command(self, mock_input):
+        mock_input.return_value = "/quit"
+        self.loop.process_action.return_value = ("QUIT", False)
+        with patch("builtins.print"):
+            self.assertTrue(self.loop._run_scene_loop())
+
+    @patch("builtins.input")
+    def test_run_scene_loop_transitions(self, mock_input):
+        mock_input.side_effect = ["行动1"]
+        self.loop.process_action.return_value = ("叙事", True)
+        self.loop.scene_director.execute.return_value = MagicMock(
+            structured={"scene_should_end": True, "reason": "场景结束", "transition_hint": "提示"}
+        )
+        with patch("builtins.print"):
+            self.assertFalse(self.loop._run_scene_loop())
+
+        self.loop._transition_scene.assert_called_once()
+        self.assertEqual(self.loop._transition_hint, "提示")
+
+    def test_open_scene_special_modes_trigger(self):
+        """_open_scene 遇到特殊机制触发时附加提示。"""
+        self.loop.state.character.themes[0].crack_track = 3
+        self.loop.crisis_agent = MagicMock()
+        self.loop.crisis_agent.execute.return_value = MagicMock(
+            structured={"status": "negotiating", "response_to_player": "危机降临。"}
+        )
+        self.loop.rhythm_agent = MagicMock()
+        self.loop.rhythm_agent.execute.return_value = MagicMock(
+            structured={"scene_establishment": "开场", "spotlight_handoff": "你要做什么？"}
+        )
+
+        with patch("builtins.print"):
+            self.loop._open_scene()
+
+        self.assertEqual(self.loop.game_mode, "crisis")
+
+
+class TestGameLoopMissingBranches(unittest.TestCase):
+    def setUp(self):
+        self.mock_llm = MockLLMClient()
+        self.loop = GameLoop(self.mock_llm)
+        character = make_test_character()
+        scene = make_test_scene()
+        self.loop.setup(character, scene)
+
+    def test_step_all_branches(self):
+        self.loop.process_action = MagicMock()
+        self.loop.scene_director = MagicMock()
+        self.loop._transition_scene = MagicMock()
+
+        # quit
+        self.loop.process_action.return_value = ("QUIT", False)
+        self.assertTrue(self.loop.step("/quit").is_quit)
+
+        # empty
+        self.loop.process_action.return_value = ("", False)
+        self.assertTrue(self.loop.step("").is_empty)
+
+        # director needs end
+        self.loop.process_action.return_value = ("narr", True)
+        self.loop.scene_director.execute.return_value = MagicMock(
+            structured={"scene_should_end": True, "reason": "R"}
+        )
+        res = self.loop.step("act")
+        self.assertTrue(res.scene_changed)
+
+        # director no end
+        self.loop.scene_director.execute.return_value = MagicMock(
+            structured={"scene_should_end": False}
+        )
+        res = self.loop.step("act")
+        self.assertFalse(res.scene_changed)
+
+        # no director
+        self.loop.process_action.return_value = ("narr", False)
+        self.assertEqual(self.loop.step("act").narrative, "narr")
+
+    def test_run(self):
+        self.loop.setup = MagicMock()
+        self.loop._run_scene_loop = MagicMock(return_value=True)
+        with patch("builtins.print"):
+            self.loop.run(MagicMock(), MagicMock())
+        self.loop.setup.assert_called_once()
+
+    def test_transition_scene(self):
+        self.loop.scene_transition_pipeline = MagicMock()
+        self.loop._open_scene = MagicMock()
+        self.loop._transition_scene()
+        self.loop.scene_transition_pipeline.execute.assert_called_once()
+        self.loop._open_scene.assert_called_once()
+
+    def test_process_action_append_next_prompt(self):
+        self.loop.intent_agent = MagicMock()
+        self.loop.intent_agent.execute.return_value = MagicMock(
+            structured={"is_move": True, "intent_type": "move", "action_type": "combat"}
+        )
+        self.loop.pipeline = MagicMock()
+        self.loop.pipeline.run_single_move_pipeline.return_value = PipelineResult(
+            tag_note=MagicMock(), roll=MagicMock(), outcome_note=MagicMock(), 
+            narrator_note=MagicMock(structured={"narrative": "narr"})
+        )
+        self.loop._check_special_modes_trigger = MagicMock(return_value="next")
+        with patch("builtins.print"):
+            res, _ = self.loop.process_action("act")
+        self.assertEqual(res, "narr\n\nnext")
+
+    def test_special_mode_step_unsupported(self):
+        self.loop.game_mode = "unknown"
+        with patch("builtins.print"):
+            self.assertEqual(self.loop._run_special_mode_step(""), "")
+
+    def test_special_mode_evolution_theme_not_found(self):
+        self.loop.game_mode = "evolution"
+        self.loop.active_theme_name = "not found"
+        self.loop.evolution_agent = MagicMock()
+        self.loop.evolution_agent.execute.return_value = MagicMock(
+            structured={"status": "finalized", "response_to_player": "r"}
+        )
+        with patch("builtins.print"):
+            self.loop._run_special_mode_step("a")
+
+    def test_special_mode_crisis_theme_not_found(self):
+        self.loop.game_mode = "crisis"
+        self.loop.active_theme_name = "not found"
+        self.loop.crisis_agent = MagicMock()
+        self.loop.crisis_agent.execute.return_value = MagicMock(
+            structured={"status": "finalized", "response_to_player": "r"}
+        )
+        with patch("builtins.print"):
+            self.loop._run_special_mode_step("a")
+
+    def test_special_mode_evolution_remove_weakness(self):
+        from src.models import WeaknessTag
+
+        theme = self.loop.state.character.themes[0]
+        theme.weakness_tags.append(WeaknessTag(name="W1"))
+        self.loop.game_mode = "evolution"
+        self.loop.active_theme_name = theme.name
+        self.loop.evolution_agent = MagicMock()
+        self.loop.evolution_agent.execute.return_value = MagicMock(
+            structured={
+                "status": "finalized",
+                "response_to_player": "r",
+                "theme_update": {
+                    "remove_weakness_tag": "W1",
+                },
+            }
+        )
+        with patch("builtins.print"):
+            self.loop._run_special_mode_step("a")
+        self.assertNotIn("W1", [w.name for w in theme.weakness_tags])
+
+    def test_run_scene_loop_empty(self):
+        self.loop.process_action = MagicMock(side_effect=[("", False), ("QUIT", False)])
+        with patch("builtins.input", side_effect=["", "act", "/quit"]):
+            self.assertTrue(self.loop._run_scene_loop())
+
 
 if __name__ == "__main__":
     unittest.main()

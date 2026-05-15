@@ -100,6 +100,36 @@ class TestWorldUpdatePipeline(unittest.TestCase):
             "曾经的朋友，现在的敌人",
         )
 
+    def test_apply_world_updates_edge_cases(self):
+        from src.models import Place
+
+        self.state.global_state.places["place_id"] = Place(name="地点1")
+
+        self.analyzer.execute.return_value = AgentNote(
+            reasoning="推演",
+            structured={
+                "entity_updates": [
+                    {"entity_id": "", "entity_type": "npc", "revised_notes": "爱丽丝受伤了"},
+                    {"entity_id": "alice_id", "entity_type": "npc", "revised_notes": ""},
+                ],
+                "proposed_relationships": [
+                    {"source_id": "", "target_id": "bob_id", "description": "无效"},
+                    {"source_id": "alice_id", "target_id": "bob_id", "description": ""},
+                    {"source_id": "place_id", "target_id": "bob_id", "description": "关联地点"},
+                ],
+            },
+        )
+
+        apply_world_updates(self.analyzer, self.merger, self.state.scene, self.state.global_state)
+
+        # alice_id note should not be updated
+        self.assertEqual(self.state.global_state.npcs["alice_id"].notes, "")
+
+        # place_id connections should have the new edge
+        self.assertEqual(
+            self.state.global_state.places["place_id"].connections.get("bob_id"), "关联地点"
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
