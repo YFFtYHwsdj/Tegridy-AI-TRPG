@@ -25,7 +25,7 @@ if PROJECT_ROOT not in sys.path:
 from e2e_test.auto_runner import AutoRunner  # noqa: E402
 from src.llm_client import LLMClient  # noqa: E402
 from src.logger import get_logger, init_logging  # noqa: E402
-from src.preset_data import DEMO_CHARACTER, DEMO_WORLDVIEW, build_demo_scene  # noqa: E402
+from src.preset_data import AVAILABLE_PRESETS  # noqa: E402
 from src.state.global_state import GlobalState  # noqa: E402
 
 
@@ -44,6 +44,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=100,
         help="最大回合数，即玩家输入次数 (默认: 100)",
+    )
+    parser.add_argument(
+        "--preset",
+        type=str,
+        default="alley",
+        help=f"选择预设模组 (可选: {', '.join(AVAILABLE_PRESETS.keys())}) (默认: alley)",
     )
     parser.add_argument(
         "--max-scenes",
@@ -106,12 +112,23 @@ def main():
         debug_mode=debug_mode,
     )
 
+    if args.preset not in AVAILABLE_PRESETS:
+        log.error(
+            "错误: 未知的预设模组 '%s'。可用模组: %s",
+            args.preset,
+            ", ".join(AVAILABLE_PRESETS.keys()),
+        )
+        sys.exit(1)
+
+    selected_preset = AVAILABLE_PRESETS[args.preset]
+    log.info("加载预设模组: %s", selected_preset.name)
+
     global_state = GlobalState()
     summary = runner.run(
-        character=DEMO_CHARACTER,
-        first_scene=build_demo_scene(global_state),
+        character=selected_preset.character,
+        first_scene=selected_preset.build_scene(global_state),
         global_state=global_state,
-        worldview=DEMO_WORLDVIEW,
+        worldview=selected_preset.worldview,
     )
 
     # 保存摘要到 logs/ 目录

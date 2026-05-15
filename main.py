@@ -12,11 +12,7 @@ from dotenv import load_dotenv
 from src.game_loop import GameLoop
 from src.llm_client import LLMClient
 from src.logger import get_logger, init_logging
-from src.preset_data import (
-    DEMO_CHARACTER,
-    DEMO_WORLDVIEW,
-    build_demo_scene,
-)
+from src.preset_data import AVAILABLE_PRESETS
 
 load_dotenv()
 
@@ -44,6 +40,25 @@ def main():
     _log.info("游戏日志: %s", session_file)
     _log.info("LLM调用日志: %s", llm_file)
 
+    print("\n==================================================")
+    print("  欢迎来到 Tegridy AI TRPG  ")
+    print("==================================================")
+    print("请选择要加载的演示模组：")
+    presets = list(AVAILABLE_PRESETS.values())
+    for i, p in enumerate(presets):
+        print(f" {i + 1}. {p.name}")
+        print(f"    - {p.description}")
+
+    choice_str = input(f"\n请选择 [1-{len(presets)}] (默认: 1): ")
+    choice_idx = 0
+    if choice_str.strip().isdigit():
+        idx = int(choice_str.strip()) - 1
+        if 0 <= idx < len(presets):
+            choice_idx = idx
+
+    selected_preset = presets[choice_idx]
+    print(f"\n>> 已选择模组: {selected_preset.name} <<\n")
+
     _log.info("正在连接到 DeepSeek...")
     try:
         llm = LLMClient(api_key=api_key, base_url=base_url, model=model, thinking=False)
@@ -52,10 +67,10 @@ def main():
         sys.exit(1)
 
     game = GameLoop(llm, debug_mode=True)
-    game.state.global_state.worldview = DEMO_WORLDVIEW
-    first_scene = build_demo_scene(game.state.global_state)
+    game.state.global_state.worldview = selected_preset.worldview
+    first_scene = selected_preset.build_scene(game.state.global_state)
     game.run(
-        character=DEMO_CHARACTER,
+        character=selected_preset.character,
         first_scene=first_scene,
     )
 
