@@ -51,9 +51,13 @@ class TestGameLoopCoverage(unittest.TestCase):
                 roll=MagicMock(),
             ),
         ]
+        self.loop.pipeline.apply_results = MagicMock(return_value=[])
+        self.loop.display.print_incapacitated_break = MagicMock()
         self.state.character.is_incapacitated = MagicMock(return_value=True)
         self.loop._process_split_moves(MagicMock(), [{"fragment": "a"}, {"fragment": "b"}])
-        self.state.character.is_incapacitated.assert_called()
+        self.state.character.is_incapacitated.assert_called_once()
+        self.loop.display.print_incapacitated_break.assert_called_once()
+        self.loop.pipeline.apply_results.assert_called_once()
 
     def test_process_split_moves_special_trigger(self):
         self.loop.pipeline.process_split_actions = MagicMock()

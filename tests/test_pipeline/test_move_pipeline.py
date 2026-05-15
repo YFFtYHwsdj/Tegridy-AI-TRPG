@@ -712,13 +712,13 @@ class TestMovePipelineApplyEffects(unittest.TestCase):
         effects = [{"operation": "discover", "target": "自身", "detail": "找到了线索"}]
         with patch("src.pipeline.move_pipeline.log_system") as mock_log:
             self.pipeline._apply_effects(effects, self.ctx)
-            mock_log.assert_called()
+            mock_log.assert_called_with("discover: 找到了线索", level="debug")
 
     def test_apply_effects_extra_feat(self):
         effects = [{"operation": "extra_feat", "target": "自身", "description": "进行了一次跳跃"}]
         with patch("src.pipeline.move_pipeline.log_system") as mock_log:
             self.pipeline._apply_effects(effects, self.ctx)
-            mock_log.assert_called()
+            mock_log.assert_called_with("extra_feat: 进行了一次跳跃", level="debug")
 
     def test_apply_effects_exception(self):
         effects = [{"operation": "inflict_status", "target": "自身", "label": "受伤", "tier": 2}]
