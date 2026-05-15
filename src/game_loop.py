@@ -32,10 +32,8 @@ from src.agents import (
     IntentAgent,
     LiteNarratorAgent,
     RhythmAgent,
-    SceneCreatorAgent,
     SceneDirectorAgent,
 )
-from src.agents.scene_creator import build_scene_from_creator
 from src.context import AgentContext
 from src.display.console import ConsoleDisplay
 from src.llm_client import LLMClient
@@ -98,7 +96,19 @@ class GameLoop:
         # 场景切换层 Agent
         self.scene_director = SceneDirectorAgent(llm)
         self.compressor = CompressorAgent(llm)
-        self.scene_creator = SceneCreatorAgent(llm)
+
+        from src.agents.item_generator import ItemGeneratorAgent
+        from src.agents.npc_generator import NPCGeneratorAgent
+        from src.agents.place_generator import PlaceGeneratorAgent
+        from src.agents.scene_router import SceneRouterAgent
+        from src.agents.world_updater import EdgeMergeAgent, WorldAnalyzerAgent
+
+        self.world_analyzer = WorldAnalyzerAgent(llm)
+        self.edge_merge = EdgeMergeAgent(llm)
+        self.scene_router = SceneRouterAgent(llm)
+        self.place_gen = PlaceGeneratorAgent(llm)
+        self.npc_gen = NPCGeneratorAgent(llm)
+        self.item_gen = ItemGeneratorAgent(llm)
 
         # 机制结算层 Agent
         from src.agents import CrackEvaluatorAgent, CrisisAgent, EvolutionAgent
@@ -264,21 +274,31 @@ class GameLoop:
         self._log.info(spotlight)
 
     def _transition_scene(self):
-        """执行场景过渡流水线。
+        """执行场景过渡流水线（多 Agent 图演化版）。
 
-        1. CompressorAgent 压缩当前场景 → scene.compression
-        2. SceneCreatorAgent 创作下一个场景 → 新 SceneState
-        3. GameState.transition_to() 切换状态（归档到 GlobalState）
-        4. _open_scene() 为新场景生成开场叙事
+        1. CompressorAgent 压缩当前场景。
+        2. WorldAnalyzer & EdgeMerge 更新全局图状态。
+        3. 裂痕评估。
+        4. SceneRouterAgent 决定去向。
+        5. Generator Agents 创世补全缺失资产。
+        6. GameState.transition_to() 切换状态。
+        7. _open_scene() 开场新场景。
         """
         old_scene = self.state.scene
 
         # 1. 压缩当前场景
-        compressor_note = self.compressor.execute(old_scene)
+        compressor_note = self.compressor.execute(old_scene, self.state.global_state)
         compression = compressor_note.structured.get("scene_summary", "")
         old_scene.compression = compression
 
-        # 1.5 裂痕评估 (仅在有角色时)
+        # 2. 世界推演与图边融合
+        from src.pipeline.world_update_pipeline import apply_world_updates
+
+        apply_world_updates(
+            self.world_analyzer, self.edge_merge, old_scene, self.state.global_state
+        )
+
+        # 3. 裂痕评估 (仅在有角色时)
         if self.state.character:
             ctx = self.state.make_context()
             crack_note = self.crack_evaluator.execute(compression, ctx)
@@ -292,25 +312,45 @@ class GameLoop:
                         f"场景裂痕结算: 主题 [{t_name}] Crack +1 (原因: {reason})", level="warning"
                     )
 
-        # 2. 构建场景创作者的上下文块
-        # 包含刚刚结束的场景信息 + 跨场景历史
-        just_finished = (
-            "=== 刚刚结束的场景（需基于此创作下一场景） ===\n"
-            f"场景描述: {old_scene.scene_description}\n"
-            f"场景压缩摘要: {compression}\n"
-        )
-        existing = self.state.global_state.build_block()
-        creator_block = f"{just_finished}\n{existing}" if existing else just_finished
+        # 4. 路由：决定下个场景位置与演员
+        router_note = self.scene_router.execute(self._transition_hint, self.state.global_state)
+        r_data = router_note.structured
 
-        # 3. 创作下一个场景
-        creator_note = self.scene_creator.execute(
-            creator_block,
-            self.state.character,
-            self._transition_hint,
-        )
-        new_scene = build_scene_from_creator(creator_note.structured)
+        # 5. 生成缺失资产
+        loc_data = r_data.get("target_place", {})
+        place_id = loc_data.get("id")
+        if loc_data.get("is_new") and place_id:
+            loc = self.place_gen.execute(loc_data.get("generation_prompt", ""), place_id)
+            self.state.global_state.places[place_id] = loc
 
-        # 4. 切换状态（归档到 GlobalState）
+        active_npcs = []
+        for npc_req in r_data.get("target_npcs", []):
+            nid = npc_req.get("id")
+            if not nid:
+                continue
+            if npc_req.get("is_new"):
+                npc = self.npc_gen.execute(npc_req.get("generation_prompt", ""), nid)
+                self.state.global_state.npcs[nid] = npc
+            active_npcs.append(nid)
+
+        active_items = []
+        for item_req in r_data.get("target_items", []):
+            iid = item_req.get("id")
+            if not iid:
+                continue
+            if item_req.get("is_new"):
+                it = self.item_gen.execute(item_req.get("generation_prompt", ""), iid)
+                self.state.global_state.items[iid] = it
+            active_items.append(iid)
+
+        # 6. 构建并切换 SceneState
+        new_scene = SceneState(
+            place_id=place_id,
+            situation=r_data.get("situation_prompt", "无特定状况"),
+            active_npc_ids=active_npcs,
+            active_item_ids=active_items,
+        )
+
         self.state.transition_to(new_scene)
 
         # 5. 开场新场景
@@ -569,8 +609,11 @@ class GameLoop:
         character = self.state.character
         if character:
             log_status_update(character.name, character.statuses)
-        for npc in self.state.scene.npcs.values():
-            log_status_update(npc.name, npc.statuses)
+        if hasattr(self.state.scene, "active_npc_ids"):
+            for npc_id in self.state.scene.active_npc_ids:
+                npc = self.state.global_state.npcs.get(npc_id)
+                if npc:
+                    log_status_update(npc.name, npc.statuses)
 
     def _check_special_modes_trigger(self) -> str:
         """检查是否有触发演化或危机的主题，并切换状态。"""

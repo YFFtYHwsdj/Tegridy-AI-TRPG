@@ -23,23 +23,15 @@ class EvolutionAgent(BaseAgent):
             f"玩家回复: {player_input}" if player_input else "玩家触发了主题突破，请提供选项。"
         )
 
-        rendered_prompt = self.system_prompt.format(
-            global_block=ctx.global_block,
+        base_context = ctx.format_standard_blocks(include_global=True)
+        user_msg = f"{base_context}\n\n对话上下文:\n{ctx.narrative_block}\n\n{user_msg}"
+
+        original_prompt = self.system_prompt
+        self.system_prompt = original_prompt.format(
             active_theme_name=active_theme_name,
         )
 
-        messages = [
-            {"role": "system", "content": rendered_prompt},
-        ]
-
-        # 将本次 session 之前的相关对话记录喂给大模型
-        # 由于是多轮对话，ctx.narrative_block 可以包含这几轮的聊天历史
-        messages.append(
-            {"role": "user", "content": f"对话上下文:\n{ctx.narrative_block}\n\n{user_msg}"}
-        )
-
-        # 为了保证它按照 JSON 格式输出
-        structured_data = self._invoke_llm(messages, expected_format="json")
-
-        reasoning = structured_data.get("reasoning", "")
-        return AgentNote(reasoning=reasoning, structured=structured_data)
+        try:
+            return self._call_llm(user_msg)
+        finally:
+            self.system_prompt = original_prompt

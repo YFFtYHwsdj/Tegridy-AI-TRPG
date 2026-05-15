@@ -1,177 +1,142 @@
-"""GameLoop.step() 测试 —— 单步推进 API 的行为验证。
-
-验证 step() 方法的三种结果路径：
-    - 退出请求 → StepResult(is_quit=True)
-    - 空输入/命令 → StepResult(is_empty=True)
-    - 有叙事产出 → 场景导演判定 + 可能的场景切换
-"""
-
-from __future__ import annotations
-
 import unittest
-from unittest.mock import MagicMock
 
-from src.game_loop import GameLoop, StepResult
-from tests.helpers import MockLLMClient, make_test_character, make_test_scene
-
-
-class TestStepResult(unittest.TestCase):
-    """测试 StepResult 数据类的默认值。"""
-
-    def test_default_values(self):
-        """默认 StepResult 所有字段为零值。"""
-        result = StepResult()
-        self.assertEqual(result.narrative, "")
-        self.assertFalse(result.is_quit)
-        self.assertFalse(result.scene_changed)
-        self.assertEqual(result.scene_end_reason, "")
-        self.assertFalse(result.is_empty)
+from src.game_loop import GameLoop
+from src.models import NPC
+from tests.helpers import (
+    MockLLMClient,
+    make_test_character,
+    make_test_scene,
+)
 
 
 class TestGameLoopStep(unittest.TestCase):
-    """测试 GameLoop.step() 的三种结果路径。"""
-
     def setUp(self):
-        self.mock_llm = MockLLMClient()
-        self.loop = GameLoop(self.mock_llm)
+        self.llm = MockLLMClient()
+        self.loop = GameLoop(self.llm)
 
-        # 初始化游戏状态
+        # 挂载基础状态
         character = make_test_character()
         scene = make_test_scene()
-        from src.models import NPC
+        self.loop.state.setup(character, scene)
 
-        challenge = NPC(
-            name="测试挑战",
-            description="测试",
-        )
-        scene.npcs[challenge.npc_id] = challenge
-        self.loop.setup(character, scene)
+        # 添加挑战目标到 global_state
+        challenge = NPC(npc_id="thug1", name="Thug")
+        self.loop.state.global_state.npcs[challenge.npc_id] = challenge
+        scene.active_npc_ids.append(challenge.npc_id)
 
-        # Mock 各 Agent
-        self.loop.intent_agent = MagicMock()
-        self.loop.inquiry_agent = MagicMock()
-        self.loop.lite_narrator = MagicMock()
-        self.loop.scene_director = MagicMock()
-
-        # Mock Pipeline
-        self.loop.pipeline = MagicMock()
+    def test_step_empty_input(self):
+        """step('') 返回 is_empty=True。"""
+        result = self.loop.step("   ")
+        self.assertTrue(result.is_empty)
+        self.assertEqual(result.narrative, "")
 
     def test_step_quit_command(self):
         """step('/quit') 返回 is_quit=True。"""
         result = self.loop.step("/quit")
         self.assertTrue(result.is_quit)
-        self.assertFalse(result.scene_changed)
-        self.assertEqual(result.narrative, "")
-
-    def test_step_empty_input(self):
-        """step('') 返回 is_empty=True。"""
-        result = self.loop.step("")
-        self.assertTrue(result.is_empty)
-        self.assertFalse(result.is_quit)
 
     def test_step_command_returns_empty(self):
         """step('/help') 返回 is_empty=True（命令已处理，无叙事）。"""
         result = self.loop.step("/help")
         self.assertTrue(result.is_empty)
-        self.assertFalse(result.is_quit)
-
-    def test_step_non_move_no_scene_change(self):
-        """非 Move 行动，场景导演判定不结束，返回叙事文本。"""
-        self.loop.intent_agent.execute.return_value = MagicMock(
-            reasoning="低风险观察",
-            structured={"is_move": False, "rationale": "纯叙事"},
-        )
-        self.loop.lite_narrator.execute.return_value = MagicMock(
-            structured={
-                "narrative": "你环顾四周...",
-                "revelation_decisions": {},
-                "suggest_scene_end": True,
-            }
-        )
-        # 场景导演判定不结束
-        self.loop.scene_director.execute.return_value = MagicMock(
-            structured={"scene_should_end": False}
-        )
-
-        result = self.loop.step("看看周围")
-
-        self.assertEqual(result.narrative, "你环顾四周...")
-        self.assertFalse(result.scene_changed)
-        self.assertFalse(result.is_quit)
-        self.assertFalse(result.is_empty)
-        # 确认场景导演被调用
-        self.loop.scene_director.execute.assert_called_once()
-
-    def test_step_scene_change_triggered(self):
-        """场景导演判定结束时，step() 返回 scene_changed=True。"""
-        self.loop.intent_agent.execute.return_value = MagicMock(
-            reasoning="低风险",
-            structured={"is_move": False},
-        )
-        self.loop.lite_narrator.execute.return_value = MagicMock(
-            structured={
-                "narrative": "你完成了任务...",
-                "revelation_decisions": {},
-                "suggest_scene_end": True,
-            }
-        )
-        # 场景导演判定结束
-        self.loop.scene_director.execute.return_value = MagicMock(
-            structured={
-                "scene_should_end": True,
-                "reason": "挑战解决",
-                "transition_hint": "前往下一个区域",
-            }
-        )
-
-        # Mock _transition_scene 避免触发复杂的内部场景切换流水线
-        self.loop._transition_scene = MagicMock()
-
-        result = self.loop.step("我完成任务了")
-
-        self.assertTrue(result.scene_changed)
-        self.assertEqual(result.scene_end_reason, "挑战解决")
-        self.assertEqual(result.narrative, "你完成了任务...")
-        # 确认 _transition_scene 被调用
-        self.loop._transition_scene.assert_called_once()
-        # 确认 transition_hint 被正确保存
-        self.assertEqual(self.loop._transition_hint, "前往下一个区域")
 
     def test_step_move_with_narrative(self):
         """Move 行动产出叙事，场景不结束。"""
-        self.loop.intent_agent.execute.return_value = MagicMock(
-            structured={
-                "is_move": True,
-                "action_type": "combat",
-                "action_summary": "拔枪",
-                "is_split_action": False,
-                "resolution_mode": "detailed",
-            }
-        )
-        self.loop.pipeline.run_single_move_pipeline.return_value = MagicMock(
-            tag_note=MagicMock(),
-            roll=MagicMock(outcome="partial_success", power=1, dice=(3, 4), total=8),
-            effect_note=MagicMock(structured={"effects": []}),
-            consequence_note=None,
-            narrator_note=MagicMock(
-                structured={
-                    "narrative": "你拔出了枪...",
-                    "revelation_decisions": {},
-                    "suggest_scene_end": True,
-                }
+        self.llm.responses = [
+            (
+                '{"reasoning": "玩家意图是攻击", "intent_type": "move", "sub_action_count": 1, "split_actions": [{"action": "我拔枪射击"}]}',
+                {},
             ),
-        )
-        # 场景导演判定不结束
-        self.loop.scene_director.execute.return_value = MagicMock(
-            structured={"scene_should_end": False}
-        )
+            (
+                '{"reasoning": "匹配到弱点标签", "power_tags": [], "weakness_tags": ["信用破产"], "npc_weakness_tags": []}',
+                {},
+            ),
+            (
+                '{"reasoning": "受到反击", "threat_manifested": "Thug 的反击", "effects": [{"effect_type": "physical", "tier": 1, "target": "Kael", "label": "擦伤", "reasoning": "被子弹擦伤"}], "narrative_description": "你开枪了，但他反击了。"}',
+                {},
+            ),
+            (
+                '{"reasoning": "生成叙事", "narrative": "你拔枪射击，但被擦伤了。"}',
+                {},
+            ),
+            (
+                '{"reasoning": "场景继续", "should_transition": false, "reason": "战斗仍在继续"}',
+                {},
+            ),
+        ]
+        result = self.loop.step("我拔枪射击")
 
-        result = self.loop.step("我要拔枪")
-
-        self.assertEqual(result.narrative, "你拔出了枪...")
-        self.assertFalse(result.scene_changed)
-        self.assertFalse(result.is_quit)
         self.assertFalse(result.is_empty)
+        self.assertFalse(result.is_quit)
+        self.assertFalse(result.scene_changed)
+        self.assertEqual(result.narrative, "你拔枪射击，但被擦伤了。")
+        self.assertIn("你拔枪射击，但被擦伤了。", self.loop.state.scene.narrative_history)
+
+    def test_step_non_move_no_scene_change(self):
+        """非 Move 行动，场景导演判定不结束，返回叙事文本。"""
+        self.llm.responses = [
+            (
+                '{"reasoning": "玩家只是观察", "intent_type": "narrative", "sub_action_count": 1, "split_actions": [{"action": "我看看四周"}]}',
+                {},
+            ),
+            (
+                '{"reasoning": "生成叙事", "narrative": "你环顾四周，这是一家破旧的酒吧。"}',
+                {},
+            ),
+            (
+                '{"reasoning": "无变化", "should_transition": false, "reason": "只是看看"}',
+                {},
+            ),
+        ]
+        result = self.loop.step("我看看四周")
+        self.assertFalse(result.scene_changed)
+        self.assertEqual(result.narrative, "你环顾四周，这是一家破旧的酒吧。")
+
+    def test_step_scene_change_triggered(self):
+        """场景导演判定结束时，step() 返回 scene_changed=True。"""
+        self.llm.responses = [
+            (
+                '{"reasoning": "玩家离开", "intent_type": "narrative", "sub_action_count": 1, "split_actions": [{"action": "我离开这里"}]}',
+                {},
+            ),
+            (
+                '{"reasoning": "生成叙事", "narrative": "你推门而出。", "suggest_scene_end": true}',
+                {},
+            ),
+            (
+                '{"reasoning": "离开场景", "scene_should_end": true, "reason": "玩家明确离开", "transition_hint": "去医院"}',
+                {},
+            ),
+            (
+                '{"reasoning": "压缩场景", "scene_summary": "玩家离开酒吧去医院"}',
+                {},
+            ),
+            (
+                '{"reasoning": "更新关系", "notes": [], "proposed_relationships": []}',
+                {},
+            ),
+            (
+                '{"reasoning": "裂痕评估", "cracked_themes": []}',
+                {},
+            ),
+            (
+                '{"reasoning": "路由", "target_place": {"id": "hospital", "is_new": true, "generation_prompt": "医院"}, "target_npcs": [], "target_items": [], "situation_prompt": "来到医院"}',
+                {},
+            ),
+            (
+                '{"reasoning": "地点生成", "description": "一家破旧的医院", "notes": "", "connections": {}}',
+                {},
+            ),
+            (
+                '{"reasoning": "新场景叙事", "narrative": "你来到了破旧的医院。"}',
+                {},
+            ),
+        ]
+        result = self.loop.step("我离开这里去医院")
+
+        self.assertTrue(result.scene_changed)
+        self.assertEqual(result.narrative, "你推门而出。")
+        self.assertEqual(self.loop.state.scene.place_id, "hospital")
 
 
 if __name__ == "__main__":

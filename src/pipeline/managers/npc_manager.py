@@ -26,7 +26,9 @@ class NPCManager:
         Returns:
             返回找到的 NPC 对象，如果未找到则返回 None
         """
-        return self.state.scene.npcs.get(npc_id)
+        if npc_id in self.state.scene.active_npc_ids:
+            return self.state.global_state.npcs.get(npc_id)
+        return None
 
     def apply_status(self, npc_id: str, label: str, tier: int):
         """为特定 NPC 施加状态。

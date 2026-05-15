@@ -51,11 +51,9 @@ class OutcomeAgent(BaseAgent):
 
         action_type, action_summary, split_info = resolve_sub_action_info(intent_note, sub_action)
 
-        user_msg = f"""{ctx.assets_block}
-{ctx.context_block}
+        base_context = ctx.format_standard_blocks(include_global=True)
 
-叙事历史:
-{ctx.narrative_block}
+        user_msg = f"""{base_context}
 
 角色能力标签:
 {power_tags_str}
@@ -126,11 +124,9 @@ class QuickOutcomeAgent(BaseAgent):
         roll_info = f"power={roll_result.power}, dice={roll_result.dice}, total={roll_result.total}, outcome={roll_result.outcome}"
 
         # 快速模式下只需要简单信息
-        user_msg = f"""{ctx.assets_block}
-{ctx.context_block}
+        base_context = ctx.format_standard_blocks(include_global=True)
 
-叙事历史:
-{ctx.narrative_block}
+        user_msg = f"""{base_context}
 
 ---
 行动摘要: {intent_note.structured.get("action_summary", "")}

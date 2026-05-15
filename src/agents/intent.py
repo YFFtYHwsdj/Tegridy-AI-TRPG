@@ -26,11 +26,9 @@ class IntentAgent(BaseAgent):
         Returns:
             AgentNote: 包含推理过程和解析结果的分析便签
         """
-        user_msg = f"""{ctx.assets_block}
-{ctx.context_block}
+        base_context = ctx.format_standard_blocks(include_global=True)
 
-叙事历史:
-{ctx.narrative_block}
+        user_msg = f"""{base_context}
 
 ---
 玩家输入: {player_input}

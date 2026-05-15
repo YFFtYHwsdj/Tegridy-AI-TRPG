@@ -24,20 +24,15 @@ class CrisisAgent(BaseAgent):
             else "系统提示：玩家的该主题已经满足彻底毁灭的条件。请开启危机流程。"
         )
 
-        rendered_prompt = self.system_prompt.format(
-            global_block=ctx.global_block,
+        base_context = ctx.format_standard_blocks(include_global=True)
+        user_msg = f"{base_context}\n\n对话上下文:\n{ctx.narrative_block}\n\n{user_msg}"
+
+        original_prompt = self.system_prompt
+        self.system_prompt = original_prompt.format(
             active_theme_name=active_theme_name,
         )
 
-        messages = [
-            {"role": "system", "content": rendered_prompt},
-        ]
-
-        messages.append(
-            {"role": "user", "content": f"对话上下文:\n{ctx.narrative_block}\n\n{user_msg}"}
-        )
-
-        structured_data = self._invoke_llm(messages, expected_format="json")
-
-        reasoning = structured_data.get("reasoning", "")
-        return AgentNote(reasoning=reasoning, structured=structured_data)
+        try:
+            return self._call_llm(user_msg)
+        finally:
+            self.system_prompt = original_prompt

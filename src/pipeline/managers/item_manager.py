@@ -29,13 +29,18 @@ class ItemManager:
             bool: 是否成功找到并揭示
         """
         scene = self.state.scene
-        if item_id in scene.scene_items_hidden:
-            item = scene.scene_items_hidden.pop(item_id)
-            scene.scene_items_visible[item_id] = item
+        global_state = self.state.global_state
+
+        if item_id in scene.active_item_ids:
             return True
 
-        for npc in scene.npcs.values():
-            if item_id in npc.items_hidden:
+        if item_id in global_state.items:
+            scene.active_item_ids.append(item_id)
+            return True
+
+        for npc_id in scene.active_npc_ids:
+            npc = global_state.npcs.get(npc_id)
+            if npc and item_id in npc.items_hidden:
                 item = npc.items_hidden.pop(item_id)
                 npc.items_visible[item_id] = item
                 return True
@@ -84,12 +89,14 @@ class ItemManager:
     def _find_visible_item(self, item_id: str):
         """在可见字典中查找物品。"""
         scene = self.state.scene
-        if item_id in scene.scene_items_visible:
-            return scene.scene_items_visible[item_id]
+        global_state = self.state.global_state
+        if item_id in scene.active_item_ids:
+            return global_state.items.get(item_id)
         if self.state.character and item_id in self.state.character.items_visible:
             return self.state.character.items_visible[item_id]
-        for npc in scene.npcs.values():
-            if item_id in npc.items_visible:
+        for npc_id in scene.active_npc_ids:
+            npc = global_state.npcs.get(npc_id)
+            if npc and item_id in npc.items_visible:
                 return npc.items_visible[item_id]
         return None
 
@@ -153,10 +160,11 @@ class ItemManager:
 
     def _pop_item(self, item_id: str, location: str):
         scene = self.state.scene
+        global_state = self.state.global_state
         if location == "scene":
-            for d in (scene.scene_items_visible, scene.scene_items_hidden):
-                if item_id in d:
-                    return d.pop(item_id)
+            if item_id in scene.active_item_ids:
+                scene.active_item_ids.remove(item_id)
+                return global_state.items.get(item_id)
         elif location == "character":
             char = self.state.character
             if char:
@@ -165,22 +173,27 @@ class ItemManager:
                         return d.pop(item_id)
         elif location.startswith("npc."):
             npc_id = location[4:]
-            npc = scene.npcs.get(npc_id)
-            if npc:
-                for d in (npc.items_visible, npc.items_hidden):
-                    if item_id in d:
-                        return d.pop(item_id)
+            if npc_id in scene.active_npc_ids:
+                npc = global_state.npcs.get(npc_id)
+                if npc:
+                    for d in (npc.items_visible, npc.items_hidden):
+                        if item_id in d:
+                            return d.pop(item_id)
         return None
 
     def _insert_item(self, item_id: str, item, location: str):
         scene = self.state.scene
+        global_state = self.state.global_state
         if location == "scene":
-            scene.scene_items_visible[item_id] = item
+            if item_id not in scene.active_item_ids:
+                scene.active_item_ids.append(item_id)
+            global_state.items[item_id] = item
         elif location == "character":
             if self.state.character:
                 self.state.character.items_visible[item_id] = item
         elif location.startswith("npc."):
             npc_id = location[4:]
-            npc = scene.npcs.get(npc_id)
-            if npc:
-                npc.items_visible[item_id] = item
+            if npc_id in scene.active_npc_ids:
+                npc = global_state.npcs.get(npc_id)
+                if npc:
+                    npc.items_visible[item_id] = item

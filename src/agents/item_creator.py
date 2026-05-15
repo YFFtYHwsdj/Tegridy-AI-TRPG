@@ -11,11 +11,9 @@ class ItemCreatorAgent(BaseAgent):
     agent_name = "物品创建Agent"
 
     def execute(self, item_name: str, ctx: AgentContext) -> AgentNote:
-        user_msg = f"""{ctx.assets_block}
-{ctx.context_block}
+        base_context = ctx.format_standard_blocks(include_global=True)
 
-叙事历史:
-{ctx.narrative_block}
+        user_msg = f"""{base_context}
 
 ---
 叙事文本中出现了以下物品，但它不在场景预设中：

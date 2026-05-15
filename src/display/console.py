@@ -131,9 +131,12 @@ class ConsoleDisplay:
 
         self._log.debug("")
         self._log.debug("  [场景NPC]")
-        for npc in state.scene.npcs.values():
-            self._log.debug("  - %s:", npc.name)
-            self._log.debug("    状态: %s", format_statuses(npc.statuses))
+        if hasattr(state.scene, "active_npc_ids"):
+            for npc_id in state.scene.active_npc_ids:
+                npc = state.global_state.npcs.get(npc_id)
+                if npc:
+                    self._log.debug("  - %s:", npc.name)
+                    self._log.debug("    状态: %s", format_statuses(npc.statuses))
 
     def print_split_action_header(self, count: int):
         """打印复合 action 拆分提示。

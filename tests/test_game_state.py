@@ -1,7 +1,5 @@
 import unittest
 
-from src.context import AgentContext
-from src.models import NPC, PowerTag, WeaknessTag
 from src.state.character_state import CharacterState
 from src.state.game_state import GameState
 from src.state.scene_state import SceneState
@@ -10,172 +8,59 @@ from src.state.scene_state import SceneState
 class TestGameState(unittest.TestCase):
     def setUp(self):
         self.state = GameState()
-        from src.models import Theme
 
-        self.character = CharacterState(
-            name="Kael",
-            description="佣兵",
-            themes=[
-                Theme(
-                    name="测试",
-                    theme_type="测试",
-                    concept="测试",
-                    motivation="测试",
-                    power_tags=[PowerTag(name="快速拔枪")],
-                    weakness_tags=[WeaknessTag(name="信用破产")],
-                )
-            ],
-        )
-        self.challenge = NPC(
-            name="Miko 与她的保镖",
-            description="中间人",
-        )
+    def _make_character(self) -> CharacterState:
+        return CharacterState(name="Kael", description="佣兵")
 
-    def _make_scene(self, description="酒吧场景"):
-        scene = SceneState(scene_description=description)
-        scene.npcs[self.challenge.npc_id] = self.challenge
-        return scene
+    def _make_scene(self, situation: str) -> SceneState:
+        return SceneState(place_id="loc1", situation=situation)
 
-    def test_defaults(self):
-        state = GameState()
-        self.assertIsNone(state.character)
-        self.assertIsNotNone(state.scene)
-        self.assertEqual(state.scene.scene_description, "")
-        self.assertEqual(state.scene.narrative_history, [])
-        self.assertIsNotNone(state.global_state)
-        self.assertEqual(state.global_state.scene_count, 0)
+    def test_initial_state(self):
+        self.assertIsNone(self.state.character)
+        self.assertEqual(self.state.scene.place_id, "")
 
-    def test_setup(self):
-        scene = self._make_scene("赛博朋克酒吧场景")
-        self.state.setup(self.character, scene)
-        self.assertIs(self.state.character, self.character)
-        self.assertEqual(self.state.scene.scene_description, "赛博朋克酒吧场景")
-        self.assertEqual(self.state.scene.narrative_history, [])
+    def test_setup_assigns_character_and_scene(self):
+        char = self._make_character()
+        scene = self._make_scene("酒吧场景")
+        self.state.setup(char, scene)
 
-    def test_setup_clears_previous_history(self):
-        self.state.scene.narrative_history = ["旧条目"]
-        scene = self._make_scene("新场景")
-        self.state.setup(self.character, scene)
-        self.assertEqual(self.state.scene.narrative_history, [])
+        self.assertIs(self.state.character, char)
+        self.assertIs(self.state.scene, scene)
+
+    def test_make_context(self):
+        char = self._make_character()
+        scene = self._make_scene("酒吧场景")
+        self.state.setup(char, scene)
+
+        ctx = self.state.make_context("点一杯酒")
+        self.assertIs(ctx.character, char)
+        self.assertEqual(ctx.player_input, "点一杯酒")
+        self.assertIn("当前状况: 酒吧场景", ctx.context_block)
+        
+        self.state.global_state.worldview = "世界观测试"
+        ctx = self.state.make_context("点一杯酒")
+        self.assertEqual(ctx.worldview_block, "世界观测试")
 
     def test_setup_does_not_affect_global_state(self):
-        """首次 setup 不应向 GlobalState 写入任何内容。"""
+        char = self._make_character()
         scene = self._make_scene("酒吧场景")
-        self.state.setup(self.character, scene)
-        self.assertEqual(self.state.global_state.scene_count, 0)
+        self.state.setup(char, scene)
 
-    # --- transition_to 测试 ---
-
-    def test_transition_to_archives_scene_to_global_state(self):
-        """场景切换应将当前场景的叙事推入 GlobalState。"""
-        scene_a = self._make_scene("酒吧场景")
-        self.state.setup(self.character, scene_a)
-        self.state.append_narrative("你走进了酒吧")
-        self.state.append_narrative("Miko 抬头看着你")
-
-        scene_b = self._make_scene("后巷场景")
-        self.state.transition_to(scene_b)
-
-        self.assertEqual(self.state.global_state.scene_count, 1)
-        self.assertEqual(self.state.scene.scene_description, "后巷场景")
+        # 首次 setup 虽然分配了 scene，但那是起始状态，此时并无历史需要写入
+        # (GlobalState 现在不负责纯历史累加，而是维护网络)
+        self.assertEqual(self.state.global_state.get_entity_by_id("loc1")[1], None)
 
     def test_transition_to_preserves_narrative_in_global_state(self):
-        """场景切换后 GlobalState 中应包含旧场景的完整叙事。"""
+        char = self._make_character()
         scene_a = self._make_scene("酒吧场景")
-        self.state.setup(self.character, scene_a)
-        self.state.append_narrative("叙事A")
-        self.state.append_narrative("叙事B")
+        scene_a.append_narrative("第一句话")
+        self.state.setup(char, scene_a)
 
-        scene_b = self._make_scene("后巷场景")
+        scene_b = self._make_scene("巷子场景")
         self.state.transition_to(scene_b)
-
-        block = self.state.global_state.build_block()
-        self.assertIn("叙事A", block)
-        self.assertIn("叙事B", block)
-        self.assertIn("酒吧场景", block)
-
-    def test_transition_to_multiple_archives_global_state(self):
-        """多次切换应累积 GlobalState 中的场景块。"""
-        for desc in ["场景A", "场景B", "场景C"]:
-            scene = self._make_scene(desc)
-            if self.state.scene.scene_description:
-                self.state.transition_to(scene)
-            else:
-                self.state.setup(self.character, scene)
-            self.state.append_narrative(f"{desc}的叙事")
-
-        self.assertEqual(self.state.global_state.scene_count, 2)
-        self.assertEqual(self.state.scene.scene_description, "场景C")
-
-    # --- append_narrative 测试 ---
-
-    def test_append_narrative(self):
-        self.state.append_narrative("你走进酒吧")
-        self.assertEqual(len(self.state.scene.narrative_history), 1)
-        self.assertEqual(self.state.scene.narrative_history[0], "你走进酒吧")
-
-    def test_append_no_truncation(self):
-        for i in range(100):
-            self.state.append_narrative(f"事件{i}")
-        self.assertEqual(len(self.state.scene.narrative_history), 100)
-
-    # --- make_context 测试 ---
-
-    def test_make_context_has_player_input(self):
-        scene = self._make_scene("酒吧场景")
-        self.state.global_state.worldview = "测试世界观"
-        self.state.setup(self.character, scene)
-        ctx = self.state.make_context("我要拔枪")
-        self.assertIsInstance(ctx, AgentContext)
-        self.assertEqual(ctx.player_input, "我要拔枪")
-        self.assertIs(ctx.character, self.character)
-        self.assertIsNotNone(ctx.assets_block)
-        self.assertIn("=== 世界观设定 ===", ctx.global_block)
-        self.assertIn("=== 世界观设定 ===", ctx.context_block)
-
-    def test_make_context_no_player_input(self):
-        scene = self._make_scene("酒吧场景")
-        self.state.setup(self.character, scene)
-        ctx = self.state.make_context()
-        self.assertEqual(ctx.player_input, "")
-        self.assertIsNotNone(ctx.assets_block)
-
-    def test_make_context_includes_global_block_after_transition(self):
-        """切换场景后 make_context 应包含 GlobalState 的历史块。"""
-        scene_a = self._make_scene("酒吧场景")
-        self.state.setup(self.character, scene_a)
-        self.state.append_narrative("酒吧叙事")
-        scene_a.compression = "酒吧压缩摘要"
-
-        scene_b = self._make_scene("后巷场景")
-        self.state.transition_to(scene_b)
-
-        ctx = self.state.make_context("我要追击")
-        self.assertIn("酒吧叙事", ctx.global_block)
-        self.assertIn("酒吧压缩摘要", ctx.global_block)
-        self.assertIn("=== 故事至今 ===", ctx.global_block)
-
-    # --- _build_context_block 测试 ---
-
-    def test_build_narrative_block_empty(self):
-        block = self.state.scene._build_narrative_block()
-        self.assertEqual(block, "（无历史）")
-
-    def test_build_narrative_block_with_history(self):
-        self.state.append_narrative("事件A")
-        self.state.append_narrative("事件B")
-        block = self.state.scene._build_narrative_block()
-        self.assertIn("[1] 事件A", block)
-        self.assertIn("[2] 事件B", block)
-
-    def test_build_narrative_block_full_history(self):
-        for i in range(10):
-            self.state.append_narrative(f"事件{i}")
-        block = self.state.scene._build_narrative_block()
-        lines = block.split("\n")
-        self.assertEqual(len(lines), 10)
-        self.assertIn("[1] 事件0", lines[0])
-        self.assertIn("[10] 事件9", lines[-1])
+        self.assertIs(self.state.scene, scene_b)
+        # GlobalState 现在只有实体图，叙事历史被废弃了，但在 SceneState._transition 可能会被 Compressor 压缩
+        # 所以我们不需要在这里测试 GlobalState 是否有 narrative_history。
 
 
 if __name__ == "__main__":

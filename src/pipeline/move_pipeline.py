@@ -120,7 +120,16 @@ class MovePipeline:
             raise ValueError("MovePipeline._run_tag_and_roll 需要有效的上下文和角色信息")
         char = ctx.character
         scene = ctx.extra.get("scene_state")
-        npcs = scene.npcs if scene else None
+        global_state = ctx.extra.get("global_state")
+        npcs = (
+            {
+                nid: global_state.npcs[nid]
+                for nid in scene.active_npc_ids
+                if nid in global_state.npcs
+            }
+            if (scene and global_state)
+            else None
+        )
         resolved_power, resolved_weakness = resolve_matched_tags(
             char, npcs, power_tag_names, weakness_tag_names
         )
@@ -401,7 +410,10 @@ class MovePipeline:
             elif name_lower in ("场景", "环境", "scene", "environment"):
                 target_type = "scene"
             else:
-                for npc_id, npc in self.state.scene.npcs.items():
+                for npc_id in self.state.scene.active_npc_ids:
+                    npc = self.state.global_state.npcs.get(npc_id)
+                    if not npc:
+                        continue
                     if (
                         name_lower == npc.name.lower()
                         or name_lower in npc.name.lower()

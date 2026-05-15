@@ -13,6 +13,7 @@ from __future__ import annotations
 from src.agents.base import BaseAgent
 from src.agents.prompts import COMPRESSOR_PROMPT
 from src.models import AgentNote
+from src.state.global_state import GlobalState
 from src.state.scene_state import SceneState
 
 
@@ -26,11 +27,12 @@ class CompressorAgent(BaseAgent):
     system_prompt = COMPRESSOR_PROMPT
     agent_name = "场景压缩Agent"
 
-    def execute(self, scene: SceneState) -> AgentNote:
+    def execute(self, scene: SceneState, global_state: GlobalState) -> AgentNote:
         """压缩当前场景的叙事历史。
 
         Args:
             scene: 需要压缩的 SceneState 对象
+            global_state: 全局状态对象
 
         Returns:
             AgentNote，structured 包含：
@@ -41,11 +43,12 @@ class CompressorAgent(BaseAgent):
         """
         narrative_text = scene._build_narrative_block()
 
-        # 简洁的场景资产概览——不需要完整 assets block，只需要名称列表
-        npc_names = [npc.name for npc in scene.npcs.values()]
+        npc_names = [
+            global_state.npcs[nid].name for nid in scene.active_npc_ids if nid in global_state.npcs
+        ]
 
-        user_msg = f"""场景描述:
-{scene.scene_description}
+        user_msg = f"""场景状况:
+{scene.situation}
 
 场景中的NPC: {", ".join(npc_names) if npc_names else "（无）"}
 

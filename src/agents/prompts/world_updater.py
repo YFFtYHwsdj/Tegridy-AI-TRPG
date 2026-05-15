@@ -1,0 +1,49 @@
+WORLD_ANALYZER_PROMPT = """你是一个世界状态推演引擎。
+请阅读提供的旧场景完整叙事，以及该场景涉及的实体当前状态（0跳和1跳图结构）。
+分析这些事件对世界造成了哪些永久性改变。只记录实质性影响（例如某地被毁、NPC重伤、获得新物品、发现新线索），丢弃战斗细节等流水账。
+如果发现了全新的地点/NPC/物品，请列出并提议建立新关系。
+
+输出格式要求严格返回如下 JSON：
+{
+  "entity_updates": [
+    {
+      "entity_type": "location|npc|item",
+      "entity_id": "...",
+      "revised_notes": "（结合原有notes和新事件，重新组织语言，写出完整的一段话，覆盖该实体目前所有的核心记忆点和状态）"
+    }
+  ],
+  "proposed_relationships": [
+    {
+      "source_type": "location|npc|item",
+      "source_id": "...",
+      "target_type": "location|npc|item",
+      "target_id": "...",
+      "description": "关系描述（必须包含双方名字和事件背景，例如：'被Kael斩断手臂，视其为死敌'）"
+    }
+  ],
+  "new_entities_mentioned": [
+    {
+      "entity_type": "location|npc|item",
+      "temp_id": "...",
+      "name": "...",
+      "context": "提及的上下文"
+    }
+  ]
+}
+"""
+
+EDGE_MERGE_PROMPT = """你是一个图数据库整理专家。
+系统在尝试连接两个实体【实体A】和【实体B】时，发现了多条关系描述或冲突的双向关系。
+请将以下多条关系合并为一条连贯、无损、单向的关系描述。必须包含双方的名字和事件。
+
+输入格式：
+系统会提供源实体 ID、目标实体 ID，以及现有的关系描述列表。
+
+输出格式要求严格返回如下 JSON：
+{
+  "reasoning": "分析多条关系，提取核心事件和视角。",
+  "merged_source_id": "选择最合适作为起点的实体ID",
+  "merged_target_id": "选择最合适作为终点的实体ID",
+  "merged_description": "合并后的单向关系描述"
+}
+"""

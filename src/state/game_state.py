@@ -58,9 +58,9 @@ class GameState:
         scene_id = uuid.uuid4().hex[:12]
 
         # 将当前场景的叙事块追加到 GlobalState
-        self.global_state.append(
+        self.global_state.append_narrative_block(
             scene_id=scene_id,
-            description=old_scene.scene_description,
+            description=old_scene.situation,
             compression=old_scene.compression,
             narratives=old_scene.narrative_history,
         )
@@ -90,11 +90,18 @@ class GameState:
         Returns:
             AgentContext: 包含全局历史和当前场景的完整上下文
         """
-        ctx = self.scene.make_context(self.character, player_input)
-        ctx.global_block = self.global_state.build_block()
+        ctx = self.scene.make_context(self.character, self.global_state, player_input)
+
+        narrative_block = self.global_state.build_narrative_context()
+        graph_block = self.global_state.build_graph_context(
+            start_place_id=self.scene.place_id,
+            start_npc_ids=self.scene.active_npc_ids,
+            start_item_ids=self.scene.active_item_ids,
+        )
+
+        ctx.global_block = f"{narrative_block}\n\n{graph_block}"
 
         if getattr(self.global_state, "worldview", ""):
-            worldview_text = f"=== 世界观设定 ===\n{self.global_state.worldview}\n\n"
-            ctx.context_block = worldview_text + ctx.context_block
+            ctx.worldview_block = self.global_state.worldview
 
         return ctx

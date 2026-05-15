@@ -43,11 +43,9 @@ class InquiryAgent(BaseAgent):
         Returns:
             AgentNote: 包含回复文本和信息来源分类
         """
-        user_msg = f"""{ctx.assets_block}
-{ctx.context_block}
+        base_context = ctx.format_standard_blocks(include_global=True)
 
-叙事历史:
-{ctx.narrative_block}
+        user_msg = f"""{base_context}
 
 {_HIDDEN_NOTICE}
 玩家提问: {player_input}

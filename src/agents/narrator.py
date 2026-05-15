@@ -40,11 +40,9 @@ class NarratorAgent(BaseAgent):
         """
         roll_summary = f"{roll_result.dice[0]}+{roll_result.dice[1]}+{roll_result.power}={roll_result.total} ({roll_result.outcome})"
 
-        user_msg = f"""{ctx.assets_block}
-{ctx.context_block}
+        base_context = ctx.format_standard_blocks(include_global=True)
 
-叙事历史:
-{ctx.narrative_block}
+        user_msg = f"""{base_context}
 
 {_HIDDEN_NOTICE}
 
@@ -96,14 +94,11 @@ class NarratorAgent(BaseAgent):
 
         sub_block = "\n".join(blocks)
 
-        user_msg = f"""{ctx.assets_block}
+        base_context = ctx.format_standard_blocks(include_global=True)
 
-叙事历史:
-{ctx.narrative_block}
+        user_msg = f"""{base_context}
 
 {_HIDDEN_NOTICE}
-
-{ctx.context_block}
 
 以下是一个复合行动被拆分为多个子行动的解算结果。
 请将所有子行动编织为一段连贯的叙事弧线（200-400字），
@@ -142,11 +137,9 @@ class LiteNarratorAgent(BaseAgent):
             AgentNote: 包含纯叙事回应的便签
         """
         gatekeeper_block = f"\n守门人判断: {gatekeeper_reasoning}\n" if gatekeeper_reasoning else ""
-        user_msg = f"""{ctx.assets_block}
-{ctx.context_block}
+        base_context = ctx.format_standard_blocks(include_global=True)
 
-叙事历史:
-{ctx.narrative_block}
+        user_msg = f"""{base_context}
 
 {_HIDDEN_NOTICE}{gatekeeper_block}
 玩家输入（叙事性交互，不掷骰）: {player_input}
@@ -182,11 +175,9 @@ class QuickNarratorAgent(BaseAgent):
         """
         roll_summary = f"{roll_result.dice[0]}+{roll_result.dice[1]}+{roll_result.power}={roll_result.total} ({roll_result.outcome})"
 
-        user_msg = f"""{ctx.assets_block}
-{ctx.context_block}
+        base_context = ctx.format_standard_blocks(include_global=True)
 
-叙事历史:
-{ctx.narrative_block}
+        user_msg = f"""{base_context}
 
 {_HIDDEN_NOTICE}
 

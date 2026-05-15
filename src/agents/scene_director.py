@@ -44,15 +44,9 @@ class SceneDirectorAgent(BaseAgent):
         if last_narrative:
             narrative_section = f"\n本轮行动叙事:\n{last_narrative}"
 
-        user_msg = f"""{ctx.global_block}
+        base_context = ctx.format_standard_blocks(include_global=True)
 
-=== 当前场景 ===
-{ctx.context_block}
-
-{ctx.assets_block}
-
-当前场景叙事历史:
-{ctx.narrative_block}
+        user_msg = f"""{base_context}
 {narrative_section}
 
 ---

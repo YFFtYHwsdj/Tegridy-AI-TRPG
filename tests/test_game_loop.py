@@ -78,13 +78,14 @@ class TestGameLoopSetup(unittest.TestCase):
             name="测试挑战",
             description="测试",
         )
-        scene.npcs[challenge.npc_id] = challenge
+        self.loop.state.global_state.npcs[challenge.npc_id] = challenge
+        scene.active_npc_ids.append(challenge.npc_id)
 
         with patch("builtins.print"):
             self.loop.setup(character, scene)
 
         self.assertIs(self.loop.state.character, character)
-        self.assertEqual(self.loop.state.scene.scene_description, "赛博朋克酒吧")
+        self.assertEqual(self.loop.state.scene.situation, "赛博朋克酒吧")
 
     def test_setup_calls_rhythm_agent(self):
         """setup 调用 RhythmAgent 生成开场叙事。"""
@@ -96,7 +97,8 @@ class TestGameLoopSetup(unittest.TestCase):
             name="测试挑战",
             description="测试",
         )
-        scene.npcs[challenge.npc_id] = challenge
+        self.loop.state.global_state.npcs[challenge.npc_id] = challenge
+        scene.active_npc_ids.append(challenge.npc_id)
 
         with patch("builtins.print"):
             self.loop.setup(character, scene)
@@ -113,7 +115,8 @@ class TestGameLoopSetup(unittest.TestCase):
             name="测试挑战",
             description="测试",
         )
-        scene.npcs[challenge.npc_id] = challenge
+        self.loop.state.global_state.npcs[challenge.npc_id] = challenge
+        scene.active_npc_ids.append(challenge.npc_id)
 
         with patch("builtins.print"):
             self.loop.setup(character, scene)
@@ -137,7 +140,8 @@ class TestGameLoopProcessAction(unittest.TestCase):
             name="测试挑战",
             description="测试",
         )
-        scene.npcs[challenge.npc_id] = challenge
+        self.loop.state.global_state.npcs[challenge.npc_id] = challenge
+        scene.active_npc_ids.append(challenge.npc_id)
         self.loop.setup(character, scene)
 
         # Mock 各 Agent

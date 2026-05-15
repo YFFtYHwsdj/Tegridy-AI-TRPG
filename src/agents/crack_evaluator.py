@@ -28,17 +28,12 @@ class CrackEvaluatorAgent(BaseAgent):
 
         character_themes_text = "\n".join(themes_list) if themes_list else "无"
 
-        rendered_prompt = self.system_prompt.format(
-            character_themes=character_themes_text,
-            scene_compression=scene_compression,
-        )
+        user_msg = f"""玩家当前主题：
+{character_themes_text}
 
-        messages = [
-            {"role": "system", "content": rendered_prompt},
-            {"role": "user", "content": "请评估并输出结果。"},
-        ]
+本场景压缩：
+{scene_compression}
 
-        structured_data = self._invoke_llm(messages, expected_format="json")
+请评估并输出结果。"""
 
-        reasoning = structured_data.get("reasoning", "")
-        return AgentNote(reasoning=reasoning, structured=structured_data)
+        return self._call_llm(user_msg)

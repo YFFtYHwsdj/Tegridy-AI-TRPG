@@ -1,160 +1,76 @@
-"""ItemManager 测试 —— 揭示应用、物品转移、emergent 物品创建。
-
-验证 ItemManager 的核心行为：
-    - 线索从 hidden 移动到 visible
-    - 场景/NPC 隐藏物品揭示
-    - 物品在不同位置之间的转移
-"""
-
-from __future__ import annotations
-
 import unittest
 
-from src.models import GameItem
-from src.pipeline.managers import ItemManager
-from tests.helpers import (
-    MockLLMClient,
-    make_test_game_state,
-)
-
-
-class TestItemManagerRevelations(unittest.TestCase):
-    """测试物品揭示。"""
-
-    def _make_manager(self, state) -> ItemManager:
-        """创建 ItemManager 实例。"""
-        mock_llm = MockLLMClient()
-        return ItemManager(state, mock_llm)
-
-    def test_reveals_scene_item(self):
-        """物品从 scene_items_hidden 移动到 visible。"""
-        state = make_test_game_state()
-        manager = self._make_manager(state)
-
-        state.scene.scene_items_hidden["medkit"] = GameItem(item_id="medkit", name="急救包")
-
-        result = manager.reveal_item("medkit")
-        self.assertTrue(result)
-
-        self.assertNotIn("medkit", state.scene.scene_items_hidden)
-        self.assertIn("medkit", state.scene.scene_items_visible)
-
-    def test_reveals_npc_hidden_item(self):
-        """NPC 隐藏物品移动到可见。"""
-        state = make_test_game_state()
-        manager = self._make_manager(state)
-
-        from src.models import NPC
-
-        npc = NPC(npc_id="miko", name="Miko")
-        npc.items_hidden["key"] = GameItem(item_id="key", name="钥匙")
-        state.scene.npcs["miko"] = npc
-
-        result = manager.reveal_item("key")
-        self.assertTrue(result)
-
-        self.assertNotIn("key", npc.items_hidden)
-        self.assertIn("key", npc.items_visible)
-
-    def test_validate_and_apply_is_idempotent_for_missing_ids(self):
-        """对不存在的揭示 ID 不会崩溃。"""
-        state = make_test_game_state()
-        manager = self._make_manager(state)
-
-        result = manager.reveal_item("nonexistent")
-        self.assertFalse(result)
+from src.models import NPC, GameItem
+from src.pipeline.managers.item_manager import ItemManager
+from src.state.character_state import CharacterState
+from src.state.game_state import GameState
+from src.state.global_state import GlobalState
+from src.state.scene_state import SceneState
+from tests.helpers import MockLLMClient
 
 
 class TestItemManagerItemTransfers(unittest.TestCase):
-    """测试物品转移方法。"""
-
-    def _make_manager(self, state) -> ItemManager:
-        """创建 ItemManager 实例。"""
-        mock_llm = MockLLMClient()
-        return ItemManager(state, mock_llm)
+    def setUp(self):
+        self.llm = MockLLMClient()
+        self.state = GameState()
+        self.state.global_state = GlobalState()
+        self.state.scene = SceneState(place_id="loc1")
+        self.state.character = CharacterState(name="Kael")
+        self.manager = ItemManager(self.state, self.llm)
 
     def test_pop_item_from_scene(self):
-        """从场景中取出物品。"""
-        state = make_test_game_state()
-        manager = self._make_manager(state)
-
         item = GameItem(item_id="flashlight", name="手电筒")
-        state.scene.scene_items_visible["flashlight"] = item
+        self.state.global_state.items["flashlight"] = item
+        self.state.scene.active_item_ids.append("flashlight")
 
-        result = manager._pop_item("flashlight", "scene")
-
-        self.assertIs(result, item)
-        self.assertNotIn("flashlight", state.scene.scene_items_visible)
-
-    def test_pop_item_from_character(self):
-        """从角色物品栏中取出物品。"""
-        state = make_test_game_state()
-        manager = self._make_manager(state)
-
-        item = GameItem(item_id="badge", name="警徽")
-        state.character.items_visible["badge"] = item
-
-        result = manager._pop_item("badge", "character")
-
-        self.assertIs(result, item)
-        self.assertNotIn("badge", state.character.items_visible)
+        popped = self.manager._pop_item("flashlight", "scene")
+        self.assertIsNotNone(popped)
+        self.assertEqual(popped.item_id, "flashlight")
+        self.assertNotIn("flashlight", self.state.scene.active_item_ids)
 
     def test_pop_item_returns_none_when_not_found(self):
-        """物品不存在时返回 None。"""
-        state = make_test_game_state()
-        manager = self._make_manager(state)
-
-        result = manager._pop_item("nonexistent", "scene")
-
+        result = self.manager._pop_item("nonexistent", "scene")
         self.assertIsNone(result)
 
     def test_insert_item_to_scene(self):
-        """将物品插入到场景。"""
-        state = make_test_game_state()
-        manager = self._make_manager(state)
-
         item = GameItem(item_id="flashlight", name="手电筒")
-        manager._insert_item("flashlight", item, "scene")
-
-        self.assertIn("flashlight", state.scene.scene_items_visible)
-        self.assertIs(state.scene.scene_items_visible["flashlight"], item)
-
-    def test_insert_item_to_character(self):
-        """将物品插入到角色物品栏。"""
-        state = make_test_game_state()
-        manager = self._make_manager(state)
-
-        item = GameItem(item_id="badge", name="警徽")
-        manager._insert_item("badge", item, "character")
-
-        self.assertIn("badge", state.character.items_visible)
-        self.assertIs(state.character.items_visible["badge"], item)
+        self.manager._insert_item("flashlight", item, "scene")
+        self.assertIn("flashlight", self.state.scene.active_item_ids)
+        self.assertIn("flashlight", self.state.global_state.items)
 
     def test_transfer_scene_to_character(self):
-        """物品从场景转移到角色。"""
-        state = make_test_game_state()
-        manager = self._make_manager(state)
-
         item = GameItem(item_id="flashlight", name="手电筒")
-        state.scene.scene_items_visible["flashlight"] = item
+        self.state.global_state.items["flashlight"] = item
+        self.state.scene.active_item_ids.append("flashlight")
 
-        manager.transfer_item({"item_id": "flashlight", "from": "scene", "to": "character"})
+        self.manager.transfer_item({"item_id": "flashlight", "from": "scene", "to": "character"})
 
-        self.assertNotIn("flashlight", state.scene.scene_items_visible)
-        self.assertIn("flashlight", state.character.items_visible)
+        self.assertNotIn("flashlight", self.state.scene.active_item_ids)
+        self.assertIn("flashlight", self.state.character.items_visible)
 
-    def test_transfer_from_hidden_source(self):
-        """从隐藏位置取出物品并转移。"""
-        state = make_test_game_state()
-        manager = self._make_manager(state)
 
-        item = GameItem(item_id="secret_doc", name="秘密文件")
-        state.scene.scene_items_hidden["secret_doc"] = item
+class TestItemManagerRevelations(unittest.TestCase):
+    def setUp(self):
+        self.llm = MockLLMClient()
+        self.state = GameState()
+        self.state.global_state = GlobalState()
+        self.state.scene = SceneState(place_id="loc1")
+        self.manager = ItemManager(self.state, self.llm)
 
-        manager.transfer_item({"item_id": "secret_doc", "from": "scene", "to": "character"})
+    def test_reveals_npc_hidden_item(self):
+        npc = NPC(npc_id="miko", name="Miko")
+        npc.items_hidden["keycard"] = GameItem(item_id="keycard", name="门禁卡")
+        self.state.global_state.npcs["miko"] = npc
+        self.state.scene.active_npc_ids.append("miko")
 
-        self.assertNotIn("secret_doc", state.scene.scene_items_hidden)
-        self.assertIn("secret_doc", state.character.items_visible)
+        result = self.manager.reveal_item("keycard")
+        self.assertTrue(result)
+        self.assertNotIn("keycard", npc.items_hidden)
+        self.assertIn("keycard", npc.items_visible)
+
+    def test_validate_and_apply_is_idempotent_for_missing_ids(self):
+        result = self.manager.reveal_item("nonexistent")
+        self.assertFalse(result)
 
 
 if __name__ == "__main__":

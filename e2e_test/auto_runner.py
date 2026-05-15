@@ -64,7 +64,9 @@ class AutoRunner:
         self.player_history_window = player_history_window
         self.debug_mode = debug_mode
 
-    def run(self, character: CharacterState, first_scene: SceneState, worldview: str = "") -> dict:
+    def run(
+        self, character: CharacterState, first_scene: SceneState, global_state, worldview: str = ""
+    ) -> dict:
         """运行自动化测试。
 
         完整流程：
@@ -76,6 +78,7 @@ class AutoRunner:
         Args:
             character: 玩家角色
             first_scene: 初始场景
+            global_state: 全局状态
             worldview: 游戏的世界观设定
 
         Returns:
@@ -93,6 +96,7 @@ class AutoRunner:
 
         # ── 初始化 ──
         game = GameLoop(self.llm, debug_mode=self.debug_mode)
+        game.state.global_state = global_state
         game.state.global_state.worldview = worldview
         player = PlayerAgent(self.llm, character, max_history=self.player_history_window)
         game.setup(character, first_scene)
@@ -222,15 +226,9 @@ class AutoRunner:
                 for name, s in game.state.character.statuses.items()
             }
 
-        # 挑战最终状态
-        challenge = game.state.scene.primary_challenge()
-        challenge_name = challenge.name if challenge else "（无）"
+        # 挑战最终状态（已弃用，现改为场景和NPC状态）
+        challenge_name = "（已弃用挑战机制）"
         challenge_statuses = {}
-        if challenge:
-            challenge_statuses = {
-                name: {"tier": s.current_tier, "boxes": sorted(s.ticked_boxes)}
-                for name, s in challenge.statuses.items()
-            }
 
         return {
             "total_rounds": round_count,

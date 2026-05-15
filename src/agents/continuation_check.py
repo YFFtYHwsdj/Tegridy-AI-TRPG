@@ -16,11 +16,9 @@ class ContinuationCheckAgent(BaseAgent):
         ctx: AgentContext,
         last_sub_summary: str,
     ) -> AgentNote:
-        user_msg = f"""{ctx.assets_block}
-{ctx.context_block}
+        base_context = ctx.format_standard_blocks(include_global=False)
 
-叙事历史:
-{ctx.narrative_block}
+        user_msg = f"""{base_context}
 
 ---
 上一个子行动已完成。上一个子行动的结果摘要: {last_sub_summary}

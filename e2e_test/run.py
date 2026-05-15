@@ -26,6 +26,7 @@ from e2e_test.auto_runner import AutoRunner  # noqa: E402
 from src.llm_client import LLMClient  # noqa: E402
 from src.logger import get_logger, init_logging  # noqa: E402
 from src.preset_data import DEMO_CHARACTER, DEMO_WORLDVIEW, build_demo_scene  # noqa: E402
+from src.state.global_state import GlobalState  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -105,9 +106,11 @@ def main():
         debug_mode=debug_mode,
     )
 
+    global_state = GlobalState()
     summary = runner.run(
         character=DEMO_CHARACTER,
-        first_scene=build_demo_scene(),
+        first_scene=build_demo_scene(global_state),
+        global_state=global_state,
         worldview=DEMO_WORLDVIEW,
     )
 

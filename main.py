@@ -53,9 +53,10 @@ def main():
 
     game = GameLoop(llm, debug_mode=True)
     game.state.global_state.worldview = DEMO_WORLDVIEW
+    first_scene = build_demo_scene(game.state.global_state)
     game.run(
         character=DEMO_CHARACTER,
-        first_scene=build_demo_scene(),
+        first_scene=first_scene,
     )
 
 

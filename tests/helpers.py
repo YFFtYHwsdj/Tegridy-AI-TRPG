@@ -121,7 +121,7 @@ def make_test_scene() -> SceneState:
     Returns:
         带有描述和默认空集合的 SceneState 实例
     """
-    return SceneState(scene_description="赛博朋克酒吧")
+    return SceneState(place_id="test_loc", situation="赛博朋克酒吧")
 
 
 def make_test_game_state() -> GameState:

@@ -12,12 +12,16 @@ from src.agents.crisis import CrisisAgent
 from src.agents.evolution import EvolutionAgent
 from src.agents.inquiry import InquiryAgent
 from src.agents.intent import IntentAgent
+from src.agents.item_generator import ItemGeneratorAgent
 from src.agents.narrator import LiteNarratorAgent, NarratorAgent, QuickNarratorAgent
+from src.agents.npc_generator import NPCGeneratorAgent
 from src.agents.outcome import OutcomeAgent, QuickOutcomeAgent
+from src.agents.place_generator import PlaceGeneratorAgent
 from src.agents.rhythm import RhythmAgent
-from src.agents.scene_creator import SceneCreatorAgent
 from src.agents.scene_director import SceneDirectorAgent
+from src.agents.scene_router import SceneRouterAgent
 from src.agents.tag_matcher import TagMatcherAgent
+from src.agents.world_updater import EdgeMergeAgent, WorldAnalyzerAgent
 
 AGENT_REGISTRY = {
     "rhythm": RhythmAgent,
@@ -31,11 +35,16 @@ AGENT_REGISTRY = {
     "lite_narrator": LiteNarratorAgent,
     "quick_narrator": QuickNarratorAgent,
     "continuation_check": ContinuationCheckAgent,
-    "scene_creator": SceneCreatorAgent,
     "scene_director": SceneDirectorAgent,
     "evolution": EvolutionAgent,
     "crisis": CrisisAgent,
     "crack_evaluator": CrackEvaluatorAgent,
+    "world_analyzer": WorldAnalyzerAgent,
+    "edge_merge": EdgeMergeAgent,
+    "scene_router": SceneRouterAgent,
+    "place_gen": PlaceGeneratorAgent,
+    "npc_gen": NPCGeneratorAgent,
+    "item_gen": ItemGeneratorAgent,
 }
 
 # 在此处统一配置需要覆盖默认 LLM 设定的 Agent
@@ -45,21 +54,23 @@ AGENT_CONFIGS = {
     "outcome": {"model": "deepseek-v4-flash", "thinking": False},
     "narrator": {"model": "deepseek-v4-pro", "thinking": False},
     "scene_director": {"model": "deepseek-v4-flash", "thinking": False},
-    "scene_creator": {"model": "deepseek-v4-pro", "thinking": False},
     "inquiry": {"model": "deepseek-v4-flash", "thinking": False},
     "tag_matcher": {"model": "deepseek-v4-flash", "thinking": False},
     "quick_outcome": {"model": "deepseek-v4-flash", "thinking": False},
     "compressor": {"model": "deepseek-v4-pro", "thinking": False},
     "lite_narrator": {"model": "deepseek-v4-flash", "thinking": False},
     "quick_narrator": {"model": "deepseek-v4-flash", "thinking": False},
-    "continuation_check": {
-        "model": "deepseek-v4-flash",
-        "thinking": False,
-    },
+    "continuation_check": {"model": "deepseek-v4-flash", "thinking": False},
     "rhythm": {"model": "deepseek-v4-pro", "thinking": False},
     "evolution": {"model": "deepseek-v4-pro", "thinking": False},
     "crisis": {"model": "deepseek-v4-pro", "thinking": False},
     "crack_evaluator": {"model": "deepseek-v4-pro", "thinking": False},
+    "world_analyzer": {"model": "deepseek-v4-pro", "thinking": False},
+    "edge_merge": {"model": "deepseek-v4-flash", "thinking": False},
+    "scene_router": {"model": "deepseek-v4-pro", "thinking": False},
+    "place_gen": {"model": "deepseek-v4-flash", "thinking": False},
+    "npc_gen": {"model": "deepseek-v4-flash", "thinking": False},
+    "item_gen": {"model": "deepseek-v4-flash", "thinking": False},
 }
 
 # 模块初始化时，将配置动态注入到类属性中
@@ -78,16 +89,21 @@ __all__ = [
     "ContinuationCheckAgent",
     "CrackEvaluatorAgent",
     "CrisisAgent",
+    "EdgeMergeAgent",
     "EvolutionAgent",
     "InquiryAgent",
     "IntentAgent",
+    "ItemGeneratorAgent",
     "LiteNarratorAgent",
+    "NPCGeneratorAgent",
     "NarratorAgent",
     "OutcomeAgent",
+    "PlaceGeneratorAgent",
     "QuickNarratorAgent",
     "QuickOutcomeAgent",
     "RhythmAgent",
-    "SceneCreatorAgent",
     "SceneDirectorAgent",
+    "SceneRouterAgent",
     "TagMatcherAgent",
+    "WorldAnalyzerAgent",
 ]

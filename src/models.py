@@ -94,6 +94,8 @@ class GameItem:
     location: str = ""
     tags: list[PowerTag] = field(default_factory=list)
     weakness_tags: list[WeaknessTag] = field(default_factory=list)
+    notes: str = ""
+    relationships: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self):
         if not self.item_id:
@@ -135,10 +137,32 @@ class NPC:
     known_item_ids: list[str] = field(default_factory=list)
     items_visible: dict[str, "GameItem"] = field(default_factory=dict)
     items_hidden: dict[str, "GameItem"] = field(default_factory=dict)
+    notes: str = ""
+    relationships: dict[str, str] = field(default_factory=dict)
 
     def __post_init__(self):
         if not self.npc_id:
             self.npc_id = self.name
+
+
+@dataclass
+class Place:
+    """地点 —— 游戏世界中的物理节点。
+
+    拥有基础描述、动态笔记和与其他地点的连接。
+    包含固定在场景内的物品。
+    """
+
+    place_id: str = ""
+    name: str = ""
+    description: str = ""
+    notes: str = ""
+    connections: dict[str, str] = field(default_factory=dict)
+    items: dict[str, "GameItem"] = field(default_factory=dict)
+
+    def __post_init__(self):
+        if not self.place_id:
+            self.place_id = self.name
 
 
 @dataclass
