@@ -36,7 +36,7 @@ class TestGameState(unittest.TestCase):
         self.assertIs(ctx.character, char)
         self.assertEqual(ctx.player_input, "点一杯酒")
         self.assertIn("当前状况: 酒吧场景", ctx.context_block)
-        
+
         self.state.global_state.worldview = "世界观测试"
         ctx = self.state.make_context("点一杯酒")
         self.assertEqual(ctx.worldview_block, "世界观测试")
