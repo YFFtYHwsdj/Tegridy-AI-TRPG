@@ -129,8 +129,8 @@ class TestTagMatcherAgentExecute(unittest.TestCase):
         agent.execute(intent_note, ctx)
 
         user_msg = mock_llm.call_history[0]["user_message"]
-        # 标签部分应为空字符串，但 prompt 结构仍在
-        self.assertIn("角色力量标签", user_msg)
+        # 标签部分因为为空，由于 MessageBuilder 的机制，整个 block 应该不出现在 user_msg 中
+        self.assertNotIn("角色力量标签", user_msg)
 
     def test_returns_agent_note(self):
         """验证返回正确解析的 AgentNote。"""

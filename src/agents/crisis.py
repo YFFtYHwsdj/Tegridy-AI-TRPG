@@ -24,8 +24,10 @@ class CrisisAgent(BaseAgent):
             else "系统提示：玩家的该主题已经满足彻底毁灭的条件。请开启危机流程。"
         )
 
-        base_context = ctx.format_standard_blocks(include_global=True)
-        user_msg = f"{base_context}\n\n对话上下文:\n{ctx.narrative_block}\n\n{user_msg}"
+        builder = ctx.build_message(include_global=True)
+        builder.add_block("对话上下文", ctx.narrative_block)
+        builder.add_text(user_msg)
+        user_msg = builder.build()
 
         original_prompt = self.system_prompt
         self.system_prompt = original_prompt.format(

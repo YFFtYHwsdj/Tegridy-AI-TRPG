@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from src.agents.base import BaseAgent
 from src.agents.prompts.world_generators import SCENE_ROUTER_PROMPT
+from src.context import MessageBuilder
 from src.models import AgentNote
 from src.state.global_state import GlobalState
 
@@ -29,9 +30,9 @@ class SceneRouterAgent(BaseAgent):
             lines.append(f"- ID: {eid} | 名称: {it.name} | 描述: {it.description}")
 
         world_block = "\n".join(lines)
-        user_msg = f"""{world_block}
 
-=== 玩家意图/过渡提示 ===
-{player_intent}
-"""
-        return self._call_llm(user_msg)
+        builder = MessageBuilder()
+        builder.add_block("全局世界资产表", world_block, wrap_title=True)
+        builder.add_block("玩家意图/过渡提示", player_intent, wrap_title=True)
+
+        return self._call_llm(builder.build())

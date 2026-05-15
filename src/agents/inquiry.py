@@ -43,12 +43,9 @@ class InquiryAgent(BaseAgent):
         Returns:
             AgentNote: 包含回复文本和信息来源分类
         """
-        base_context = ctx.format_standard_blocks(include_global=True)
+        builder = ctx.build_message(include_global=True)
+        builder.add_text(_HIDDEN_NOTICE)
+        builder.add_block("玩家提问", player_input)
+        builder.add_text("请在已有信息范围内回答玩家的问题。不要创作新的剧情内容。")
 
-        user_msg = f"""{base_context}
-
-{_HIDDEN_NOTICE}
-玩家提问: {player_input}
-
-请在已有信息范围内回答玩家的问题。不要创作新的剧情内容。"""
-        return self._call_llm(user_msg)
+        return self._call_llm(builder.build())

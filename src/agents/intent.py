@@ -26,12 +26,9 @@ class IntentAgent(BaseAgent):
         Returns:
             AgentNote: 包含推理过程和解析结果的分析便签
         """
-        base_context = ctx.format_standard_blocks(include_global=True)
+        builder = ctx.build_message(include_global=True)
+        builder.add_text("---")
+        builder.add_block("玩家输入", player_input)
+        builder.add_text("请解析玩家的意图。")
 
-        user_msg = f"""{base_context}
-
----
-玩家输入: {player_input}
-
-请解析玩家的意图。"""
-        return self._call_llm(user_msg)
+        return self._call_llm(builder.build())

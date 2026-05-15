@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from src.agents.base import BaseAgent
 from src.agents.prompts import COMPRESSOR_PROMPT
+from src.context import MessageBuilder
 from src.models import AgentNote
 from src.state.global_state import GlobalState
 from src.state.scene_state import SceneState
@@ -47,14 +48,15 @@ class CompressorAgent(BaseAgent):
             global_state.npcs[nid].name for nid in scene.active_npc_ids if nid in global_state.npcs
         ]
 
-        user_msg = f"""场景状况:
-{scene.situation}
+        builder = MessageBuilder()
+        builder.add_block("场景状况", scene.situation)
 
-场景中的NPC: {", ".join(npc_names) if npc_names else "（无）"}
+        npc_text = ", ".join(npc_names) if npc_names else "（无）"
+        builder.add_block("场景中的NPC", npc_text)
 
-完整叙事历史:
-{narrative_text}
+        builder.add_block("完整叙事历史", narrative_text)
 
----
-请将以上场景压缩为结构化摘要。"""
-        return self._call_llm(user_msg)
+        builder.add_text("---")
+        builder.add_text("请将以上场景压缩为结构化摘要。")
+
+        return self._call_llm(builder.build())

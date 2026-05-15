@@ -51,42 +51,40 @@ class OutcomeAgent(BaseAgent):
 
         action_type, action_summary, split_info = resolve_sub_action_info(intent_note, sub_action)
 
-        base_context = ctx.format_standard_blocks(include_global=True)
+        builder = ctx.build_message(include_global=True)
 
-        user_msg = f"""{base_context}
+        builder.add_block("角色能力标签", power_tags_str)
+        builder.add_block("角色弱点标签", weakness_tags_str)
+        builder.add_block("角色当前状态", char_status_str)
 
-角色能力标签:
-{power_tags_str}
+        intent_details = (
+            f"reasoning: {intent_note.reasoning}\n"
+            f"action_type: {action_type}\n"
+            f"action_summary: {action_summary}\n"
+            f"{split_info}"
+        ).strip()
+        builder.add_block("意图解析", intent_details)
 
-角色弱点标签:
-{weakness_tags_str}
+        tag_details = (
+            f"reasoning: {tag_note.reasoning}\n"
+            f"matched_power_tags: {json.dumps(tag_note.structured.get('matched_power_tags', []), ensure_ascii=False)}\n"
+            f"matched_weakness_tags: {json.dumps(tag_note.structured.get('matched_weakness_tags', []), ensure_ascii=False)}"
+        )
+        builder.add_block("标签匹配", tag_details)
 
-角色当前状态:
-{char_status_str}
+        builder.add_text("---")
+        builder.add_block("掷骰结果", roll_info)
+        builder.add_block(
+            "可用力量",
+            f"{available_power} (你生成所有效果的总力量花费必须 ≤ {available_power}。参考规则中的力量花费速查)",
+        )
 
+        builder.add_text(
+            "请一次性推演本次行动的效果（如果有）和后果（如果有）。\n"
+            "注意：大成功(10+)不应有后果；失败(6-)不应有增益效果。"
+        )
 
-
-意图解析:
-  reasoning: {intent_note.reasoning}
-  action_type: {action_type}
-  action_summary: {action_summary}
-{split_info}
-
-标签匹配:
-  reasoning: {tag_note.reasoning}
-  matched_power_tags: {json.dumps(tag_note.structured.get("matched_power_tags", []), ensure_ascii=False)}
-  matched_weakness_tags: {json.dumps(tag_note.structured.get("matched_weakness_tags", []), ensure_ascii=False)}
-
-
-
----
-掷骰结果: {roll_info}
-可用力量: {available_power} (你生成所有效果的总力量花费必须 ≤ {available_power}。参考规则中的力量花费速查)
-
-请一次性推演本次行动的效果（如果有）和后果（如果有）。
-注意：大成功(10+)不应有后果；失败(6-)不应有增益效果。"""
-
-        note = self._call_llm(user_msg)
+        note = self._call_llm(builder.build())
 
         # 强制代码校验：根据掷骰结果拦截不符合规则的输出
         if roll_result.outcome == "full_success":
@@ -124,19 +122,20 @@ class QuickOutcomeAgent(BaseAgent):
         roll_info = f"power={roll_result.power}, dice={roll_result.dice}, total={roll_result.total}, outcome={roll_result.outcome}"
 
         # 快速模式下只需要简单信息
-        base_context = ctx.format_standard_blocks(include_global=True)
+        builder = ctx.build_message(include_global=True)
 
-        user_msg = f"""{base_context}
+        builder.add_text("---")
+        builder.add_block("行动摘要", intent_note.structured.get("action_summary", ""))
+        builder.add_block("行动类型", intent_note.structured.get("action_type", "unknown"))
+        builder.add_block("掷骰结果", roll_info)
 
----
-行动摘要: {intent_note.structured.get("action_summary", "")}
-行动类型: {intent_note.structured.get("action_type", "unknown")}
-掷骰结果: {roll_info}
+        outcome_str = "(部分成功)" if roll_result.outcome == "partial_success" else "(失败)"
+        builder.add_text(
+            "请生成后果。优先选择叙事性后果——只有在叙事本身不够有力时才使用机械效果。\n"
+            f"一条后果条目中，叙事性和机械效果不可并存。{outcome_str}"
+        )
 
-请生成后果。优先选择叙事性后果——只有在叙事本身不够有力时才使用机械效果。
-一条后果条目中，叙事性和机械效果不可并存。({"(部分成功)" if roll_result.outcome == "partial_success" else "(失败)"})"""
-
-        note = self._call_llm(user_msg)
+        note = self._call_llm(builder.build())
 
         # 强制代码校验
         if roll_result.outcome == "full_success":

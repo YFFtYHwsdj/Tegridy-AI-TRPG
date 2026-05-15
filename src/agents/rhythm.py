@@ -11,7 +11,6 @@ class RhythmAgent(BaseAgent):
     agent_name = "节奏Agent"
 
     def execute(self, ctx: AgentContext) -> AgentNote:
-        user_msg = f"""{ctx.context_block}
-
-请用生动的叙事建立场景，最后把聚光灯交给玩家。"""
-        return self._call_llm(user_msg)
+        builder = ctx.build_message(include_global=False)
+        builder.add_text("请用生动的叙事建立场景，最后把聚光灯交给玩家。")
+        return self._call_llm(builder.build())

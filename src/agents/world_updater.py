@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from src.agents.base import BaseAgent
 from src.agents.prompts.world_updater import EDGE_MERGE_PROMPT, WORLD_ANALYZER_PROMPT
+from src.context import MessageBuilder
 from src.models import AgentNote
 from src.state.global_state import GlobalState
 from src.state.scene_state import SceneState
@@ -26,13 +27,10 @@ class WorldAnalyzerAgent(BaseAgent):
         )
         narrative_block = "\n".join(scene.narrative_history)
 
-        user_msg = f"""=== 当前场景图上下文 ===
-{context_block}
-
-=== 刚刚结束的场景叙事 ===
-{narrative_block}
-"""
-        return self._call_llm(user_msg)
+        builder = MessageBuilder()
+        builder.add_block("当前场景图上下文", context_block, wrap_title=True)
+        builder.add_block("刚刚结束的场景叙事", narrative_block, wrap_title=True)
+        return self._call_llm(builder.build())
 
 
 class EdgeMergeAgent(BaseAgent):
@@ -50,15 +48,10 @@ class EdgeMergeAgent(BaseAgent):
         relations: list[str],
     ) -> AgentNote:
         rels_text = "\n".join(f"- {r}" for r in relations)
-        user_msg = f"""=== 实体 A ===
-ID: {entity_a_id}
-描述: {entity_a_desc}
 
-=== 实体 B ===
-ID: {entity_b_id}
-描述: {entity_b_desc}
+        builder = MessageBuilder()
+        builder.add_block("实体 A", f"ID: {entity_a_id}\n描述: {entity_a_desc}", wrap_title=True)
+        builder.add_block("实体 B", f"ID: {entity_b_id}\n描述: {entity_b_desc}", wrap_title=True)
+        builder.add_block("待合并的关系", rels_text, wrap_title=True)
 
-=== 待合并的关系 ===
-{rels_text}
-"""
-        return self._call_llm(user_msg)
+        return self._call_llm(builder.build())

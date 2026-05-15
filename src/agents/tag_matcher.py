@@ -40,25 +40,21 @@ class TagMatcherAgent(BaseAgent):
 
         action_type, action_summary, split_info = resolve_sub_action_info(intent_note, sub_action)
 
-        base_context = ctx.format_standard_blocks(include_global=False)
+        builder = ctx.build_message(include_global=False)
 
-        user_msg = f"""{base_context}
+        builder.add_block("角色力量标签", power_tags_str)
+        builder.add_block("角色弱点标签", weakness_tags_str)
+        builder.add_block("角色当前状态", status_str)
 
-角色力量标签:
-{power_tags_str}
+        builder.add_text("---")
+        intent_details = (
+            f"行动类型: {action_type}\n"
+            f"行动摘要: {action_summary}\n"
+            f"是否拆分: {intent_note.structured.get('is_split_action', False)}\n"
+            f"{split_info}"
+        ).strip()
+        builder.add_block("意图解析", intent_details)
 
-角色弱点标签:
-{weakness_tags_str}
+        builder.add_text("请判断哪些标签帮助/阻碍本次行动，以及角色当前状态中哪些帮助哪些阻碍。")
 
-角色当前状态:
-{status_str}
-
----
-意图解析:
-  行动类型: {action_type}
-  行动摘要: {action_summary}
-  是否拆分: {intent_note.structured.get("is_split_action", False)}
-{split_info}
-
-请判断哪些标签帮助/阻碍本次行动，以及角色当前状态中哪些帮助哪些阻碍。"""
-        return self._call_llm(user_msg)
+        return self._call_llm(builder.build())

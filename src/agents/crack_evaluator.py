@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from src.agents.base import BaseAgent
 from src.agents.prompts.crack_evaluator import CRACK_EVALUATOR_PROMPT
-from src.context import AgentContext
+from src.context import AgentContext, MessageBuilder
 from src.models import AgentNote
 
 
@@ -28,12 +28,9 @@ class CrackEvaluatorAgent(BaseAgent):
 
         character_themes_text = "\n".join(themes_list) if themes_list else "无"
 
-        user_msg = f"""玩家当前主题：
-{character_themes_text}
+        builder = MessageBuilder()
+        builder.add_block("玩家当前主题", character_themes_text, wrap_title=True)
+        builder.add_block("本场景压缩", scene_compression, wrap_title=True)
+        builder.add_text("请评估并输出结果。")
 
-本场景压缩：
-{scene_compression}
-
-请评估并输出结果。"""
-
-        return self._call_llm(user_msg)
+        return self._call_llm(builder.build())

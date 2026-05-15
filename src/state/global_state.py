@@ -76,7 +76,6 @@ class GlobalState:
         """构建叙事历史摘要块（向后兼容原 build_block 逻辑）。"""
         lines = []
 
-
         if not self._blocks:
             return "\n".join(lines).strip()
 

@@ -40,15 +40,11 @@ class SceneDirectorAgent(BaseAgent):
                 - transition_hint (str): 过渡建议（结束时有值，否则空字符串）
         """
 
-        narrative_section = ""
+        builder = ctx.build_message(include_global=True)
         if last_narrative:
-            narrative_section = f"\n本轮行动叙事:\n{last_narrative}"
+            builder.add_block("本轮行动叙事", last_narrative)
 
-        base_context = ctx.format_standard_blocks(include_global=True)
+        builder.add_text("---")
+        builder.add_text("请判断当前场景是否应该结束。")
 
-        user_msg = f"""{base_context}
-{narrative_section}
-
----
-请判断当前场景是否应该结束。"""
-        return self._call_llm(user_msg)
+        return self._call_llm(builder.build())

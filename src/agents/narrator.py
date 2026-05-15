@@ -40,25 +40,28 @@ class NarratorAgent(BaseAgent):
         """
         roll_summary = f"{roll_result.dice[0]}+{roll_result.dice[1]}+{roll_result.power}={roll_result.total} ({roll_result.outcome})"
 
-        base_context = ctx.format_standard_blocks(include_global=True)
+        builder = ctx.build_message(include_global=True)
+        builder.add_text(_HIDDEN_NOTICE)
 
-        user_msg = f"""{base_context}
+        builder.add_block("结算推演推理", outcome_note.reasoning)
+        builder.add_block(
+            "效果", json.dumps(outcome_note.structured.get("effects", []), ensure_ascii=False)
+        )
+        builder.add_block("叙事提示", outcome_note.structured.get("narrative_hints", ""))
+        builder.add_block(
+            "后果", json.dumps(outcome_note.structured.get("consequences", []), ensure_ascii=False)
+        )
 
-{_HIDDEN_NOTICE}
+        builder.add_text("---")
+        builder.add_block("玩家行动", ctx.player_input)
+        builder.add_block("掷骰", roll_summary)
 
-结算推演推理: {outcome_note.reasoning}
-效果: {json.dumps(outcome_note.structured.get("effects", []), ensure_ascii=False)}
-叙事提示: {outcome_note.structured.get("narrative_hints", "")}
-后果: {json.dumps(outcome_note.structured.get("consequences", []), ensure_ascii=False)}
-
----
-玩家行动: {ctx.player_input}
-掷骰: {roll_summary}
-
-请将以上结构化的游戏结果翻译为沉浸式的叙事文本。
-如果玩家的行动在叙事中自然应该触达隐藏线索或物品，在 revelation_decisions 中标记它们。
-如果物品在叙事中发生了转移，在 item_transfers 中标记。"""
-        return self._call_llm(user_msg)
+        builder.add_text(
+            "请将以上结构化的游戏结果翻译为沉浸式的叙事文本。\n"
+            "如果玩家的行动在叙事中自然应该触达隐藏线索或物品，在 revelation_decisions 中标记它们。\n"
+            "如果物品在叙事中发生了转移，在 item_transfers 中标记。"
+        )
+        return self._call_llm(builder.build())
 
     def execute_split(
         self,
@@ -94,24 +97,25 @@ class NarratorAgent(BaseAgent):
 
         sub_block = "\n".join(blocks)
 
-        base_context = ctx.format_standard_blocks(include_global=True)
+        builder = ctx.build_message(include_global=True)
+        builder.add_text(_HIDDEN_NOTICE)
 
-        user_msg = f"""{base_context}
+        builder.add_text(
+            "以下是一个复合行动被拆分为多个子行动的解算结果。\n"
+            "请将所有子行动编织为一段连贯的叙事弧线（200-400字），\n"
+            "而非逐个子行动各写一段。子行动之间存在因果和时序关系。"
+        )
+        builder.add_text(sub_block)
 
-{_HIDDEN_NOTICE}
+        builder.add_text("---")
+        builder.add_block("玩家行动", ctx.player_input)
 
-以下是一个复合行动被拆分为多个子行动的解算结果。
-请将所有子行动编织为一段连贯的叙事弧线（200-400字），
-而非逐个子行动各写一段。子行动之间存在因果和时序关系。
-
-{sub_block}
----
-玩家行动: {ctx.player_input}
-
-请将以上所有子行动的结构化结果翻译为一段沉浸式的叙事文本。
-如果玩家的行动在叙事中自然应该触达隐藏线索或物品，在 revelation_decisions 中标记它们。
-如果物品在叙事中发生了转移，在 item_transfers 中标记。"""
-        return self._call_llm(user_msg)
+        builder.add_text(
+            "请将以上所有子行动的结构化结果翻译为一段沉浸式的叙事文本。\n"
+            "如果玩家的行动在叙事中自然应该触达隐藏线索或物品，在 revelation_decisions 中标记它们。\n"
+            "如果物品在叙事中发生了转移，在 item_transfers 中标记。"
+        )
+        return self._call_llm(builder.build())
 
 
 class LiteNarratorAgent(BaseAgent):
@@ -136,17 +140,18 @@ class LiteNarratorAgent(BaseAgent):
         Returns:
             AgentNote: 包含纯叙事回应的便签
         """
-        gatekeeper_block = f"\n守门人判断: {gatekeeper_reasoning}\n" if gatekeeper_reasoning else ""
-        base_context = ctx.format_standard_blocks(include_global=True)
+        builder = ctx.build_message(include_global=True)
+        builder.add_text(_HIDDEN_NOTICE)
 
-        user_msg = f"""{base_context}
+        if gatekeeper_reasoning:
+            builder.add_block("守门人判断", gatekeeper_reasoning)
 
-{_HIDDEN_NOTICE}{gatekeeper_block}
-玩家输入（叙事性交互，不掷骰）: {player_input}
+        builder.add_block("玩家输入（叙事性交互，不掷骰）", player_input)
 
-请生成一段叙事回应，推动场景前进。
-低风险的观察或对话不应揭示关键隐藏信息。"""
-        return self._call_llm(user_msg)
+        builder.add_text(
+            "请生成一段叙事回应，推动场景前进。\n低风险的观察或对话不应揭示关键隐藏信息。"
+        )
+        return self._call_llm(builder.build())
 
 
 class QuickNarratorAgent(BaseAgent):
@@ -175,20 +180,18 @@ class QuickNarratorAgent(BaseAgent):
         """
         roll_summary = f"{roll_result.dice[0]}+{roll_result.dice[1]}+{roll_result.power}={roll_result.total} ({roll_result.outcome})"
 
-        base_context = ctx.format_standard_blocks(include_global=True)
+        builder = ctx.build_message(include_global=True)
+        builder.add_text(_HIDDEN_NOTICE)
 
-        user_msg = f"""{base_context}
+        builder.add_block("意图", intent_note.structured.get("action_summary", ""))
+        builder.add_block("结算推演推理", outcome_note.reasoning)
+        builder.add_block(
+            "后果", json.dumps(outcome_note.structured.get("consequences", []), ensure_ascii=False)
+        )
 
-{_HIDDEN_NOTICE}
+        builder.add_text("---")
+        builder.add_block("玩家行动", ctx.player_input)
+        builder.add_block("掷骰", roll_summary)
 
-意图: {intent_note.structured.get("action_summary", "")}
-
-结算推演推理: {outcome_note.reasoning}
-后果: {json.dumps(outcome_note.structured.get("consequences", []), ensure_ascii=False)}
-
----
-玩家行动: {ctx.player_input}
-掷骰: {roll_summary}
-
-请将掷骰结果翻译为沉浸式的叙事文本。"""
-        return self._call_llm(user_msg)
+        builder.add_text("请将掷骰结果翻译为沉浸式的叙事文本。")
+        return self._call_llm(builder.build())

@@ -16,17 +16,16 @@ class ContinuationCheckAgent(BaseAgent):
         ctx: AgentContext,
         last_sub_summary: str,
     ) -> AgentNote:
-        base_context = ctx.format_standard_blocks(include_global=False)
+        builder = ctx.build_message(include_global=False)
+        builder.add_text("---")
+        builder.add_text(f"上一个子行动已完成。上一个子行动的结果摘要: {last_sub_summary}")
 
-        user_msg = f"""{base_context}
+        next_action_details = (
+            f"行动类型: {next_sub_action.get('action_type', 'unknown')}\n"
+            f"行动摘要: {next_sub_action.get('action_summary', '')}\n"
+            f"玩家原始输入片段: {next_sub_action.get('fragment', '')}"
+        )
+        builder.add_block("下一个待执行的子行动", next_action_details)
 
----
-上一个子行动已完成。上一个子行动的结果摘要: {last_sub_summary}
-
-下一个待执行的子行动:
-  行动类型: {next_sub_action.get("action_type", "unknown")}
-  行动摘要: {next_sub_action.get("action_summary", "")}
-  玩家原始输入片段: {next_sub_action.get("fragment", "")}
-
-请判断角色是否还能执行这个子行动。"""
-        return self._call_llm(user_msg)
+        builder.add_text("请判断角色是否还能执行这个子行动。")
+        return self._call_llm(builder.build())

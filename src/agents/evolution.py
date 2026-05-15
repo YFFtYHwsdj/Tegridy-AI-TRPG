@@ -23,8 +23,10 @@ class EvolutionAgent(BaseAgent):
             f"玩家回复: {player_input}" if player_input else "玩家触发了主题突破，请提供选项。"
         )
 
-        base_context = ctx.format_standard_blocks(include_global=True)
-        user_msg = f"{base_context}\n\n对话上下文:\n{ctx.narrative_block}\n\n{user_msg}"
+        builder = ctx.build_message(include_global=True)
+        builder.add_block("对话上下文", ctx.narrative_block)
+        builder.add_text(user_msg)
+        user_msg = builder.build()
 
         original_prompt = self.system_prompt
         self.system_prompt = original_prompt.format(
