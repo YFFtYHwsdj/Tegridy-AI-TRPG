@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from src.models import NPC, GameItem, Place
+from src.models import NPC, Challenge, GameItem, Place
 
 
 @dataclass
@@ -41,8 +41,11 @@ class GlobalState:
         self.places: dict[str, Place] = {}
         self.npcs: dict[str, NPC] = {}
         self.items: dict[str, GameItem] = {}
+        self.challenges: dict[str, Challenge] = {}
 
-    def get_entity_by_id(self, entity_id: str) -> tuple[str, Place | NPC | GameItem | None]:
+    def get_entity_by_id(
+        self, entity_id: str
+    ) -> tuple[str, Place | NPC | GameItem | Challenge | None]:
         """根据 ID 查找实体对象及其类型。"""
         if entity_id in self.places:
             return "place", self.places[entity_id]
@@ -50,6 +53,8 @@ class GlobalState:
             return "npc", self.npcs[entity_id]
         if entity_id in self.items:
             return "item", self.items[entity_id]
+        if entity_id in self.challenges:
+            return "challenge", self.challenges[entity_id]
         return "unknown", None
 
     def append_narrative_block(

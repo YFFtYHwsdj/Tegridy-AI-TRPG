@@ -5,6 +5,7 @@ BaseAgent 提供统一的 LLM 调用、日志记录和输出解析流程。
 AGENT_REGISTRY 维护所有 Agent 类的全局注册表。
 """
 
+from src.agents.challenge_generator import ChallengeGeneratorAgent
 from src.agents.compressor import CompressorAgent
 from src.agents.continuation_check import ContinuationCheckAgent
 from src.agents.crack_evaluator import CrackEvaluatorAgent
@@ -45,6 +46,7 @@ AGENT_REGISTRY = {
     "place_gen": PlaceGeneratorAgent,
     "npc_gen": NPCGeneratorAgent,
     "item_gen": ItemGeneratorAgent,
+    "challenge_gen": ChallengeGeneratorAgent,
 }
 
 # 在此处统一配置需要覆盖默认 LLM 设定的 Agent
@@ -71,6 +73,7 @@ AGENT_CONFIGS = {
     "place_gen": {"model": "deepseek-v4-flash", "thinking": False},
     "npc_gen": {"model": "deepseek-v4-flash", "thinking": False},
     "item_gen": {"model": "deepseek-v4-flash", "thinking": False},
+    "challenge_gen": {"model": "deepseek-v4-flash", "thinking": False},
 }
 
 # 模块初始化时，将配置动态注入到类属性中
@@ -85,6 +88,7 @@ for _name, _cls in AGENT_REGISTRY.items():
 __all__ = [
     "AGENT_CONFIGS",
     "AGENT_REGISTRY",
+    "ChallengeGeneratorAgent",
     "CompressorAgent",
     "ContinuationCheckAgent",
     "CrackEvaluatorAgent",

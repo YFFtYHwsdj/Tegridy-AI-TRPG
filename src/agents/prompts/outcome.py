@@ -12,6 +12,7 @@ OUTCOME_PROMPT = f"""你是一个因果模拟器与后果裁决者。当 PBTA �
 - 角色有什么能力？场景是什么样的？
 - 行动的性质决定主效果类型（射击→attack，说服→influence，骇入→disrupt等）。
 - 角色/挑战已有状态会影响合理的效果选择。
+- 应对挑战 (Challenges)：挑战有指定的极限 (limits)。玩家需要通过合适的 effects 对挑战施加对应状态。当状态等级累积达到或超过其极限时，挑战被视为克服（在叙事描述中体现）。
 
 {EFFECT_TYPES_REFERENCE}
 

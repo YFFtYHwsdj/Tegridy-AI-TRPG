@@ -96,6 +96,7 @@ class GameLoop:
         self.scene_director = SceneDirectorAgent(llm)
         self.compressor = CompressorAgent(llm)
 
+        from src.agents.challenge_generator import ChallengeGeneratorAgent
         from src.agents.item_generator import ItemGeneratorAgent
         from src.agents.npc_generator import NPCGeneratorAgent
         from src.agents.place_generator import PlaceGeneratorAgent
@@ -108,6 +109,7 @@ class GameLoop:
         self.place_gen = PlaceGeneratorAgent(llm)
         self.npc_gen = NPCGeneratorAgent(llm)
         self.item_gen = ItemGeneratorAgent(llm)
+        self.challenge_gen = ChallengeGeneratorAgent(llm)
 
         # 机制结算层 Agent
         from src.agents import CrackEvaluatorAgent, CrisisAgent, EvolutionAgent
@@ -342,12 +344,23 @@ class GameLoop:
                 self.state.global_state.items[iid] = it
             active_items.append(iid)
 
+        active_challenges = []
+        for c_req in r_data.get("target_challenges", []):
+            cid = c_req.get("id")
+            if not cid:
+                continue
+            if c_req.get("is_new"):
+                c_obj = self.challenge_gen.execute(c_req.get("generation_prompt", ""), cid)
+                self.state.global_state.challenges[cid] = c_obj
+            active_challenges.append(cid)
+
         # 6. 构建并切换 SceneState
         new_scene = SceneState(
             place_id=place_id,
             situation=r_data.get("situation_prompt", "无特定状况"),
             active_npc_ids=active_npcs,
             active_item_ids=active_items,
+            active_challenge_ids=active_challenges,
         )
 
         self.state.transition_to(new_scene)

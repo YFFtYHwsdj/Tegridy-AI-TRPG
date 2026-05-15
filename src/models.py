@@ -81,6 +81,29 @@ class StoryTag:
 
 
 @dataclass
+class Challenge:
+    """挑战 —— 非人的、抽象的障碍实体（如障碍门、陷阱、安保系统）。
+
+    挑战是一种简化的障碍结构，不同于包含角色和单位的 Otherscape（异景）。
+    它通过极限 (limits) 衡量克服进度，并能通过威胁 (threats) 造成后果。
+    """
+
+    challenge_id: str = ""
+    name: str = ""
+    description: str = ""
+    limits: dict[str, int] = field(default_factory=dict)
+    base_tags: list[PowerTag] = field(default_factory=list)
+    statuses: dict[str, Status] = field(default_factory=dict)
+    threats: list[str] = field(default_factory=list)
+    consequences: list[str] = field(default_factory=list)
+    notes: str = ""
+
+    def __post_init__(self):
+        if not self.challenge_id:
+            self.challenge_id = self.name
+
+
+@dataclass
 class GameItem:
     """游戏物品 —— 可被角色携带或使用的道具。
 

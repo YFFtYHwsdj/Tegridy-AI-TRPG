@@ -38,6 +38,7 @@ class SceneState:
 
     active_npc_ids: list[str] = field(default_factory=list)
     active_item_ids: list[str] = field(default_factory=list)
+    active_challenge_ids: list[str] = field(default_factory=list)
 
     story_tags: dict[str, StoryTag] = field(default_factory=dict)
 
@@ -78,6 +79,15 @@ class SceneState:
                     npc_status = format_statuses(npc.statuses)
                     lines.append(f"  - {npc.name}: 状态 {npc_status}")
 
+        if self.active_challenge_ids:
+            lines.append("当前面临的挑战:")
+            for cid in self.active_challenge_ids:
+                challenge = global_state.challenges.get(cid)
+                if challenge:
+                    c_status = format_statuses(challenge.statuses)
+                    limits = ", ".join(f"{k}:{v}" for k, v in challenge.limits.items())
+                    lines.append(f"  - {challenge.name} (极限: {limits}): 状态 {c_status}")
+
         return "\n".join(lines)
 
     def _build_narrative_block(self) -> str:
@@ -113,6 +123,19 @@ class SceneState:
                     lines.append(f"  - {item.name}{loc}: {item.description}")
         else:
             lines.append("\n场景物品: （无）")
+
+        if self.active_challenge_ids:
+            lines.append("\n场景挑战:")
+            for cid in self.active_challenge_ids:
+                c = global_state.challenges.get(cid)
+                if c:
+                    threats = "、".join(c.threats) if c.threats else "无"
+                    cons = "、".join(c.consequences) if c.consequences else "无"
+                    lines.append(
+                        f"  - {c.name}: {c.description}\n    威胁参考: {threats}\n    后果参考: {cons}"
+                    )
+        else:
+            lines.append("\n场景挑战: （无）")
 
         if character and character.items_visible:
             lines.append(f"\n{character.name}的随身物品:")
