@@ -62,11 +62,13 @@ class TestGlobalState(unittest.TestCase):
         self.assertIn("终点", ctx)
 
     def test_build_graph_context_depth_and_items(self):
-        # 构建 0 -> 1 -> 2 -> 3 跳的结构
+        # 构建 0 -> 1 -> 2 -> 3 跳的结构，并在 1 加入指向 0 的循环
         self.gs.places["loc0"] = Place(
             place_id="loc0", name="P0", connections={"loc1": "前往"}, notes="地点笔记"
         )
-        self.gs.places["loc1"] = Place(place_id="loc1", name="P1", connections={"npc2": "里面有"})
+        self.gs.places["loc1"] = Place(
+            place_id="loc1", name="P1", connections={"npc2": "里面有", "loc0": "返回"}
+        )
         self.gs.npcs["npc2"] = NPC(
             npc_id="npc2", name="N2", relationships={"item3": "持有"}, notes="NPC笔记"
         )

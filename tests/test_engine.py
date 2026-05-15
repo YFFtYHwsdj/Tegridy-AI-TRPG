@@ -415,6 +415,21 @@ class TestEngineEdgeCases(unittest.TestCase):
         s = reduce_status(character, "状态", 1)
         self.assertEqual(len(s.ticked_boxes), 0)
 
+    def test_reduce_status_edge_cases(self):
+        from unittest.mock import MagicMock
+
+        character = CharacterState(name="Test")
+        mock_statuses = MagicMock()
+        character.statuses = mock_statuses
+        # __contains__ first True (inside loop), then False (after break)
+        mock_statuses.__contains__.side_effect = [True, False]
+        status_mock = MagicMock()
+        status_mock.ticked_boxes = set()  # causes max_tier == 0 and break
+        mock_statuses.__getitem__.return_value = status_mock
+
+        # It will break the loop and check 'in' again (which is False) and return None
+        self.assertIsNone(reduce_status(character, "状态", 1))
+
     def test_nudge_status_invalid_entity(self):
         with self.assertRaises(TypeError):
             nudge_status("NotEntity", "状态")
@@ -432,12 +447,13 @@ class TestEngineEdgeCases(unittest.TestCase):
 
     def test_remove_story_tag(self):
         from src.engine import remove_story_tag
+
         scene = SceneState()
         add_story_tag(scene, "标签", "")
         removed = remove_story_tag(scene, "标签")
         self.assertIsNotNone(removed)
         self.assertNotIn("标签", scene.story_tags)
-        
+
         # remove non-existent
         self.assertIsNone(remove_story_tag(scene, "不存在"))
 

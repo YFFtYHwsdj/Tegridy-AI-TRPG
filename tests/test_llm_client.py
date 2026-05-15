@@ -238,6 +238,28 @@ class TestLLMClientChat(unittest.TestCase):
         self.assertIn("空内容", str(ctx.exception))
 
     @patch("src.llm_client.OpenAI")
+    def test_llm_unexpected_exception(self, mock_openai_class: MagicMock):
+        """测试未预期异常的处理"""
+        mock_client = MagicMock()
+        mock_openai_class.return_value = mock_client
+        mock_client.chat.completions.create.side_effect = Exception("Unexpected")
+
+        client = self._make_client()
+        with self.assertRaises(LLMError) as ctx:
+            client.chat("system", "user")
+
+        self.assertIn("未预期错误", str(ctx.exception))
+
+    @patch("src.llm_client.OpenAI")
+    def test_llm_max_retries_exhausted(self, mock_openai_class: MagicMock):
+        """测试 max_retries 为 0 时的触底逻辑"""
+        client = self._make_client(max_retries=0)
+        with self.assertRaises(LLMError) as ctx:
+            client.chat("system", "user")
+
+        self.assertIn("已达最大重试次数", str(ctx.exception))
+
+    @patch("src.llm_client.OpenAI")
     @patch("src.llm_client.time.sleep")
     def test_exponential_backoff(self, mock_sleep: MagicMock, mock_openai_class: MagicMock):
         """验证重试间隔按指数退避增长。"""

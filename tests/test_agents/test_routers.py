@@ -24,6 +24,10 @@ class TestSceneRouterAgent(unittest.TestCase):
         )
         agent = SceneRouterAgent(mock_llm)
         state = make_test_game_state()
+        from src.models import GameItem, Place
+
+        state.global_state.places["test_loc"] = Place(place_id="test_loc", name="测试地点")
+        state.global_state.items["test_item"] = GameItem(item_id="test_item", name="测试物品")
 
         result = agent.execute("去酒吧", state.global_state)
 

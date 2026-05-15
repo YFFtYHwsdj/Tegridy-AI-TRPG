@@ -188,10 +188,10 @@ class TestConsoleDisplayStatus(unittest.TestCase):
         scene.npcs = {npc.name: npc}
         scene.active_npc_ids = ["test_npc_id"]
         scene.scene_items_visible = {}
-        
+
         global_state = MagicMock()
         global_state.npcs = {"test_npc_id": npc}
-        
+
         state.scene = scene
         state.global_state = global_state
         return state

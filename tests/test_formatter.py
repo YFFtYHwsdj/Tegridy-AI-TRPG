@@ -26,6 +26,16 @@ class TestFormatRoleTags(unittest.TestCase):
         self.assertIn("信用破产", result)
         self.assertNotIn("()", result)
 
+    def test_unknown_tag_type(self):
+        class DummyTag:
+            name = "未知标签"
+            description = "未知描述"
+
+        tags = [DummyTag()]
+        result = format_role_tags(tags)
+        self.assertIn("[?]", result)
+        self.assertIn("未知标签", result)
+
 
 class TestFormatStatuses(unittest.TestCase):
     def test_empty(self):

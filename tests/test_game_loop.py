@@ -654,8 +654,10 @@ class TestGameLoopMissingBranches(unittest.TestCase):
         )
         self.loop.pipeline = MagicMock()
         self.loop.pipeline.run_single_move_pipeline.return_value = PipelineResult(
-            tag_note=MagicMock(), roll=MagicMock(), outcome_note=MagicMock(), 
-            narrator_note=MagicMock(structured={"narrative": "narr"})
+            tag_note=MagicMock(),
+            roll=MagicMock(),
+            outcome_note=MagicMock(),
+            narrator_note=MagicMock(structured={"narrative": "narr"}),
         )
         self.loop._check_special_modes_trigger = MagicMock(return_value="next")
         with patch("builtins.print"):

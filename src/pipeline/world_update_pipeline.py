@@ -89,7 +89,7 @@ def apply_world_updates(
     # 3. 碰撞与合并
     for (id_a, id_b), bag in edge_candidates.items():
         descs = bag["descs"]
-        if not descs:
+        if not descs:  # pragma: no cover
             continue
 
         if len(descs) == 1:

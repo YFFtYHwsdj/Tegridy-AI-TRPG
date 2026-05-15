@@ -98,6 +98,28 @@ class TestSceneTransitionPipeline(unittest.TestCase):
         self.assertIn("item1", self.state.scene.active_item_ids)
         self.assertIn("chal1", self.state.scene.active_challenge_ids)
 
+    def test_execute_with_empty_ids(self):
+        """测试场景路由返回空 id 时的防御逻辑。"""
+        self.pipeline.compressor.execute.return_value = AgentNote(reasoning="", structured={})
+        self.pipeline.world_analyzer.execute.return_value = AgentNote(reasoning="", structured={})
+        self.pipeline.scene_router.execute.return_value = AgentNote(
+            reasoning="路由",
+            structured={
+                "target_place": {"id": "new_loc", "is_new": True, "generation_prompt": "地点P"},
+                "target_npcs": [{"id": "", "is_new": True}],
+                "target_items": [{"id": "", "is_new": True}],
+                "target_challenges": [{"id": "", "is_new": True}],
+                "situation_prompt": "新状况",
+            },
+        )
+        self.pipeline.place_gen.execute.return_value = {"id": "new_loc", "name": "新地点"}
+
+        self.pipeline.execute("去测试")
+
+        self.pipeline.npc_gen.execute.assert_not_called()
+        self.pipeline.item_gen.execute.assert_not_called()
+        self.pipeline.challenge_gen.execute.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

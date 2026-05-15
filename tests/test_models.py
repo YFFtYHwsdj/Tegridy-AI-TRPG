@@ -177,6 +177,25 @@ class TestCharacter(unittest.TestCase):
         self.assertEqual(c.themes[0].name, "新主题")
         self.assertFalse(c.replace_theme("不存在的主题", t1))
 
+    def test_get_state_summary_with_themes(self):
+        from src.models import PowerTag, Theme
+
+        t = Theme(
+            name="测试主题",
+            theme_type="测试",
+            concept="",
+            motivation="",
+            power_tags=[PowerTag("力量标签")],
+        )
+        c = CharacterState(name="Kael", themes=[t])
+        summary = c.build_context_block(include_tracks=True)
+        self.assertIn("特质主题:", summary)
+        self.assertIn("测试主题", summary)
+        self.assertIn("力量标签", summary)
+
+        summary_no_tracks = c.build_context_block(include_tracks=False)
+        self.assertNotIn("进度:", summary_no_tracks)
+
 
 class TestGameItem(unittest.TestCase):
     def test_defaults(self):
@@ -292,6 +311,16 @@ class TestNPC(unittest.TestCase):
         self.assertIn("chip", npc.items_hidden)
         self.assertEqual(npc.items_visible, {})
         self.assertEqual(npc.items_hidden["chip"].item_id, "chip")
+
+
+class TestRollResult(unittest.TestCase):
+    def test_invalid_outcome(self):
+        from src.models import RollResult
+
+        with self.assertRaises(ValueError) as ctx:
+            RollResult(power=1, dice=(1, 1), total=2, outcome="invalid")
+
+        self.assertIn("outcome must be full_success/partial_success/failure", str(ctx.exception))
 
 
 class TestEffectEntry(unittest.TestCase):

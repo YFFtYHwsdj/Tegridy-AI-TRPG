@@ -64,7 +64,8 @@ class TestItemGeneratorAgent(unittest.TestCase):
             responses=[
                 (
                     '{"reasoning": "创建物品", "name": "医疗包", "description": "补血用", '
-                    '"tags": [{"name": "治疗", "description": "恢复生命"}]}',
+                    '"tags": [{"name": "治疗", "description": "恢复生命"}], '
+                    '"weakness_tags": [{"name": "沉重", "description": "不便携带"}]}',
                     {},
                 )
             ]
@@ -79,6 +80,7 @@ class TestItemGeneratorAgent(unittest.TestCase):
         self.assertEqual(result.item_id, "item_med")
         self.assertEqual(result.name, "医疗包")
         self.assertEqual(len(result.tags), 1)
+        self.assertEqual(len(result.weakness_tags), 1)
 
 
 class TestPlaceGeneratorAgent(unittest.TestCase):
