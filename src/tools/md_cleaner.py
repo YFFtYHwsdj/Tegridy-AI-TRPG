@@ -4,7 +4,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass
-from typing import List, Optional
+
 from dotenv import load_dotenv
 
 from src.llm_client import LLMClient
@@ -25,90 +25,102 @@ class CleanedNode:
     content: str
 
 
-def parse_markdown_from_string(md_text: str) -> List[RawNode]:
+def parse_markdown_from_string(md_text: str) -> list[RawNode]:
     lines = md_text.splitlines(keepends=True)
-        
+
     nodes = []
     current_level = 0
     current_title = "Document Root"
     current_content_lines = []
-    
+
     # 正则匹配 Markdown 标题
-    header_re = re.compile(r'^(#{1,6})\s+(.*)')
-    
+    header_re = re.compile(r"^(#{1,6})\s+(.*)")
+
     for line in lines:
         match = header_re.match(line)
         if match:
             if current_content_lines or nodes:
-                nodes.append(RawNode(
-                    level=current_level,
-                    title=current_title,
-                    raw_content="".join(current_content_lines)
-                ))
+                nodes.append(
+                    RawNode(
+                        level=current_level,
+                        title=current_title,
+                        raw_content="".join(current_content_lines),
+                    )
+                )
             current_level = len(match.group(1))
             current_title = match.group(2).strip()
             current_content_lines = []
         else:
             current_content_lines.append(line)
-            
-    nodes.append(RawNode(
-        level=current_level,
-        title=current_title,
-        raw_content="".join(current_content_lines)
-    ))
-    
+
+    nodes.append(
+        RawNode(
+            level=current_level, title=current_title, raw_content="".join(current_content_lines)
+        )
+    )
+
     return nodes
 
 
-def get_parent_node(cleaned_nodes: List[CleanedNode], current_level: int) -> Optional[CleanedNode]:
+def get_parent_node(cleaned_nodes: list[CleanedNode], current_level: int) -> CleanedNode | None:
     """在已清洗的节点中向上遍历寻找真实的父节点。"""
     if current_level <= 0:
         return None
-        
+
     for i in range(len(cleaned_nodes) - 1, -1, -1):
         if cleaned_nodes[i].level < current_level:
             return cleaned_nodes[i]
     return None
 
 
-def clean_markdown_nodes(raw_nodes: List[RawNode], llm: LLMClient, limit: int = 0, debug: bool = False) -> List[CleanedNode]:
+def clean_markdown_nodes(
+    raw_nodes: list[RawNode], llm: LLMClient, limit: int = 0, debug: bool = False
+) -> list[CleanedNode]:
     log = get_logger()
-    cleaned_nodes: List[CleanedNode] = []
-    
+    cleaned_nodes: list[CleanedNode] = []
+
     total = limit if limit > 0 else len(raw_nodes)
-    
+
     for i in range(total):
         node = raw_nodes[i]
-        
+
         # 跳过完全为空的节点
         if not node.title.strip() and not node.raw_content.strip():
             continue
-            
-        log.info("[%d/%d] 正在清洗并重组节点: %s %s", i + 1, total, '#' * node.level, node.title)
-        
+
+        log.info("[%d/%d] 正在清洗并重组节点: %s %s", i + 1, total, "#" * node.level, node.title)
+
         # 1. 动态构建全局大纲
         past_titles = [f"{'#' * n.level} {n.title}" for n in cleaned_nodes if n.level > 0]
-        future_titles = [f"{'#' * n.level} {n.title}" for n in raw_nodes[i+1:] if n.level > 0]
-        global_structure = "\n".join(past_titles + [f"-> 📍 当前位置: {'#' * node.level} {node.title}"] + future_titles)
-        
+        future_titles = [f"{'#' * n.level} {n.title}" for n in raw_nodes[i + 1 :] if n.level > 0]
+        global_structure = "\n".join(
+            [*past_titles, f"-> 📍 当前位置: {'#' * node.level} {node.title}", *future_titles]
+        )
+
         # 2. 寻找上下文
         parent = get_parent_node(cleaned_nodes, node.level)
         previous = cleaned_nodes[-1] if cleaned_nodes else None
-        next_raw_node = raw_nodes[i+1] if i + 1 < len(raw_nodes) else None
-        
+        next_raw_node = raw_nodes[i + 1] if i + 1 < len(raw_nodes) else None
+
         parent_ctx = "无"
         if parent:
             parent_ctx = f"标题：{'#' * parent.level} {parent.title}\n内容：\n{parent.content}"
-            
+
         previous_ctx = "无"
         if previous:
-            previous_ctx = f"标题：{'#' * previous.level} {previous.title}\n内容：\n{previous.content}"
-            
+            previous_ctx = (
+                f"标题：{'#' * previous.level} {previous.title}\n内容：\n{previous.content}"
+            )
+
         next_ctx = "无"
         if next_raw_node:
-            next_text = next_raw_node.raw_content[:500] + "..." if len(next_raw_node.raw_content) > 500 else next_raw_node.raw_content
+            next_text = (
+                next_raw_node.raw_content[:500] + "..."
+                if len(next_raw_node.raw_content) > 500
+                else next_raw_node.raw_content
+            )
             next_ctx = f"{'#' * next_raw_node.level} {next_raw_node.title}\n{next_text}"
-            
+
         prompt = f"""你是一个高级 TRPG 模组文本重组专家。请对【当前待清理节点】的原始文本进行清理、排版和层级重组。
 
 【核心任务】
@@ -152,76 +164,72 @@ def clean_markdown_nodes(raw_nodes: List[RawNode], llm: LLMClient, limit: int = 
 
 请注意：不要篡改、不要总结模组原意。如果当前节点是一个空白标题或无用废话，你可以返回空的 `nodes` 数组。
 """
-        
+
         user_message = f"""【当前待清理节点】
-原标题：{'#' * node.level} {node.title}
+原标题：{"#" * node.level} {node.title}
 原内容：
 {node.raw_content}
 """
         try:
             response, _ = llm.chat(
-                system_prompt=prompt,
-                user_message=user_message,
-                temperature=0.2,
-                json_mode=True
+                system_prompt=prompt, user_message=user_message, temperature=0.2, json_mode=True
             )
-            
+
             if debug:
                 with open("md_cleaner_debug.log", "a", encoding="utf-8") as df:
-                    df.write(f"\\n{'='*50}\\n")
-                    df.write(f"NODE [{i+1}/{total}] - 原标题: {'#' * node.level} {node.title}\\n")
-                    df.write(f"{'='*50}\\n\\n")
+                    df.write(f"\\n{'=' * 50}\\n")
+                    df.write(f"NODE [{i + 1}/{total}] - 原标题: {'#' * node.level} {node.title}\\n")
+                    df.write(f"{'=' * 50}\\n\\n")
                     df.write(f"【SYSTEM PROMPT】\\n{prompt}\\n\\n")
                     df.write(f"【USER MESSAGE】\\n{user_message}\\n\\n")
                     df.write(f"【LLM RESPONSE】\\n{response}\\n\\n")
 
             data = json.loads(response)
-            
+
             for item in data.get("nodes", []):
-                cleaned_nodes.append(CleanedNode(
-                    level=item.get("level", node.level),
-                    title=item.get("title", node.title),
-                    content=item.get("content", "")
-                ))
-                
+                cleaned_nodes.append(
+                    CleanedNode(
+                        level=item.get("level", node.level),
+                        title=item.get("title", node.title),
+                        content=item.get("content", ""),
+                    )
+                )
+
         except Exception as e:
             log.error("处理节点 %s 时出错: %s", node.title, e)
             # Fallback
-            cleaned_nodes.append(CleanedNode(
-                level=node.level,
-                title=node.title,
-                content=node.raw_content
-            ))
-            
+            cleaned_nodes.append(
+                CleanedNode(level=node.level, title=node.title, content=node.raw_content)
+            )
+
     return cleaned_nodes
-            
-            
-def save_nodes_to_file(nodes: List[CleanedNode], output_path: str):
+
+
+def save_nodes_to_file(nodes: list[CleanedNode], output_path: str):
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-    with open(output_path, 'w', encoding='utf-8') as f:
+    with open(output_path, "w", encoding="utf-8") as f:
         last_written_title = ""
         for node in nodes:
             current_title = node.title.strip()
-            # 只有当 title 不为空且 level > 0 时，才打印标题
-            if current_title and node.level > 0:
-                # 避免连续打印两个完全相同的标题（大模型有时会忘记把伪标题的 level 置 0）
-                if current_title != last_written_title:
-                    f.write(f"{'#' * node.level} {current_title}\n\n")
-                    last_written_title = current_title
-            
+            # 只有当 title 不为空且 level > 0 且不与上一个标题重复时，才打印标题
+            if current_title and node.level > 0 and current_title != last_written_title:
+                f.write(f"{'#' * node.level} {current_title}\n\n")
+                last_written_title = current_title
+
             if node.content.strip():
                 f.write(node.content.strip() + "\n\n")
 
 
 def get_raw_markdown(filepath: str) -> str:
     ext = os.path.splitext(filepath)[1].lower()
-    if ext == '.pdf':
-        print(f"检测到输入为 PDF，正在提取 Markdown 内容（内存处理，不产生中间文件）...")
+    if ext == ".pdf":
+        print("检测到输入为 PDF，正在提取 Markdown 内容（内存处理，不产生中间文件）...")
         import pymupdf4llm
+
         md_text = pymupdf4llm.to_markdown(filepath)
-        return md_text
-    elif ext == '.md':
-        with open(filepath, 'r', encoding='utf-8') as f:
+        return str(md_text)
+    elif ext == ".md":
+        with open(filepath, encoding="utf-8") as f:
             return f.read()
     else:
         raise ValueError(f"不支持的文件类型: {ext}")
@@ -232,35 +240,39 @@ def main():
     parser.add_argument("-i", "--input", required=True, help="输入的源文件路径 (支持 .pdf 或 .md)")
     parser.add_argument("-o", "--output", required=True, help="输出的 clean markdown 文件路径")
     parser.add_argument("--limit", type=int, default=0, help="最多处理的节点数量 (默认: 0代表全部)")
-    parser.add_argument("--debug", action="store_true", help="开启调试模式，输出与 LLM 交互的完整上下文至 md_cleaner_debug.log")
-    
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="开启调试模式，输出与 LLM 交互的完整上下文至 md_cleaner_debug.log",
+    )
+
     args = parser.parse_args()
-    
+
     if args.debug and os.path.exists("md_cleaner_debug.log"):
         os.remove("md_cleaner_debug.log")
-    
+
     load_dotenv()
     api_key = os.getenv("DEEPSEEK_API_KEY")
     base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
     model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")  # 可以使用较快的模型
-    
+
     if not api_key:
         print("错误: 请在 .env 文件中设置 DEEPSEEK_API_KEY")
         sys.exit(1)
-        
+
     init_logging(os.getcwd(), debug_mode=True)
     llm = LLMClient(api_key=api_key, base_url=base_url, model=model, thinking=False)
-    
+
     print(f"正在读取 {args.input} ...")
     raw_md_text = get_raw_markdown(args.input)
-    
+
     print("正在进行文本节点切片...")
     raw_nodes = parse_markdown_from_string(raw_md_text)
     print(f"共解析到 {len(raw_nodes)} 个原始节点。")
-    
+
     print("开始调用 LLM 动态结构重组...")
     cleaned_nodes = clean_markdown_nodes(raw_nodes, llm, args.limit, args.debug)
-    
+
     print(f"保存结果至 {args.output} ...")
     save_nodes_to_file(cleaned_nodes, args.output)
     print("完成！")
