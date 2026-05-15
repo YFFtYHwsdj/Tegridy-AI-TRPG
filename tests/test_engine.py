@@ -385,22 +385,22 @@ class TestStoryTagEngine(unittest.TestCase):
 
     def test_invalid_entity_type(self):
         with self.assertRaises(TypeError):
-            add_story_tag("NotEntity", "标签", "")
+            add_story_tag("NotEntity", "标签", "")  # type: ignore
 
         from src.engine import remove_story_tag
 
         with self.assertRaises(TypeError):
-            remove_story_tag("NotEntity", "标签")
+            remove_story_tag("NotEntity", "标签")  # type: ignore
 
 
 class TestEngineEdgeCases(unittest.TestCase):
     def test_apply_status_invalid_entity(self):
         with self.assertRaises(TypeError):
-            apply_status("NotEntity", "状态", 1)
+            apply_status("NotEntity", "状态", 1)  # type: ignore
 
     def test_reduce_status_invalid_entity(self):
         with self.assertRaises(TypeError):
-            reduce_status("NotEntity", "状态", 1)
+            reduce_status("NotEntity", "状态", 1)  # type: ignore
 
     def test_reduce_status_zero_or_negative(self):
         character = CharacterState(name="Test")
@@ -432,7 +432,7 @@ class TestEngineEdgeCases(unittest.TestCase):
 
     def test_nudge_status_invalid_entity(self):
         with self.assertRaises(TypeError):
-            nudge_status("NotEntity", "状态")
+            nudge_status("NotEntity", "状态")  # type: ignore
 
     def test_nudge_status_missing_target_box(self):
         # Simulate ticking the box but the next one missing in loop (though the loop shouldn't miss if we artificially add boxes)
