@@ -469,3 +469,242 @@ class TestMovePipelineSplitActions(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMovePipelineApplyEffects(unittest.TestCase):
+    def setUp(self):
+        from src.pipeline.move_pipeline import MovePipeline
+        from tests.helpers import MockLLMClient
+
+        self.llm = MockLLMClient()
+        self.state = make_test_game_state()
+        self.pipeline = MovePipeline(self.llm, self.state, MagicMock())
+        self.pipeline.character_manager = MagicMock()
+        self.pipeline.npc_manager = MagicMock()
+        self.pipeline.story_tag_manager = MagicMock()
+        self.ctx = self.state.make_context()
+
+    def test_apply_effects_inflict_status_character(self):
+        effects = [{"operation": "inflict_status", "target": "自身", "label": "受伤", "tier": 2}]
+        self.pipeline._apply_effects(effects, self.ctx)
+        self.pipeline.character_manager.apply_status.assert_called_with("受伤", 2)
+
+    def test_apply_effects_nudge_status_npc(self):
+        from src.models import NPC
+
+        npc = NPC(npc_id="miko", name="Miko")
+        self.state.global_state.npcs["miko"] = npc
+        self.state.scene.active_npc_ids.append("miko")
+
+        effects = [{"operation": "nudge_status", "target": "Miko", "label": "疲劳"}]
+        self.pipeline._apply_effects(effects, self.ctx)
+        self.pipeline.npc_manager.nudge_status.assert_called_with("miko", "疲劳")
+
+    def test_apply_effects_reduce_status_character(self):
+        effects = [
+            {
+                "operation": "reduce_status",
+                "target": "self",
+                "status_to_reduce": "受伤",
+                "reduce_by": 1,
+            }
+        ]
+        self.pipeline._apply_effects(effects, self.ctx)
+        self.pipeline.character_manager.reduce_status.assert_called_with("受伤", 1)
+
+    def test_apply_effects_add_story_tag_scene(self):
+        effects = [
+            {
+                "operation": "add_story_tag",
+                "target": "场景",
+                "story_tag_name": "起火",
+                "story_tag_description": "大火",
+                "is_single_use": False,
+            }
+        ]
+        self.pipeline._apply_effects(effects, self.ctx)
+        self.pipeline.story_tag_manager.add_scene_tag.assert_called_with("起火", "大火", False)
+
+    def test_apply_effects_scratch_story_tag_character(self):
+        effects = [
+            {"operation": "scratch_story_tag", "target": "自身", "story_tag_to_scratch": "起火"}
+        ]
+        self.pipeline._apply_effects(effects, self.ctx)
+        self.pipeline.character_manager.remove_personal_tag.assert_called_with("起火")
+
+    def test_apply_effects_ignores_invalid_target(self):
+        effects = [
+            {"operation": "inflict_status", "target": "不存在的NPC", "label": "受伤", "tier": 2}
+        ]
+        self.pipeline._apply_effects(effects, self.ctx)
+        self.pipeline.npc_manager.apply_status.assert_not_called()
+        self.pipeline.character_manager.apply_status.assert_not_called()
+
+    def test_apply_results(self):
+        outcome_note = make_agent_note(
+            structured={
+                "effects": [
+                    {"operation": "inflict_status", "target": "自身", "label": "擦伤", "tier": 1}
+                ],
+                "consequences": [
+                    {
+                        "effects": [
+                            {
+                                "operation": "reduce_status",
+                                "target": "自身",
+                                "status_to_reduce": "擦伤",
+                                "reduce_by": 1,
+                            }
+                        ]
+                    }
+                ],
+            }
+        )
+        self.pipeline.apply_results(outcome_note, self.ctx)
+        self.pipeline.character_manager.apply_status.assert_called_with("擦伤", 1)
+        self.pipeline.character_manager.reduce_status.assert_called_with("擦伤", 1)
+
+    def test_process_auto_mitigation(self):
+        import src.engine
+
+        # Ensure roll fails so no mitigation
+        with patch("src.pipeline.move_pipeline.roll_dice") as mock_roll:
+            mock_roll.return_value = src.models.RollResult(
+                power=1, dice=(1, 1), total=2, outcome="failure"
+            )
+            outcome_note = make_agent_note(
+                structured={
+                    "consequences": [
+                        {
+                            "mitigation_tags": ["防御"],
+                            "effects": [
+                                {
+                                    "operation": "inflict_status",
+                                    "target": "自身",
+                                    "label": "擦伤",
+                                    "tier": 1,
+                                }
+                            ],
+                        }
+                    ]
+                }
+            )
+            self.pipeline._process_auto_mitigation(outcome_note, self.ctx)
+            # failure = 0 mitigation
+            effs = outcome_note.structured["consequences"][0]["effects"]
+            self.assertEqual(len(effs), 1)
+            self.assertEqual(effs[0]["tier"], 1)
+
+        # Ensure roll partial success
+        with patch("src.pipeline.move_pipeline.roll_dice") as mock_roll:
+            mock_roll.return_value = src.models.RollResult(
+                power=1, dice=(3, 4), total=8, outcome="partial_success"
+            )
+            outcome_note = make_agent_note(
+                structured={
+                    "consequences": [
+                        {
+                            "mitigation_tags": ["防御"],
+                            "effects": [
+                                {
+                                    "operation": "inflict_status",
+                                    "target": "自身",
+                                    "label": "擦伤",
+                                    "tier": 1,
+                                }
+                            ],
+                        }
+                    ]
+                }
+            )
+            self.pipeline._process_auto_mitigation(outcome_note, self.ctx)
+            # partial = power = 1 mitigation, tier 1 - 1 = 0, so it's filtered out
+            effs = outcome_note.structured["consequences"][0]["effects"]
+            self.assertEqual(len(effs), 0)
+
+    def test_apply_effects_inflict_status_npc(self):
+        from src.models import NPC
+
+        npc = NPC(npc_id="miko", name="Miko")
+        self.state.global_state.npcs["miko"] = npc
+        self.state.scene.active_npc_ids.append("miko")
+
+        effects = [{"operation": "inflict_status", "target": "Miko", "label": "受伤", "tier": 2}]
+        self.pipeline._apply_effects(effects, self.ctx)
+        self.pipeline.npc_manager.apply_status.assert_called_with("miko", "受伤", 2)
+
+    def test_apply_effects_reduce_status_npc(self):
+        from src.models import NPC
+
+        npc = NPC(npc_id="miko", name="Miko")
+        self.state.global_state.npcs["miko"] = npc
+        self.state.scene.active_npc_ids.append("miko")
+
+        effects = [
+            {
+                "operation": "reduce_status",
+                "target": "Miko",
+                "status_to_reduce": "受伤",
+                "reduce_by": 1,
+            }
+        ]
+        self.pipeline._apply_effects(effects, self.ctx)
+        self.pipeline.npc_manager.reduce_status.assert_called_with("miko", "受伤", 1)
+
+    def test_apply_effects_add_story_tag_npc(self):
+        from src.models import NPC
+
+        npc = NPC(npc_id="miko", name="Miko")
+        self.state.global_state.npcs["miko"] = npc
+        self.state.scene.active_npc_ids.append("miko")
+
+        effects = [
+            {
+                "operation": "add_story_tag",
+                "target": "Miko",
+                "story_tag_name": "标记",
+                "story_tag_description": "",
+                "is_single_use": False,
+            }
+        ]
+        self.pipeline._apply_effects(effects, self.ctx)
+        self.pipeline.npc_manager.add_personal_tag.assert_called_with("miko", "标记", "", False)
+
+    def test_apply_effects_scratch_story_tag_npc(self):
+        from src.models import NPC
+
+        npc = NPC(npc_id="miko", name="Miko")
+        self.state.global_state.npcs["miko"] = npc
+        self.state.scene.active_npc_ids.append("miko")
+
+        effects = [
+            {"operation": "scratch_story_tag", "target": "Miko", "story_tag_to_scratch": "标记"}
+        ]
+        self.pipeline._apply_effects(effects, self.ctx)
+        self.pipeline.npc_manager.remove_personal_tag.assert_called_with("miko", "标记")
+
+    def test_apply_effects_scratch_story_tag_scene(self):
+        effects = [
+            {"operation": "scratch_story_tag", "target": "场景", "story_tag_to_scratch": "起火"}
+        ]
+        self.pipeline._apply_effects(effects, self.ctx)
+        self.pipeline.story_tag_manager.remove_scene_tag.assert_called_with("起火")
+
+    def test_apply_effects_discover(self):
+        effects = [{"operation": "discover", "target": "自身", "detail": "找到了线索"}]
+        with patch("src.pipeline.move_pipeline.log_system") as mock_log:
+            self.pipeline._apply_effects(effects, self.ctx)
+            mock_log.assert_called()
+
+    def test_apply_effects_extra_feat(self):
+        effects = [{"operation": "extra_feat", "target": "自身", "description": "进行了一次跳跃"}]
+        with patch("src.pipeline.move_pipeline.log_system") as mock_log:
+            self.pipeline._apply_effects(effects, self.ctx)
+            mock_log.assert_called()
+
+    def test_apply_effects_exception(self):
+        effects = [{"operation": "inflict_status", "target": "自身", "label": "受伤", "tier": 2}]
+        self.pipeline.character_manager.apply_status.side_effect = Exception("Test Exception")
+        errors = self.pipeline._apply_effects(effects, self.ctx)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("Test Exception", errors[0])

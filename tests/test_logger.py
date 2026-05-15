@@ -86,6 +86,108 @@ class TestLogger(unittest.TestCase):
 
         mock_game.info.assert_called_once_with("[状态] %s → (无状态)", "Kael")
 
+    def test_create_file_handler_success(self):
+        import logging
+        import os
+        import shutil
+        import tempfile
+
+        from src.logger import _create_file_handler
+
+        temp_dir = tempfile.mkdtemp()
+        filepath = os.path.join(temp_dir, "test.log")
+        handler = _create_file_handler(filepath, logging.INFO)
+        self.assertIsNotNone(handler)
+        handler.close()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    @patch("logging.FileHandler", side_effect=OSError("Permission denied"))
+    def test_create_file_handler_oserror(self, mock_handler):
+        import logging
+        import os
+
+        from src.logger import _create_file_handler
+
+        filepath = os.path.join("dummy_dir", "test.log")
+        handler = _create_file_handler(filepath, logging.INFO)
+        self.assertIsNone(handler)
+
+    def test_init_logging(self):
+        import logging
+        import os
+        import shutil
+        import tempfile
+
+        from src.logger import GAME_LOGGER_NAME, LLM_LOGGER_NAME, init_logging
+
+        temp_dir = tempfile.mkdtemp()
+        session_file, llm_file = init_logging(temp_dir, debug_mode=True)
+        self.assertTrue(os.path.exists(session_file))
+        self.assertTrue(os.path.exists(llm_file))
+
+        game_logger = logging.getLogger(GAME_LOGGER_NAME)
+        self.assertTrue(len(game_logger.handlers) > 0)
+
+        llm_logger = logging.getLogger(LLM_LOGGER_NAME)
+        self.assertTrue(len(llm_logger.handlers) > 0)
+
+        # Cleanup loggers so it doesn't affect other tests
+        for handler in game_logger.handlers:
+            handler.close()
+        for handler in llm_logger.handlers:
+            handler.close()
+
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    def test_set_debug_mode(self):
+        import logging
+        import shutil
+        import tempfile
+
+        from src.logger import init_logging, set_debug_mode
+
+        temp_dir = tempfile.mkdtemp()
+        init_logging(temp_dir, debug_mode=False)
+        set_debug_mode(True)
+
+        from src.logger import _console_handler
+
+        self.assertEqual(_console_handler.level, logging.DEBUG)
+
+        set_debug_mode(False)
+        self.assertEqual(_console_handler.level, logging.INFO)
+
+        shutil.rmtree(temp_dir, ignore_errors=True)
+
+    @patch("src.logger.get_llm_logger")
+    @patch("src.logger.get_game_logger")
+    def test_log_call_without_cached_tokens(self, mock_get_game, mock_get_llm):
+        mock_game = MagicMock()
+        mock_llm = MagicMock()
+        mock_get_game.return_value = mock_game
+        mock_get_llm.return_value = mock_llm
+
+        usage = {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150}
+        log_call("TestAgent", "system", "user", "response", usage)
+
+        expected_summary = "LLM调用 · TestAgent | 提示100(无缓存) | 生成50 | 合计150"
+        mock_game.info.assert_called_with(expected_summary)
+        mock_llm.info.assert_called_with(expected_summary)
+
 
 if __name__ == "__main__":
     unittest.main()
+
+    @patch("src.logger.get_llm_logger")
+    @patch("src.logger.get_game_logger")
+    def test_log_call_no_usage(self, mock_get_game, mock_get_llm):
+        mock_game = MagicMock()
+        mock_llm = MagicMock()
+        mock_get_game.return_value = mock_game
+        mock_get_llm.return_value = mock_llm
+
+        log_call("TestAgent", "system", "user", "response", None)
+
+        expected_summary = "LLM调用 · TestAgent | token 用量未知"
+        mock_game.info.assert_called_with(expected_summary)
+        mock_llm.info.assert_called_with(expected_summary)
