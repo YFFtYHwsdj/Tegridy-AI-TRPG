@@ -6,7 +6,6 @@ from src.agents.prompts.item_creator import ITEM_CREATOR_PROMPT
 from src.agents.prompts.narrator import LITE_NARRATOR_PROMPT, NARRATOR_PROMPT, QUICK_NARRATOR_PROMPT
 from src.agents.prompts.outcome import OUTCOME_PROMPT, QUICK_OUTCOME_PROMPT
 from src.agents.prompts.rhythm import RHYTHM_SYSTEM_PROMPT
-from src.agents.prompts.scene_creator import SCENE_CREATOR_PROMPT
 from src.agents.prompts.scene_director import SCENE_DIRECTOR_PROMPT
 from src.agents.prompts.tag_matcher import TAG_MATCHER_PROMPT
 
@@ -22,7 +21,6 @@ __all__ = [
     "QUICK_NARRATOR_PROMPT",
     "QUICK_OUTCOME_PROMPT",
     "RHYTHM_SYSTEM_PROMPT",
-    "SCENE_CREATOR_PROMPT",
     "SCENE_DIRECTOR_PROMPT",
     "TAG_MATCHER_PROMPT",
 ]

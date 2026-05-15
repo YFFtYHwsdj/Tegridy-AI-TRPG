@@ -10,8 +10,7 @@
 
 场景切换流程：
     SceneDirector 判定结束 → Compressor 压缩当前场景
-    → SceneCreator 创作下一场景 → transition_to 切换状态
-    → RhythmAgent 开场新场景
+    → transition_to 切换状态 → RhythmAgent 开场新场景
 
 公开 API：
     step(player_input) → StepResult：单步推进，封装行动处理 + 场景导演判定 +
