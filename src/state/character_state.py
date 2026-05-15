@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import ClassVar
 
 from src.formatter import format_statuses
-from src.models import GameItem, PowerTag, Status, Theme, WeaknessTag
+from src.models import GameItem, PowerTag, Status, StoryTag, Theme, WeaknessTag
 
 
 @dataclass
@@ -22,6 +22,7 @@ class CharacterState:
     name: str
     themes: list[Theme] = field(default_factory=list)
     statuses: dict[str, Status] = field(default_factory=dict)
+    story_tags: dict[str, StoryTag] = field(default_factory=dict)
     items_visible: dict[str, GameItem] = field(default_factory=dict)
     items_hidden: dict[str, GameItem] = field(default_factory=dict)
     description: str = ""

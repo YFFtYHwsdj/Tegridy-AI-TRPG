@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 
 from src.context import AgentContext
 from src.formatter import format_statuses
-from src.models import StoryTag
+from src.models import Clue, StoryTag
 
 if TYPE_CHECKING:
     from src.state.character_state import CharacterState
@@ -41,6 +41,8 @@ class SceneState:
     active_challenge_ids: list[str] = field(default_factory=list)
 
     story_tags: dict[str, StoryTag] = field(default_factory=dict)
+    clues_hidden: dict[str, Clue] = field(default_factory=dict)
+    clues_visible: dict[str, Clue] = field(default_factory=dict)
 
     narrative_history: list[str] = field(default_factory=list)
     compression: str = ""
