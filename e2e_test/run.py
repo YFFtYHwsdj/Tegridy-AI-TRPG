@@ -42,14 +42,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--max-rounds",
         type=int,
-        default=150,
-        help="最大回合数，即玩家输入次数 (默认: 150)",
+        default=100,
+        help="最大回合数，即玩家输入次数 (默认: 100)",
     )
     parser.add_argument(
         "--max-scenes",
         type=int,
-        default=15,
-        help="最大场景切换次数 (默认: 15)",
+        default=5,
+        help="最大场景切换次数 (默认: 5)",
     )
     parser.add_argument(
         "--player-history",
