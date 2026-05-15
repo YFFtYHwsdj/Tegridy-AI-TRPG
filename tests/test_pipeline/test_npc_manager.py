@@ -72,7 +72,9 @@ class TestNPCManager(unittest.TestCase):
         self.assertEqual(self.npc.statuses["injured"].current_tier, 2)
 
     def test_reduce_status_ignores_npc_not_found(self):
+        initial_count = len(self.state.global_state.npcs)
         self.manager.reduce_status("nonexistent", "injured", 1)
+        self.assertEqual(len(self.state.global_state.npcs), initial_count)
 
     def test_add_personal_tag(self):
         self.manager.add_personal_tag("miko", "angry", "She is angry", True)

@@ -674,20 +674,27 @@ class TestGameLoopMissingBranches(unittest.TestCase):
         self.loop.active_theme_name = "not found"
         self.loop.evolution_agent = MagicMock()
         self.loop.evolution_agent.execute.return_value = MagicMock(
-            structured={"status": "finalized", "response_to_player": "r"}
+            structured={"status": "finalized", "response_to_player": "r", "theme_update": {"add_power_tag": {"name": "test"}}}
         )
         with patch("builtins.print"):
-            self.loop._run_special_mode_step("a")
+            with patch("src.game_loop.log_system") as mock_log:
+                self.loop._run_special_mode_step("a")
+                # When theme not found, it returns without updating attention track or logging
+                mock_log.assert_not_called()
+                self.assertEqual(self.loop.game_mode, "normal")
 
     def test_special_mode_crisis_theme_not_found(self):
         self.loop.game_mode = "crisis"
         self.loop.active_theme_name = "not found"
         self.loop.crisis_agent = MagicMock()
         self.loop.crisis_agent.execute.return_value = MagicMock(
-            structured={"status": "finalized", "response_to_player": "r"}
+            structured={"status": "finalized", "response_to_player": "r", "new_theme": {"name": "test"}}
         )
         with patch("builtins.print"):
-            self.loop._run_special_mode_step("a")
+            with patch("src.game_loop.log_system") as mock_log:
+                self.loop._run_special_mode_step("a")
+                mock_log.assert_called_with("未找到要替换的旧主题 [not found]！", level="error")
+                self.assertEqual(self.loop.game_mode, "normal")
 
     def test_special_mode_evolution_remove_weakness(self):
         from src.models import WeaknessTag

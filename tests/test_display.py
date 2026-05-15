@@ -138,8 +138,9 @@ class TestConsoleDisplayOutcome(unittest.TestCase):
 
     def test_none_outcome_note(self):
         """outcome_note 为 None 时不报错。"""
-        with patch.object(self.logger, "debug"):
+        with patch.object(self.logger, "debug") as mock_debug:
             self.display.print_outcome(None)
+            mock_debug.assert_not_called()
 
 
 class TestConsoleDisplayStrategy(unittest.TestCase):

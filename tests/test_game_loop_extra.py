@@ -19,7 +19,7 @@ class TestGameLoopCoverage(unittest.TestCase):
             structured={"scene_establishment": "new scene"}
         )
         self.loop._open_scene()
-        self.assertTrue(True)
+        self.assertIn("new scene", self.state.scene.narrative_history)
 
     def test_process_move_special_trigger(self):
         self.loop.pipeline.run_single_move_pipeline = MagicMock()
@@ -118,18 +118,21 @@ class TestGameLoopCoverage(unittest.TestCase):
 
     def test_apply_evolution_no_character(self):
         self.loop.state.character = None
-        # Shouldn't raise error
-        self.loop._apply_evolution({"add_power_tag": {"name": "test"}})
+        with patch("src.game_loop.log_system") as mock_log:
+            self.loop._apply_evolution({"add_power_tag": {"name": "test"}})
+            mock_log.assert_not_called()
 
     def test_apply_evolution_theme_not_found(self):
         self.loop.state.character.get_theme = MagicMock(return_value=None)
-        # Shouldn't raise error
-        self.loop._apply_evolution({"add_power_tag": {"name": "test"}})
+        with patch("src.game_loop.log_system") as mock_log:
+            self.loop._apply_evolution({"add_power_tag": {"name": "test"}})
+            mock_log.assert_not_called()
 
     def test_apply_crisis_no_character(self):
         self.loop.state.character = None
-        # Shouldn't raise error
-        self.loop._apply_crisis({"name": "new", "power_tags": [], "weakness_tags": []})
+        with patch("src.game_loop.log_system") as mock_log:
+            self.loop._apply_crisis({"name": "new", "power_tags": [], "weakness_tags": []})
+            mock_log.assert_not_called()
 
     def test_run_special_mode_step_invalid_mode(self):
         self.loop.game_mode = "invalid"

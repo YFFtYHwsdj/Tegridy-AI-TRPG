@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from src.models import NPC, GameItem
 from src.pipeline.managers.item_manager import ItemManager
@@ -186,6 +187,7 @@ class TestItemManagerRemainingBranches(unittest.TestCase):
         self.manager.transfer_item({"item_id": "i1", "from": "", "to": "character"})
         self.manager.transfer_item({"item_id": "i1", "from": "scene", "to": ""})
         # Should return without doing anything
+        self.assertNotIn("i1", self.state.character.items_visible)
 
     def test_transfer_item_creates_emergent(self):
         from src.context import AgentContext
@@ -231,7 +233,9 @@ class TestItemManagerRemainingBranches(unittest.TestCase):
 
     def test_update_item_location_not_found(self):
         # Should do nothing and hit `return None` in `_find_visible_item`
-        self.manager.update_item_location_text("nonexistent", "手里")
+        with patch("src.pipeline.managers.item_manager.log_system") as mock_log:
+            self.manager.update_item_location_text("nonexistent", "手里")
+            mock_log.assert_not_called()
 
     def test_create_emergent_item_with_dict_tags(self):
         from src.context import AgentContext

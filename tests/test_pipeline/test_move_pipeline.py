@@ -821,8 +821,10 @@ class TestMovePipelineMisc(unittest.TestCase):
         self.pipeline.story_tag_manager.remove_scene_tag.assert_called_with("冰冻")
 
     def test_process_auto_mitigation_empty(self):
-        self.pipeline._process_auto_mitigation(None, self.ctx)
-        self.pipeline._process_auto_mitigation(make_agent_note(structured={}), self.ctx)
+        with patch("src.pipeline.move_pipeline.roll_dice") as mock_roll:
+            self.pipeline._process_auto_mitigation(None, self.ctx)
+            self.pipeline._process_auto_mitigation(make_agent_note(structured={}), self.ctx)
+            mock_roll.assert_not_called()
 
     def test_process_split_actions_invalid_sub(self):
         import src.models
