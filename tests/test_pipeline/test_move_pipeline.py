@@ -564,6 +564,19 @@ class TestMovePipelineApplyEffects(unittest.TestCase):
         self.pipeline.character_manager.apply_status.assert_called_with("擦伤", 1)
         self.pipeline.character_manager.reduce_status.assert_called_with("擦伤", 1)
 
+    def test_apply_results_with_errors(self):
+        outcome_note = make_agent_note(
+            structured={
+                "effects": [
+                    {"operation": "inflict_status", "target": "自身", "label": "受伤", "tier": 2}
+                ]
+            }
+        )
+        self.pipeline._apply_effects = MagicMock(return_value=["Error 1"])
+        errors = self.pipeline.apply_results(outcome_note, self.ctx)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("Error 1", errors[0])
+
     def test_process_auto_mitigation(self):
         import src.engine
 

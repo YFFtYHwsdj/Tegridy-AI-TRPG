@@ -107,6 +107,35 @@ class TestGameLoopCoverage(unittest.TestCase):
         self.loop._apply_crisis({"name": "new", "power_tags": [], "weakness_tags": []})
         self.loop.state.character.replace_theme.assert_called_once()
 
+    @patch("builtins.input", side_effect=["/quit"])
+    def test_run_interactive_loop(self, mock_input):
+        self.loop.setup = MagicMock()
+        from src.state.character_state import CharacterState
+
+        char = CharacterState(name="Test")
+        self.loop.run(char, self.state.scene)
+        self.loop.setup.assert_called_once()
+
+    def test_apply_evolution_no_character(self):
+        self.loop.state.character = None
+        # Shouldn't raise error
+        self.loop._apply_evolution({"add_power_tag": {"name": "test"}})
+
+    def test_apply_evolution_theme_not_found(self):
+        self.loop.state.character.get_theme = MagicMock(return_value=None)
+        # Shouldn't raise error
+        self.loop._apply_evolution({"add_power_tag": {"name": "test"}})
+
+    def test_apply_crisis_no_character(self):
+        self.loop.state.character = None
+        # Shouldn't raise error
+        self.loop._apply_crisis({"name": "new", "power_tags": [], "weakness_tags": []})
+
+    def test_run_special_mode_step_invalid_mode(self):
+        self.loop.game_mode = "invalid"
+        res = self.loop._run_special_mode_step("test")
+        self.assertEqual(res, "")
+
 
 if __name__ == "__main__":
     unittest.main()

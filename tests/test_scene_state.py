@@ -72,6 +72,43 @@ class TestSceneState(unittest.TestCase):
         self.assertEqual(ctx.player_input, "我要点酒")
         self.assertIs(ctx.character, character)
 
+    def test_make_context_no_character(self):
+        scene = SceneState(situation="仅有场景")
+        global_state = GlobalState()
+
+        ctx = scene.make_context(None, global_state, "无角色输入")
+        self.assertIn("当前状况: 仅有场景", ctx.context_block)
+        # Kael 这种名字不应该出现
+        self.assertNotIn("Kael", ctx.context_block)
+        self.assertIsNone(ctx.character)
+
+    def test_make_context_with_challenges(self):
+        from src.models import Challenge
+
+        global_state = GlobalState()
+        chal = Challenge(
+            name="安保系统",
+            description="严格的生物识别验证",
+            limits={"计算力": 3},
+            threats=["触发警报"],
+            consequences=["发现身份"],
+        )
+        global_state.challenges["c1"] = chal
+
+        scene = SceneState(situation="正在入侵", active_challenge_ids=["c1"])
+
+        # Test _build_context_block output
+        ctx_block = scene._build_context_block(global_state, CharacterState(name="Test"))
+        self.assertIn("当前面临的挑战:", ctx_block)
+        self.assertIn("安保系统 (极限: 计算力:3)", ctx_block)
+
+        # Test _build_assets_block output
+        asset_block = scene._build_assets_block(global_state, None)
+        self.assertIn("场景挑战:", asset_block)
+        self.assertIn("安保系统: 严格的生物识别验证", asset_block)
+        self.assertIn("威胁参考: 触发警报", asset_block)
+        self.assertIn("后果参考: 发现身份", asset_block)
+
 
 if __name__ == "__main__":
     unittest.main()

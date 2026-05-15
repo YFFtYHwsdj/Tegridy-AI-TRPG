@@ -145,6 +145,47 @@ class TestNarratorAgentExecute(unittest.TestCase):
 
         self.assertEqual(result.structured["narrative"], "你迅速拔枪...")
 
+    def test_execute_split_includes_all_sub_results(self):
+        """验证 execute_split 能正确合并所有子行动的解算结果。"""
+        mock_llm = MockLLMClient(
+            responses=[
+                (
+                    '{"reasoning": "合并叙事", "narrative": "你踢开门，然后开枪了..."}',
+                    {},
+                )
+            ]
+        )
+        agent = NarratorAgent(mock_llm)
+        ctx = make_test_context()
+        ctx.player_input = "踢门并开枪"
+
+        sub_results = [
+            {
+                "summary": "踢门",
+                "roll_summary": "4+2+1=7 (partial_success)",
+                "effects_json": '["门破损"]',
+                "narrative_hints": "发出巨响",
+                "consequences_json": "[]",
+            },
+            {
+                "summary": "开枪",
+                "roll_summary": "6+4+1=11 (full_success)",
+                "effects_json": '["击中目标"]',
+                "narrative_hints": "精准",
+                "consequences_json": "[]",
+            },
+        ]
+
+        result = agent.execute_split(sub_results, ctx)
+
+        user_msg = mock_llm.call_history[0]["user_message"]
+        self.assertIn("踢门并开枪", user_msg)
+        self.assertIn("踢门", user_msg)
+        self.assertIn("开枪", user_msg)
+        self.assertIn("门破损", user_msg)
+        self.assertIn("击中目标", user_msg)
+        self.assertEqual(result.structured["narrative"], "你踢开门，然后开枪了...")
+
 
 class TestLiteNarratorAgentExecute(unittest.TestCase):
     """测试 LiteNarratorAgent.execute 的 prompt 组装。"""
