@@ -79,6 +79,11 @@ def clean_markdown_nodes(raw_nodes: List[RawNode], llm: LLMClient, limit: int = 
     
     for i in range(total):
         node = raw_nodes[i]
+        
+        # 跳过完全为空的节点
+        if not node.title.strip() and not node.raw_content.strip():
+            continue
+            
         log.info("[%d/%d] 正在清洗并重组节点: %s %s", i + 1, total, '#' * node.level, node.title)
         
         # 1. 动态构建全局大纲
