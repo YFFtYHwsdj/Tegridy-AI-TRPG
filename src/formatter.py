@@ -68,7 +68,7 @@ def format_story_tags(story_tags: dict) -> str:
     if not story_tags:
         return "  (无故事标签)"
     lines = []
-    for name, tag in story_tags.items():
+    for tag in story_tags.values():
         qualifiers = []
         if tag.is_single_use:
             qualifiers.append("单次使用")
@@ -76,5 +76,5 @@ def format_story_tags(story_tags: dict) -> str:
             qualifiers.append("消耗品")
         qual_str = f" ({', '.join(qualifiers)})" if qualifiers else ""
         desc_str = f" — {tag.description}" if tag.description else ""
-        lines.append(f"  - {name}{qual_str}{desc_str}")
+        lines.append(f"  - {tag.name}{qual_str}{desc_str}")
     return "\n".join(lines)

@@ -152,9 +152,7 @@ def build_demo_scene(global_state: GlobalState) -> SceneState:
         active_npc_ids=["thug_leader", "thug_shooter", "thug_brute"],
         active_item_ids=["briefcase", "noodle_pot", "sewer_grate"],
     )
-    scene.story_tags["acid_rain"] = StoryTag(name="酸雨", description="持续伤害，降低能见度")
-    scene.story_tags["narrow_alley"] = StoryTag(
-        name="狭窄地形", description="限制了大型武器和闪避空间"
-    )
+    scene.story_tags["酸雨"] = StoryTag(name="酸雨", description="持续伤害，降低能见度")
+    scene.story_tags["狭窄地形"] = StoryTag(name="狭窄地形", description="限制了大型武器和闪避空间")
 
     return scene

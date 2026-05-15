@@ -42,7 +42,7 @@ _STRUCTURED_FORMAT = """\
   "story_tag_updates": {
     "add": [
       {
-        "name": "标签名(如 'acid_rain')",
+        "name": "标签名(如 '酸雨淋漓' 或 '被通缉')",
         "description": "标签效果的简短描述"
       }
     ],
