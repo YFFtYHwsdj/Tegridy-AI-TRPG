@@ -151,7 +151,7 @@ class ItemManager:
         item_id = item_data.get("item_id") or item_name
         return GameItem(
             item_id=item_id,
-            name=item_name,
+            name=item_data.get("name", item_name),
             description=item_data.get("description", ""),
             tags=tags,
             weakness_tags=weakness_tags,
